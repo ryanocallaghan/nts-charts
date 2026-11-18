@@ -36,6 +36,8 @@ const { id, tabs } = Astro.props;
         select(next.dataset.key!);
       });
     });
-    select(buttons[0].dataset.key!);
+    // A URL hash naming a tab (e.g. #artists) opens it.
+    const fromHash = buttons.find((b) => b.dataset.key === location.hash.slice(1));
+    select((fromHash ?? buttons[0]).dataset.key!);
   }
 </script>

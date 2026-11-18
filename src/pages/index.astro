@@ -1,13 +1,16 @@
 ---
 import Base from "../layouts/Base.astro";
+import ArtistLinks from "../components/ArtistLinks.astro";
 import ChartView from "../components/ChartView.astro";
 import { currentPeriodKey, formatDate, periodLabel } from "../lib/format.ts";
-import { periodKeys, siteStats } from "../lib/queries.ts";
+import { artistChart, periodKeys, siteStats, trackChart } from "../lib/queries.ts";
 
 const weeks = periodKeys("week");
 const latest = weeks.at(-1);
 const inProgress = latest === currentPeriodKey("week");
 const stats = siteStats();
+const topTracks = trackChart("all", "all", 10);
+const topArtists = artistChart("all", "all", 10);
 ---
 <Base title="NTS Charts" section="charts">
   <p class="eyebrow">Weekly chart</p>
@@ -22,6 +25,42 @@ const stats = siteStats();
       <ChartView type="week" periodKey={latest} />
       <p class="section"><a href={`/charts/week/${latest}/`}>Full week view</a> · <a href="/charts/">Browse every chart since {stats.first ? formatDate(stats.first).split(" ").at(-1) : "the start"}</a></p>
     </>
+  )}
+
+
+  {topTracks.length > 0 && (
+    <section class="section">
+      <h2>Most played of all time</h2>
+      <p class="muted">Counted by the number of episodes that played them, across the whole archive.</p>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Tracks</h3>
+          <ol class="ranked">
+            {topTracks.map((t) => (
+              <li>
+                <span class="pos">{t.rank}</span>
+                <span class="what"><span class="title">{t.title}</span><span class="sub"><ArtistLinks artists={t.artists} fallback={t.artistDisplay} /></span></span>
+                <span class="count">{t.score}</span>
+              </li>
+            ))}
+          </ol>
+          <p class="more"><a href="/charts/all/">Top 100 tracks →</a></p>
+        </div>
+        <div class="card">
+          <h3>Artists</h3>
+          <ol class="ranked">
+            {topArtists.map((a) => (
+              <li>
+                <span class="pos">{a.rank}</span>
+                <span class="what"><span class="title">{a.slug ? <a href={`/artists/${a.slug}/`}>{a.name}</a> : a.name}</span></span>
+                <span class="count">{a.score}</span>
+              </li>
+            ))}
+          </ol>
+          <p class="more"><a href="/charts/all/#artists">Top 100 artists →</a></p>
+        </div>
+      </div>
+    </section>
   )}
 
   <div class="stats section" aria-label="Archive size">

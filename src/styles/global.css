@@ -133,6 +133,17 @@ ul.plain { list-style: none; margin: 0; padding: 0; }
 ul.plain li { padding: 0.45rem 0; border-bottom: 1px solid var(--grid); display: flex; justify-content: space-between; gap: 1rem; }
 ul.plain li .count { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+/* Compact ranked lists (home page all-time top 10) */
+ol.ranked { list-style: none; margin: 0.5rem 0 0; padding: 0; font-variant-numeric: tabular-nums; }
+ol.ranked li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.45rem 0; border-bottom: 1px solid var(--grid); }
+ol.ranked .pos { width: 1.5rem; font-weight: 600; color: var(--ink-2); flex: none; }
+ol.ranked .what { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+ol.ranked .title { font-weight: 500; }
+ol.ranked .sub { color: var(--ink-2); font-size: 0.9rem; }
+ol.ranked .count { color: var(--muted); white-space: nowrap; }
+.card h3 { font-size: 1rem; margin: 0; }
+.card .more { margin: 0.75rem 0 0; font-size: 0.9rem; }
+
 details.episode { border-bottom: 1px solid var(--grid); padding: 0.5rem 0; }
 details.episode summary { cursor: pointer; display: flex; justify-content: space-between; gap: 1rem; }
 details.episode ol { margin: 0.5rem 0 0.5rem 1.25rem; padding: 0; color: var(--ink-2); }
