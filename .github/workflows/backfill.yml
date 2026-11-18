@@ -9,7 +9,7 @@ on:
     inputs:
       max_minutes:
         description: "Crawl time budget for this chunk"
-        default: "60"
+        default: "30"
 
 permissions:
   contents: write # upload the database release asset
@@ -35,19 +35,13 @@ jobs:
           node-version: 24
 
       - name: Download database
-        run: |
-          if gh release view "$DB_RELEASE" >/dev/null 2>&1; then
-            gh release download "$DB_RELEASE" --pattern nts.sqlite.gz --dir data || true
-          else
-            gh release create "$DB_RELEASE" --title "Database" --latest=false \
-              --notes "SQLite database of NTS tracklists, updated automatically."
-          fi
-          if [ -f data/nts.sqlite.gz ]; then gunzip data/nts.sqlite.gz; fi
-          ls -lh data || true
+        run: bash scripts/download-db.sh --init
 
       - name: Crawl
         id: crawl
-        run: node ingest/backfill.ts --max-minutes "${{ inputs.max_minutes }}"
+        # The BACKFILL_MINUTES repo variable, if set, overrides the chunk length (and the
+        # value chained from the previous chunk), so it can be changed mid-backfill.
+        run: node ingest/backfill.ts --max-minutes "${{ vars.BACKFILL_MINUTES || inputs.max_minutes }}"
 
       - name: Upload database
         if: ${{ !cancelled() && hashFiles('data/nts.sqlite') != '' }}
@@ -58,7 +52,7 @@ jobs:
 
       - name: Queue next chunk
         if: ${{ success() && steps.crawl.outputs.remaining != '0' }}
-        run: gh workflow run backfill.yml --ref "${{ github.ref_name }}" -f max_minutes="${{ inputs.max_minutes }}"
+        run: gh workflow run backfill.yml --ref "${{ github.ref_name }}"
 
       - name: Redeploy site with this snapshot
         if: ${{ success() }}

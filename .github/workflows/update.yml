@@ -36,10 +36,7 @@ jobs:
       - run: npm ci
 
       - name: Download database
-        run: |
-          gh release download "$DB_RELEASE" --pattern nts.sqlite.gz --dir data
-          gunzip data/nts.sqlite.gz
-          ls -lh data/nts.sqlite
+        run: bash scripts/download-db.sh
 
       - name: Is the backfill running?
         id: backfill
