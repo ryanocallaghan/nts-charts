@@ -1,5 +1,6 @@
 ---
 import Base from "../../layouts/Base.astro";
+import SearchField from "../../components/SearchField.astro";
 import { formatDate, plural } from "../../lib/format.ts";
 import { allShows } from "../../lib/queries.ts";
 const shows = allShows();
@@ -7,7 +8,7 @@ const shows = allShows();
 <Base title="Shows" section="shows">
   <h1>Shows</h1>
   <p class="lede">{plural(shows.length, "show")} with tracklists. Filter by name, location or genre.</p>
-  <input class="filter" type="search" placeholder="Filter shows…" aria-label="Filter shows" data-filter />
+  <SearchField label="Filter shows" placeholder="Filter shows…" data-filter />
   <p class="muted" style="margin-top:0.5rem" data-filter-count aria-live="polite"></p>
   <ul class="plain section" style="margin-top:0.5rem" data-filter-list>
     {shows.map((s) => (

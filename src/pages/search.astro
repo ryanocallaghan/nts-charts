@@ -1,11 +1,11 @@
 ---
 import Base from "../layouts/Base.astro";
+import SearchField from "../components/SearchField.astro";
 ---
 <Base title="Search" section="search">
   <h1>Search</h1>
   <p class="lede">Find any artist or show played on NTS.</p>
-  <label class="visually-hidden" for="q">Artist or show name</label>
-  <input id="q" class="filter" type="search" placeholder="Artist or show name" autocomplete="off" autofocus />
+  <SearchField id="q" label="Artist or show name" autofocus />
   <p class="muted" id="status" aria-live="polite"></p>
   <ul class="plain" id="results"></ul>
   <noscript><p class="muted">Search needs JavaScript. You can also browse <a href="/shows/">all shows</a>.</p></noscript>

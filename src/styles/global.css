@@ -17,7 +17,6 @@
   --series-1: #0f62fe;
   --series-1-wash: rgba(15, 98, 254, 0.1);
   --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --radius: 0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -62,10 +61,6 @@ main.wrap { padding-top: 1.75rem; padding-bottom: 3rem; }
 .eyebrow { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.25rem; }
 .lede { color: var(--ink-2); max-width: 60ch; }
 .muted { color: var(--muted); }
-.badge {
-  display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.1rem 0.5rem;
-  border: 1px solid var(--border); border-radius: 999px; color: var(--ink-2); vertical-align: middle;
-}
 
 /* Cards and stats are Carbon tiles: flat layer, no border or radius. */
 .card { background: var(--cds-layer-01); padding: 1rem; }
@@ -80,15 +75,7 @@ main.wrap { padding-top: 1.75rem; padding-bottom: 3rem; }
 
 /* Period navigation */
 .period-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; background: var(--surface); }
-.seg a, .seg button {
-  font: inherit; font-size: 0.9rem; padding: 0.35rem 0.9rem; color: var(--ink-2); background: none; border: 0; cursor: pointer;
-}
-.seg a[aria-current="page"], .seg button[aria-selected="true"] { background: var(--ink); color: var(--page); }
-.seg a:hover { text-decoration: none; background: var(--hover); }
-.seg a[aria-current="page"]:hover { background: var(--ink); }
 .stepper { display: flex; gap: 0.5rem; font-size: 0.9rem; }
-.stepper .disabled { color: var(--muted); opacity: 0.5; }
 
 /* Chart tables (Carbon data table) */
 .chart-table { background: var(--cds-layer-01); }
@@ -163,10 +150,7 @@ details.episode summary { cursor: pointer; display: flex; justify-content: space
 details.episode ol { margin: 0.5rem 0 0.5rem 1.25rem; padding: 0; color: var(--ink-2); }
 details.episode ol li { padding: 0.1rem 0; }
 
-input.filter {
-  width: 100%; max-width: 420px; font: inherit; padding: 0.5rem 0.75rem; border-radius: 8px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
-}
+.search-field { max-width: 28rem; margin: 0.75rem 0; }
 
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0;
