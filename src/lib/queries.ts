@@ -1,5 +1,5 @@
 import { all, get } from "./db.ts";
-import { rollingStartKey, type PeriodType } from "./format.ts";
+import { ntsEpisodeUrl, rollingStartKey, type PeriodType } from "./format.ts";
 
 // Artists get their own page only above this activity (keeps the site under hosting file limits).
 const ARTIST_MIN_EPISODES = Number(process.env.ARTIST_MIN_EPISODES ?? 3);
@@ -8,6 +8,37 @@ const ARTIST_MIN_SHOWS = Number(process.env.ARTIST_MIN_SHOWS ?? 2);
 // shows, charts and the data/search shards take roughly another 5,500. Every other artist gets a
 // page rendered in the browser from a data shard (see artists/404.astro).
 const ARTIST_PAGE_LIMIT = Number(process.env.ARTIST_PAGE_LIMIT ?? 12000);
+
+// NTS files one-off guest mixes under one catch-all show. Each guest counts as its own "show"
+// (keyed 'guests/<slug>'); guests with this many mixes get a page at /shows/guests/<slug>/.
+export const GUESTS_SHOW = "guests";
+const GUEST_PAGE_MIN_MIXES = 2;
+const SHOW_KEY = "coalesce('guests/' || e.guest_slug, e.show_alias)";
+
+export interface GuestRow { slug: string; name: string; mixes: number; last: string }
+let guests: Map<string, GuestRow> | undefined;
+/** Repeat guests (with pages), by slug. Name is taken from their latest mix. */
+export function guestPages(): Map<string, GuestRow> {
+  guests ??= new Map(
+    all<GuestRow>(
+      `SELECT guest_slug slug, count(*) mixes, max(broadcast_at) last,
+              (SELECT trim(name) FROM episodes x WHERE x.guest_slug = e.guest_slug ORDER BY broadcast_at DESC LIMIT 1) name
+       FROM episodes e WHERE guest_slug IS NOT NULL AND broadcast_at IS NOT NULL
+       GROUP BY guest_slug HAVING mixes >= ? AND sum(track_count > 0) > 0 ORDER BY name COLLATE NOCASE`,
+      GUEST_PAGE_MIN_MIXES,
+    ).map((g) => [g.slug, g]),
+  );
+  return guests;
+}
+
+/** Where a show-or-guest key links: a show page, a repeat guest's page, or a one-off guest's mix on nts.live. */
+export function showLink(r: { show: string; guest: string | null; showName: string; guestName: string | null; anyEpisode: string }) {
+  if (!r.guest) return { name: r.showName, href: `/shows/${r.show}/`, guest: false };
+  const page = guestPages().get(r.guest);
+  return page
+    ? { name: page.name, href: `/shows/guests/${r.guest}/`, guest: true }
+    : { name: (r.guestName ?? r.guest).trim(), href: ntsEpisodeUrl(r.show, r.anyEpisode), guest: true };
+}
 
 // Shared FROM clause: an artist's plays.
 const ARTIST_PLAYS = `track_artists ta
@@ -133,12 +164,13 @@ export function artistDetail(id: number) {
      WHERE ta.artist_id = ? GROUP BY t.id ORDER BY episodes DESC, last DESC LIMIT 25`,
     id,
   );
-  const shows = all<{ alias: string; name: string; episodes: number }>(
-    `SELECT s.alias, coalesce(s.name, s.alias) name, count(DISTINCT p.episode_alias) episodes
-     FROM ${ARTIST_PLAYS} JOIN shows s ON s.alias = e.show_alias
-     WHERE ta.artist_id = ? GROUP BY s.alias ORDER BY episodes DESC, name LIMIT 25`,
+  const shows = all<{ show: string; guest: string | null; showName: string; guestName: string | null; anyEpisode: string; episodes: number }>(
+    `SELECT e.show_alias show, e.guest_slug guest, coalesce(s.name, e.show_alias) showName, max(e.name) guestName,
+            max(e.alias) anyEpisode, count(DISTINCT p.episode_alias) episodes
+     FROM ${ARTIST_PLAYS} LEFT JOIN shows s ON s.alias = e.show_alias
+     WHERE ta.artist_id = ? GROUP BY ${SHOW_KEY} ORDER BY episodes DESC, showName LIMIT 25`,
     id,
-  );
+  ).map((r) => ({ ...showLink(r), episodes: r.episodes }));
   const monthly = all<{ month: string; episodes: number }>(
     `SELECT strftime('%Y-%m', e.broadcast_at) month, count(DISTINCT p.episode_alias) episodes
      FROM ${ARTIST_PLAYS} WHERE ta.artist_id = ? GROUP BY month ORDER BY month`,
@@ -188,29 +220,33 @@ export function allShows(): ShowRow[] {
   ).map(({ genres_json, ...r }) => ({ ...r, genres: genres_json ? JSON.parse(genres_json) : [] }));
 }
 
-export function showDetail(alias: string) {
+/** A show's page data, or a repeat guest's (their mixes on the catch-all guests show). */
+export function showDetail(alias: string, guest?: string) {
+  const [col, key] = guest ? ["guest_slug", guest] : ["show_alias", alias];
   const stats = get<{ episodes: number; plays: number; tracks: number; first: string; last: string }>(
     `SELECT count(DISTINCT e.alias) episodes, count(p.track_id) plays, count(DISTINCT p.track_id) tracks,
             min(e.broadcast_at) first, max(e.broadcast_at) last
-     FROM episodes e JOIN plays p ON p.episode_alias = e.alias WHERE e.show_alias = ?`,
-    alias,
+     FROM episodes e JOIN plays p ON p.episode_alias = e.alias WHERE e.${col} = ?`,
+    key,
   )!;
   const topArtists = all<{ id: number; name: string; slug: string; episodes: number }>(
     `SELECT a.id, a.name, a.slug, count(DISTINCT p.episode_alias) episodes
      FROM ${ARTIST_PLAYS} JOIN artists a ON a.id = ta.artist_id
-     WHERE e.show_alias = ? GROUP BY a.id ORDER BY episodes DESC, a.name LIMIT 20`,
-    alias,
+     WHERE e.${col} = ? GROUP BY a.id ORDER BY episodes DESC, a.name LIMIT 20`,
+    key,
   );
   const topTracks = all<{ id: number; title: string; artistDisplay: string; episodes: number }>(
     `SELECT t.id, t.title_display title, t.artist_display artistDisplay, count(DISTINCT p.episode_alias) episodes
      FROM plays p JOIN episodes e ON e.alias = p.episode_alias JOIN tracks t ON t.id = p.track_id
-     WHERE e.show_alias = ? GROUP BY t.id HAVING episodes > 1 ORDER BY episodes DESC, t.title_display LIMIT 20`,
-    alias,
+     WHERE e.${col} = ? GROUP BY t.id HAVING episodes > 1 ORDER BY episodes DESC, t.title_display LIMIT 20`,
+    key,
   );
-  const episodes = all<{ alias: string; name: string; broadcast: string; trackCount: number }>(
-    `SELECT alias, name, broadcast_at broadcast, track_count trackCount FROM episodes
-     WHERE show_alias = ? AND track_count > 0 ORDER BY broadcast_at DESC LIMIT 30`,
-    alias,
+  // A guest's page lists every mix (there are only a few), even ones without a tracklist.
+  const episodes = all<{ alias: string; name: string; broadcast: string; trackCount: number; guest: string | null }>(
+    `SELECT alias, trim(coalesce(name, alias)) name, broadcast_at broadcast, coalesce(track_count, 0) trackCount, guest_slug guest
+     FROM episodes WHERE ${col} = ? AND broadcast_at IS NOT NULL ${guest ? "" : "AND track_count > 0"}
+     ORDER BY broadcast_at DESC LIMIT 30`,
+    key,
   );
   const tracklists = new Map<string, { title: string; artists: ArtistRef[]; artistDisplay: string }[]>();
   if (episodes.length) {

@@ -47,9 +47,9 @@ import Base from "../../layouts/Base.astro";
     document.title = `${a.n} · NTS Charts`;
     const ep = (i: number) => {
       const [show, date, name, alias] = shard.ep[i];
-      const showName = shard.sh[show] ?? show;
+      const [showName, showHref] = shard.sh[show] ?? [show, `/shows/${show}/`];
       const showLink = name.toLowerCase().includes(showName.toLowerCase())
-        ? "" : `<span class="muted"> · <a class="quiet" href="/shows/${esc(show)}/">${esc(showName)}</a></span>`;
+        ? "" : `<span class="muted"> · <a class="quiet" href="${esc(showHref)}">${esc(showName)}</a></span>`;
       return { html: `<time datetime="${date}">${formatDate(date)}</time><span><a href="${esc(ntsEpisodeUrl(show, alias))}">${esc(name)}</a>${showLink}</span>` };
     };
     const tracks = a.t.map(([title, credit, total, eps]) => {
@@ -59,7 +59,11 @@ import Base from "../../layouts/Base.astro";
         <details class="plays"><summary>Episodes</summary><ul>${list}</ul>${more}</details></span>
         <span class="count">${plural(total, "episode")}</span></li>`;
     }).join("");
-    const shows = a.h.map(([s, c]) => `<li><a href="/shows/${esc(s)}/">${esc(shard.sh[s] ?? s)}</a><span class="count">${plural(c, "episode")}</span></li>`).join("");
+    const shows = a.h.map(([s, c]) => {
+      const [name, href] = shard.sh[s] ?? [s, `/shows/${s}/`];
+      const guest = s.startsWith("guests/") ? `<span class="muted"> · guest</span>` : "";
+      return `<li><span><a href="${esc(href)}">${esc(name)}</a>${guest}</span><span class="count">${plural(c, "episode")}</span></li>`;
+    }).join("");
     const recent = [...new Set(a.t.flatMap(([title, , , eps]) => eps.map((i) => [i, title] as const)))]
       .sort((x, y) => shard.ep[y[0]][1].localeCompare(shard.ep[x[0]][1]))
       .slice(0, 20)

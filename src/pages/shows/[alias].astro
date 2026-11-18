@@ -1,8 +1,8 @@
 ---
 import Base from "../../layouts/Base.astro";
-import ArtistLinks from "../../components/ArtistLinks.astro";
-import { formatDate, ntsEpisodeUrl, ntsShowUrl, plural } from "../../lib/format.ts";
-import { allShows, showDetail, type ShowRow } from "../../lib/queries.ts";
+import ShowBody from "../../components/ShowBody.astro";
+import { ntsShowUrl, plural } from "../../lib/format.ts";
+import { allShows, GUESTS_SHOW, guestPages, showDetail, type ShowRow } from "../../lib/queries.ts";
 
 export function getStaticPaths() {
   return allShows().map((s) => ({ params: { alias: s.alias }, props: { show: s } }));
@@ -10,56 +10,38 @@ export function getStaticPaths() {
 
 const { show } = Astro.props as { show: ShowRow };
 const d = showDetail(show.alias);
+const isGuests = show.alias === GUESTS_SHOW;
+const repeatGuests = isGuests ? [...guestPages().values()] : [];
 ---
-<Base title={show.name} description={`What ${show.name} plays on NTS Radio: most-played artists and tracks, and recent tracklists.`} section="shows">
+<Base title={show.name} description={isGuests ? "Guest mixes on NTS Radio: every repeat guest, and the latest guest mixes with their tracklists." : `What ${show.name} plays on NTS Radio: most-played artists and tracks, and recent tracklists.`} section="shows">
   <article>
     <p class="eyebrow">Show{show.location && ` · ${show.location}`}</p>
     <h1>{show.name}</h1>
+    {isGuests && <p class="lede">NTS files one-off guest mixes under this show. Each guest counts as their own show in charts and on artist pages.</p>}
     {show.genres.length > 0 && <p class="muted">{show.genres.join(" · ")}</p>}
     <p><a href={ntsShowUrl(show.alias)}>Listen on nts.live →</a></p>
 
-    <div class="stats">
-      <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{d.stats.episodes.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">Plays</div><div class="value">{d.stats.plays.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">Different tracks</div><div class="value">{d.stats.tracks.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">On air</div><div class="value" style="font-size:1rem;padding-top:0.4rem">{formatDate(d.stats.first)} – {formatDate(d.stats.last)}</div></div>
-    </div>
-
-    <div class="grid-2 section">
-      <section class="card">
-        <h2>Most-played artists</h2>
-        <ul class="plain">
-          {d.topArtists.map((a) => (
-            <li>{a.slug ? <a href={`/artists/${a.slug}/`}>{a.name}</a> : <span>{a.name}</span>}<span class="count">{plural(a.episodes, "episode")}</span></li>
-          ))}
+    {isGuests && repeatGuests.length > 0 && (
+      <section class="card section">
+        <h2>Repeat guests</h2>
+        <p class="caption muted">{plural(repeatGuests.length, "guest")} with more than one mix.</p>
+        <input class="filter" type="search" placeholder="Filter guests" aria-label="Filter guests" data-filter="#guest-list" />
+        <ul class="plain columns" id="guest-list">
+          {repeatGuests.map((g) => <li data-name={g.name.toLowerCase()}><a href={`/shows/guests/${g.slug}/`}>{g.name}</a><span class="count">{plural(g.mixes, "mix", "mixes")}</span></li>)}
         </ul>
       </section>
-      <section class="card">
-        <h2>Most-played tracks</h2>
-        {d.topTracks.length === 0
-          ? <p class="muted">No track has been played in more than one episode yet.</p>
-          : <ul class="plain">
-              {d.topTracks.map((t) => (
-                <li><span>{t.title} <span class="muted">— {t.artistDisplay}</span></span><span class="count">{plural(t.episodes, "episode")}</span></li>
-              ))}
-            </ul>}
-      </section>
-    </div>
+    )}
 
-    <section class="card section">
-      <h2>Recent episodes</h2>
-      {d.episodes.map((e) => (
-        <details class="episode">
-          <summary><span>{e.name}</span><span class="muted">{formatDate(e.broadcast)} · {plural(e.trackCount, "track")}</span></summary>
-          <ol>
-            {(d.tracklists.get(e.alias) ?? []).map((t) => (
-              <li><strong>{t.title}</strong> — <ArtistLinks artists={t.artists} fallback={t.artistDisplay} /></li>
-            ))}
-          </ol>
-          <a href={ntsEpisodeUrl(show.alias, e.alias)}>Listen to this episode →</a>
-        </details>
-      ))}
-      {d.stats.episodes > d.episodes.length && <p class="muted" style="margin-top:0.75rem">Showing the latest {d.episodes.length} of {d.stats.episodes} episodes. <a href={ntsShowUrl(show.alias)}>All episodes on nts.live</a></p>}
-    </section>
+    <ShowBody show={show.alias} detail={d} moreHref={ntsShowUrl(show.alias)} episodesLabel={isGuests ? "Latest guest mixes" : "Recent episodes"} />
   </article>
 </Base>
+
+<script>
+  for (const input of document.querySelectorAll<HTMLInputElement>("input[data-filter]")) {
+    const list = document.querySelector(input.dataset.filter!);
+    input.addEventListener("input", () => {
+      const q = input.value.trim().toLowerCase();
+      for (const li of list?.querySelectorAll<HTMLElement>("li") ?? []) li.hidden = !!q && !li.dataset.name!.includes(q);
+    });
+  }
+</script>

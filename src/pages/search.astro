@@ -57,11 +57,13 @@ import Base from "../layouts/Base.astro";
         const li = document.createElement("li");
         const a = document.createElement("a");
         const [kind, slug] = [path.slice(0, 1), path.slice(2)];
-        a.href = `/${kind === "a" ? "artists" : "shows"}/${slug}/`;
+        a.href = kind === "a" ? `/artists/${slug}/` : kind === "g" ? `/shows/guests/${slug}/` : `/shows/${slug}/`;
         a.textContent = name;
         const meta = document.createElement("span");
         meta.className = "count";
-        meta.textContent = `${kind === "a" ? "Artist" : "Show"} · ${eps.toLocaleString("en-GB")} episode${eps === 1 ? "" : "s"}`;
+        meta.textContent = kind === "g"
+          ? `Guest · ${eps.toLocaleString("en-GB")} mixes`
+          : `${kind === "a" ? "Artist" : "Show"} · ${eps.toLocaleString("en-GB")} episode${eps === 1 ? "" : "s"}`;
         li.append(a, meta);
         return li;
       }),

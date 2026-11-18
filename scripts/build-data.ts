@@ -5,7 +5,8 @@
 // One streaming pass over all plays.
 import { mkdirSync, renameSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { all, get, iterate } from "../src/lib/db.ts";
-import { artistsWithPages } from "../src/lib/queries.ts";
+import { artistsWithPages, guestPages } from "../src/lib/queries.ts";
+import { ntsEpisodeUrl } from "../src/lib/format.ts";
 import { ARTIST_SHARDS, artistShard, searchFile, searchKey, searchWords } from "../src/lib/shard.ts";
 import type { ArtistShard, LongtailArtist, SearchEntry } from "../src/lib/longtail-types.ts";
 
@@ -18,10 +19,21 @@ const SPLIT_AT = 3000; // entries in a two-letter search file before it's split 
 const started = Date.now();
 const paged = artistsWithPages();
 
-const episodes = new Map<string, { show: string; date: string; name: string }>();
-for (const r of all<{ alias: string; show: string; date: string; name: string | null }>(
-  "SELECT alias, show_alias show, substr(broadcast_at, 1, 10) date, name FROM episodes WHERE broadcast_at IS NOT NULL",
-)) episodes.set(r.alias, { show: r.show, date: r.date, name: (r.name ?? r.alias).trim() });
+const episodes = new Map<string, { show: string; guest: string | null; date: string; name: string }>();
+for (const r of all<{ alias: string; show: string; guest: string | null; date: string; name: string | null }>(
+  "SELECT alias, show_alias show, guest_slug guest, substr(broadcast_at, 1, 10) date, name FROM episodes WHERE broadcast_at IS NOT NULL",
+)) episodes.set(r.alias, { show: r.show, guest: r.guest, date: r.date, name: (r.name ?? r.alias).trim() });
+const guests = guestPages();
+
+/** Show key (a show alias, or 'guests/<slug>' for a guest mix) and where it links. */
+function showOf(alias: string): { key: string; name: string; href: string } {
+  const ep = episodes.get(alias)!;
+  if (!ep.guest) return { key: ep.show, name: showNames.get(ep.show) ?? ep.show, href: `/shows/${ep.show}/` };
+  const page = guests.get(ep.guest);
+  return page
+    ? { key: `guests/${ep.guest}`, name: page.name, href: `/shows/guests/${ep.guest}/` }
+    : { key: `guests/${ep.guest}`, name: ep.name, href: ntsEpisodeUrl(ep.show, alias) };
+}
 
 const showNames = new Map(all<{ alias: string; name: string }>("SELECT alias, coalesce(name, alias) name FROM shows").map((r) => [r.alias, r.name]));
 const peaks = new Map(all<{ id: number; peak: number }>(
@@ -61,7 +73,7 @@ function flush() {
       const ep = episodes.get(alias)!;
       i = shard.ep.push([ep.show, ep.date, ep.name, alias]) - 1;
       epIndex[n].set(alias, i);
-      shard.sh[ep.show] ??= showNames.get(ep.show) ?? ep.show;
+      shard.sh[ep.show] ??= [showNames.get(ep.show) ?? ep.show, `/shows/${ep.show}/`];
     }
     return i;
   };
@@ -69,8 +81,10 @@ function flush() {
   const months = new Map<string, number>();
   let first = "9999", last = "";
   for (const a of eps) {
-    const { show, date } = episodes.get(a)!;
-    shows.set(show, (shows.get(show) ?? 0) + 1);
+    const { date } = episodes.get(a)!;
+    const show = showOf(a);
+    shows.set(show.key, (shows.get(show.key) ?? 0) + 1);
+    shard.sh[show.key] ??= [show.name, show.href];
     months.set(date.slice(0, 7), (months.get(date.slice(0, 7)) ?? 0) + 1);
     if (date < first) first = date;
     if (date > last) last = date;
@@ -115,6 +129,7 @@ for (const r of iterate<{ id: number; name: string; slug: string; track: number;
 }
 flush();
 
+for (const g of guests.values()) addSearch(g.name, `g/${g.slug}`, g.mixes);
 for (const s of all<{ alias: string; name: string; episodes: number }>(
   `SELECT s.alias, coalesce(s.name, s.alias) name, count(e.alias) episodes
    FROM shows s JOIN episodes e ON e.show_alias = s.alias WHERE e.track_count > 0 GROUP BY s.alias`,

@@ -1,0 +1,56 @@
+---
+// Stats, most-played artists/tracks and recent episodes: shared by show pages and guest pages.
+import ArtistLinks from "./ArtistLinks.astro";
+import { formatDate, ntsEpisodeUrl, plural } from "../lib/format.ts";
+import { guestPages, type showDetail } from "../lib/queries.ts";
+
+interface Props { show: string; detail: ReturnType<typeof showDetail>; episodesLabel?: string; moreHref: string }
+const { show, detail: d, episodesLabel = "Recent episodes", moreHref } = Astro.props;
+const guests = guestPages();
+---
+<div class="stats">
+  <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{(d.stats.episodes ?? 0).toLocaleString("en-GB")}</div></div>
+  <div class="stat"><div class="label">Plays</div><div class="value">{(d.stats.plays ?? 0).toLocaleString("en-GB")}</div></div>
+  <div class="stat"><div class="label">Different tracks</div><div class="value">{(d.stats.tracks ?? 0).toLocaleString("en-GB")}</div></div>
+  <div class="stat"><div class="label">On air</div><div class="value" style="font-size:1rem;padding-top:0.4rem">{d.stats.first ? (d.stats.first.slice(0, 10) === d.stats.last.slice(0, 10) ? formatDate(d.stats.first) : `${formatDate(d.stats.first)} – ${formatDate(d.stats.last)}`) : "—"}</div></div>
+</div>
+
+<div class="grid-2 section">
+  <section class="card">
+    <h2>Most-played artists</h2>
+    <ul class="plain">
+      {d.topArtists.map((a) => (
+        <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{plural(a.episodes, "episode")}</span></li>
+      ))}
+    </ul>
+  </section>
+  <section class="card">
+    <h2>Most-played tracks</h2>
+    {d.topTracks.length === 0
+      ? <p class="muted">No track has been played in more than one episode yet.</p>
+      : <ul class="plain">
+          {d.topTracks.map((t) => (
+            <li><span>{t.title} <span class="muted">— {t.artistDisplay}</span></span><span class="count">{plural(t.episodes, "episode")}</span></li>
+          ))}
+        </ul>}
+  </section>
+</div>
+
+<section class="card section">
+  <h2>{episodesLabel}</h2>
+  {d.episodes.map((e) => (
+    <details class="episode">
+      <summary>
+        <span>{e.name}{e.guest && guests.has(e.guest) && show === "guests" && <> · <a href={`/shows/guests/${e.guest}/`}>{plural(guests.get(e.guest)!.mixes, "mix", "mixes")}</a></>}</span>
+        <span class="muted">{formatDate(e.broadcast)} · {e.trackCount ? plural(e.trackCount, "track") : "no tracklist"}</span>
+      </summary>
+      <ol>
+        {(d.tracklists.get(e.alias) ?? []).map((t) => (
+          <li><strong>{t.title}</strong> — <ArtistLinks artists={t.artists} fallback={t.artistDisplay} /></li>
+        ))}
+      </ol>
+      <a href={ntsEpisodeUrl(show, e.alias)}>Listen to this episode →</a>
+    </details>
+  ))}
+  {d.stats.episodes > d.episodes.length && <p class="muted" style="margin-top:0.75rem">Showing the latest {d.episodes.length} of {d.stats.episodes} episodes. <a href={moreHref}>All episodes on nts.live</a></p>}
+</section>

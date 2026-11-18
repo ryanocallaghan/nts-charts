@@ -11,7 +11,15 @@ export function openDb(path = DB_PATH): DatabaseSync {
   const db = new DatabaseSync(path);
   db.exec(readFileSync(resolve(root, "db/schema.sql"), "utf8"));
   db.exec("PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;");
+  migrate(db);
   return db;
+}
+
+/** Columns added after the first release, for databases created before them. */
+function migrate(db: DatabaseSync) {
+  const cols = new Set((db.prepare("PRAGMA table_info(episodes)").all() as { name: string }[]).map((c) => c.name));
+  if (!cols.has("guest_slug")) db.exec("ALTER TABLE episodes ADD COLUMN guest_slug TEXT");
+  db.exec("CREATE INDEX IF NOT EXISTS episodes_guest ON episodes(guest_slug) WHERE guest_slug IS NOT NULL");
 }
 
 /** Run fn inside a transaction, rolling back on error. */

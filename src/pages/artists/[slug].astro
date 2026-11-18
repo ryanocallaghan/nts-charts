@@ -56,7 +56,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
         <h2>Shows that play them</h2>
         <ul class="plain">
           {d.shows.map((s) => (
-            <li><a href={`/shows/${s.alias}/`}>{s.name}</a><span class="count">{plural(s.episodes, "episode")}</span></li>
+            <li><span><a href={s.href}>{s.name}</a>{s.guest && <span class="muted"> · guest</span>}</span><span class="count">{plural(s.episodes, "episode")}</span></li>
           ))}
         </ul>
       </section>

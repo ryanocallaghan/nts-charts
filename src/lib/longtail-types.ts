@@ -10,15 +10,15 @@ export interface LongtailArtist {
   l: string; // last play
   p: number | null; // peak weekly rank, if it ever charted
   t: [title: string, credit: string | null, episodes: number, eps: number[]][]; // most-played first, eps newest first
-  h: [show: string, episodes: number][];
+  h: [show: string, episodes: number][]; // show keys (see ArtistShard.sh); guests count individually
   m: [month: string, episodes: number][];
 }
 
 export interface ArtistShard {
   a: Record<string, LongtailArtist>; // by slug
   ep: [show: string, date: string, name: string, alias: string][];
-  sh: Record<string, string>; // show alias -> name
+  sh: Record<string, [name: string, href: string]>; // show key (alias, or 'guests/<slug>') -> name and link
 }
 
-/** [name, path ("a/slug" or "s/alias"), episodes] */
+/** [name, path ("a/slug", "s/alias" or "g/guest-slug"), episodes (mixes for guests)] */
 export type SearchEntry = [string, string, number];

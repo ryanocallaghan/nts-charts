@@ -2,7 +2,10 @@
 //   node ingest/aggregate.ts
 import { PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type PeriodType, type Ranked } from "./charts.ts";
 import { openDb, setMeta, tx } from "./db.ts";
-import { isPlaceholder } from "./normalize.ts";
+import { isPlaceholder, slugify } from "./normalize.ts";
+
+// NTS files one-off guest mixes under one catch-all show; each guest (from the episode name) counts as its own show.
+const GUESTS_SHOW = "guests";
 
 const TOP_N = Number(process.env.CHART_SIZE ?? 50);
 const TOP_N_ALL_TIME = Number(process.env.ALL_TIME_CHART_SIZE ?? 100);
@@ -26,13 +29,25 @@ tx(db, () => {
   if (junk.length || orphans) console.log(`  pruned ${junk.length} placeholder tracks, ${orphans} orphaned artists`);
 });
 
+// Name each guest mix's guest. Recomputed every run (a few thousand rows), so naming rules can change freely.
+tx(db, () => {
+  const set = db.prepare("UPDATE episodes SET guest_slug = ? WHERE alias = ?");
+  const rows = db.prepare("SELECT alias, name, guest_slug FROM episodes WHERE show_alias = ?").all(GUESTS_SHOW) as { alias: string; name: string | null; guest_slug: string | null }[];
+  let changed = 0;
+  for (const r of rows) {
+    const slug = (r.name && slugify(r.name.trim())) || null;
+    if (slug !== r.guest_slug) { set.run(slug, r.alias); changed++; }
+  }
+  if (changed) console.log(`  named ${changed} guest mixes`);
+});
+
 // Distinct episodes / shows per (period, entity). Ties: more shows, then most recent play.
 function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
   const join = entity === "track" ? "" : "JOIN track_artists ta ON ta.track_id = p.track_id";
   const id = entity === "track" ? "p.track_id" : "ta.artist_id";
   const sql = `
     WITH ep AS (
-      SELECT alias, show_alias, broadcast_at, ${PERIOD_KEY_SQL[periodType]} AS pk
+      SELECT alias, coalesce('guests/' || guest_slug, show_alias) AS show_key, broadcast_at, ${PERIOD_KEY_SQL[periodType]} AS pk
       FROM episodes ${periodType === "rolling" ? ", (SELECT 0 k UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3)" : ""}
       WHERE broadcast_at IS NOT NULL
         ${periodType === "rolling" ? `AND pk <= (SELECT max(strftime('%G-W%V', broadcast_at)) FROM episodes WHERE track_count > 0)` : ""}
@@ -40,7 +55,7 @@ function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
     agg AS (
       SELECT ep.pk, ${id} AS eid,
              count(DISTINCT p.episode_alias) AS score,
-             count(DISTINCT ep.show_alias) AS shows,
+             count(DISTINCT ep.show_key) AS shows,
              max(ep.broadcast_at) AS last_play
       FROM plays p JOIN ep ON ep.alias = p.episode_alias ${join}
       GROUP BY ep.pk, ${id}

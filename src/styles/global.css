@@ -176,3 +176,7 @@ input.filter {
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0;
 }
+
+ul.plain.columns { columns: 2 280px; column-gap: 2rem; margin-top: 0.75rem; }
+ul.plain.columns li { break-inside: avoid; }
+ul.plain li[hidden] { display: none; }

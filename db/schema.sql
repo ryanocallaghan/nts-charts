@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS episodes (
   image_url            TEXT,
   meta_fetched_at      TEXT,
   tracklist_fetched_at TEXT,
-  track_count          INTEGER
+  track_count          INTEGER,
+  guest_slug           TEXT        -- for the catch-all 'guests' show: the guest, from the episode name (set by aggregate.ts)
 );
 CREATE INDEX IF NOT EXISTS episodes_broadcast ON episodes(broadcast_at);
 CREATE INDEX IF NOT EXISTS episodes_show ON episodes(show_alias);
