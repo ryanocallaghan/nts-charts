@@ -1,14 +1,15 @@
 name: Backfill archive
 
-# Crawls the full NTS archive in ~5h chunks (GitHub jobs are capped at 6h).
+# Crawls the full NTS archive in hourly chunks (GitHub jobs are capped at 6h).
 # Each chunk resumes from the database stored on the "db-latest" release,
-# uploads its progress, and dispatches the next chunk until nothing remains.
+# uploads its progress, dispatches the next chunk until nothing remains, and
+# redeploys the site so it fills in as the archive arrives.
 on:
   workflow_dispatch:
     inputs:
       max_minutes:
         description: "Crawl time budget for this chunk"
-        default: "300"
+        default: "60"
 
 permissions:
   contents: write # upload the database release asset
@@ -58,3 +59,7 @@ jobs:
       - name: Queue next chunk
         if: ${{ success() && steps.crawl.outputs.remaining != '0' }}
         run: gh workflow run backfill.yml --ref "${{ github.ref_name }}" -f max_minutes="${{ inputs.max_minutes }}"
+
+      - name: Redeploy site with this snapshot
+        if: ${{ success() }}
+        run: gh workflow run update.yml --ref "${{ github.ref_name }}"
