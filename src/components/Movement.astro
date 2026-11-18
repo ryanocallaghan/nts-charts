@@ -1,0 +1,15 @@
+---
+// Chart movement: arrow + number (never colour alone), with a spoken label.
+interface Props { status: string; rank: number; prevRank: number | null }
+const { status, rank, prevRank } = Astro.props;
+const delta = prevRank != null ? Math.abs(prevRank - rank) : 0;
+const view: Record<string, { text: string; label: string }> = {
+  up: { text: `▲ ${delta}`, label: `Up ${delta} from ${prevRank}` },
+  down: { text: `▼ ${delta}`, label: `Down ${delta} from ${prevRank}` },
+  same: { text: "–", label: "No change" },
+  new: { text: "NEW", label: "New entry" },
+  reentry: { text: "RE", label: "Re-entry" },
+};
+const v = view[status] ?? view.same;
+---
+<span class={`move ${status}`} title={v.label}><span aria-hidden="true">{v.text}</span><span class="visually-hidden">{v.label}</span></span>

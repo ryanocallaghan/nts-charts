@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normText, slugify, splitArtists, splitTitle, trackKey } from "./normalize.ts";
+import { isPlaceholder, normText, slugify, splitArtists, splitTitle, trackKey } from "./normalize.ts";
 
 describe("normText", () => {
   it("lowercases, strips accents and punctuation", () => {
@@ -61,6 +61,19 @@ describe("trackKey", () => {
   });
   it("distinguishes remixes", () => {
     expect(trackKey("A", "Song")).not.toBe(trackKey("A", "Song (B Remix)"));
+  });
+});
+
+describe("isPlaceholder", () => {
+  it("flags unidentified rows", () => {
+    expect(isPlaceholder("Unknown Artist", "Unknown Track")).toBe(true);
+    expect(isPlaceholder("ID", "ID")).toBe(true);
+    expect(isPlaceholder("Various Artists", "Some Comp Track")).toBe(true);
+    expect(isPlaceholder("Burial", "?")).toBe(true);
+  });
+  it("keeps real records, including ones titled Untitled", () => {
+    expect(isPlaceholder("Coil", "Panic")).toBe(false);
+    expect(isPlaceholder("The Moon Lay Hidden Beneath A Cloud", "Untitled")).toBe(false);
   });
 });
 

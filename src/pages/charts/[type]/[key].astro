@@ -1,0 +1,51 @@
+---
+import Base from "../../../layouts/Base.astro";
+import ChartView from "../../../components/ChartView.astro";
+import { currentPeriodKey, isoWeekKey, isoWeekStart, periodLabel, typeLabel, type PeriodType } from "../../../lib/format.ts";
+import { periodKeys } from "../../../lib/queries.ts";
+
+export function getStaticPaths() {
+  return (["week", "month", "year"] as const).flatMap((type) =>
+    periodKeys(type).map((key) => ({ params: { type, key }, props: { type, key } })),
+  );
+}
+
+const { type, key } = Astro.props as { type: PeriodType; key: string };
+const keys = periodKeys(type);
+const i = keys.indexOf(key);
+const prev = keys[i - 1];
+const next = keys[i + 1];
+const inProgress = key === currentPeriodKey(type);
+
+// Switching type keeps you near the same date.
+const start = type === "week" ? isoWeekStart(key) : new Date(`${type === "month" ? `${key}-01` : `${key}-01-01`}T00:00:00Z`);
+const near: Record<PeriodType, string> = {
+  week: isoWeekKey(start),
+  month: start.toISOString().slice(0, 7),
+  year: String(start.getUTCFullYear()),
+};
+const switchHref = (t: PeriodType) => {
+  const ks = periodKeys(t);
+  const target = ks.includes(near[t]) ? near[t] : ks.at(-1);
+  return target ? `/charts/${t}/${target}/` : "/charts/";
+};
+---
+<Base title={`${typeLabel[type]} chart: ${periodLabel(type, key)}`} section="archive">
+  <p class="eyebrow">{typeLabel[type]} chart</p>
+  <h1>{periodLabel(type, key)} {inProgress && <span class="badge">In progress</span>}</h1>
+
+  <div class="period-nav">
+    <nav class="seg" aria-label="Chart period">
+      {(["week", "month", "year"] as const).map((t) => (
+        <a href={switchHref(t)} aria-current={t === type ? "page" : undefined}>{typeLabel[t]}</a>
+      ))}
+    </nav>
+    <nav class="stepper" aria-label={`Previous and next ${type}`}>
+      {prev ? <a href={`/charts/${type}/${prev}/`} rel="prev">← {periodLabel(type, prev).split(" · ")[0]}</a> : <span class="disabled">← Earlier</span>}
+      <span class="muted">·</span>
+      {next ? <a href={`/charts/${type}/${next}/`} rel="next">{periodLabel(type, next).split(" · ")[0]} →</a> : <span class="disabled">Later →</span>}
+    </nav>
+  </div>
+
+  <ChartView type={type} periodKey={key} />
+</Base>

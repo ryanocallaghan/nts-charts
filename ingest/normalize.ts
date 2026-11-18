@@ -72,6 +72,20 @@ export function trackKey(artist: string, title: string): string {
   return `${artists}|${normText(splitTitle(title).title)}`;
 }
 
+// Placeholder credits DJs/NTS use for unidentified records. These are not real tracks.
+const PLACEHOLDER_ARTISTS = new Set(
+  ["unknown", "unknown artist", "unknown artists", "various", "various artists", "va", "n/a", "id", "tba", "tbc",
+   "unidentified", "unidentified artist", "artist", "no artist", "?", "??", "???"].map(normText),
+);
+const PLACEHOLDER_TITLES = new Set(
+  ["unknown", "unknown track", "unknown title", "id", "tba", "tbc", "unidentified", "track", "?", "??", "???"].map(normText),
+);
+
+/** True for "Unknown Artist – Unknown Track", "ID – ID" and similar placeholder rows. */
+export function isPlaceholder(artist: string, title: string): boolean {
+  return PLACEHOLDER_ARTISTS.has(normText(artist)) || PLACEHOLDER_TITLES.has(normText(title));
+}
+
 /** URL slug; falls back to "" for non-Latin names (caller assigns an id-based slug). */
 export function slugify(name: string): string {
   return name

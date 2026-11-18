@@ -2,9 +2,10 @@
   "name": "nts-charts",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "db:init": "node ingest/init-db.ts",
     "backfill": "node ingest/backfill.ts",
     "incremental": "node ingest/incremental.ts",
     "aggregate": "node ingest/aggregate.ts",
@@ -14,7 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "astro": "7.4.13"
+    "astro": "7.4.13",
+    "echarts": "6.1.0"
   },
   "devDependencies": {
     "pagefind": "1.6.0",

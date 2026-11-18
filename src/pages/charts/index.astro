@@ -1,0 +1,35 @@
+---
+import Base from "../../layouts/Base.astro";
+import { periodLabel } from "../../lib/format.ts";
+import { periodKeys } from "../../lib/queries.ts";
+
+const years = periodKeys("year").reverse();
+const months = periodKeys("month");
+const weeks = periodKeys("week");
+const byYear = years.map((y) => ({
+  year: y,
+  months: months.filter((m) => m.startsWith(`${y}-`)).reverse(),
+  weeks: weeks.filter((w) => w.startsWith(`${y}-W`)).reverse(),
+}));
+---
+<Base title="Chart archive" section="archive">
+  <h1>Chart archive</h1>
+  <p class="lede">Every weekly, monthly and yearly chart, newest first.</p>
+
+  {byYear.map(({ year, months, weeks }) => (
+    <section class="card section">
+      <h2><a href={`/charts/year/${year}/`}>{year}</a></h2>
+      {months.length > 0 && (
+        <p><span class="muted">Months:</span> {months.map((m, i) => <>{i > 0 && " · "}<a href={`/charts/month/${m}/`}>{periodLabel("month", m).split(" ")[0].slice(0, 3)}</a></>)}</p>
+      )}
+      {weeks.length > 0 && (
+        <details>
+          <summary class="muted">{weeks.length} weekly charts</summary>
+          <ul class="plain">
+            {weeks.map((w) => <li><a href={`/charts/week/${w}/`}>{periodLabel("week", w)}</a></li>)}
+          </ul>
+        </details>
+      )}
+    </section>
+  ))}
+</Base>

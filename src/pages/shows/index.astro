@@ -1,0 +1,39 @@
+---
+import Base from "../../layouts/Base.astro";
+import { formatDate, plural } from "../../lib/format.ts";
+import { allShows } from "../../lib/queries.ts";
+const shows = allShows();
+---
+<Base title="Shows" section="shows">
+  <h1>Shows</h1>
+  <p class="lede">{plural(shows.length, "show")} with tracklists. Filter by name, location or genre.</p>
+  <input class="filter" type="search" placeholder="Filter shows…" aria-label="Filter shows" data-filter />
+  <p class="muted" style="margin-top:0.5rem" data-filter-count aria-live="polite"></p>
+  <ul class="plain section" style="margin-top:0.5rem" data-filter-list>
+    {shows.map((s) => (
+      <li data-text={`${s.name} ${s.location ?? ""} ${s.genres.join(" ")}`.toLowerCase()}>
+        <span>
+          <a href={`/shows/${s.alias}/`}>{s.name}</a>
+          {(s.location || s.genres.length > 0) && <span class="muted"> · {[s.location, ...s.genres.slice(0, 3)].filter(Boolean).join(" · ")}</span>}
+        </span>
+        <span class="count">{plural(s.episodes, "episode")}{s.last && ` · ${formatDate(s.last)}`}</span>
+      </li>
+    ))}
+  </ul>
+</Base>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>("[data-filter]")!;
+  const items = [...document.querySelectorAll<HTMLElement>("[data-filter-list] li")];
+  const count = document.querySelector<HTMLElement>("[data-filter-count]")!;
+  input.addEventListener("input", () => {
+    const terms = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const li of items) {
+      const match = terms.every((t) => li.dataset.text!.includes(t));
+      li.hidden = !match;
+      if (match) shown++;
+    }
+    count.textContent = terms.length ? `${shown} matching` : "";
+  });
+</script>

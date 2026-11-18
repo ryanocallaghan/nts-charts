@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { ApiEpisode, ApiShow, ApiTrack } from "./client.ts";
 import { tx } from "./db.ts";
-import { normText, slugify, splitArtists, trackKey } from "./normalize.ts";
+import { isPlaceholder, normText, slugify, splitArtists, trackKey } from "./normalize.ts";
 
 const tags = (t?: { value: string }[]) => JSON.stringify((t ?? []).map((x) => x.value));
 const now = () => new Date().toISOString();
@@ -53,7 +53,7 @@ function resolveArtist(db: DatabaseSync, name: string): number {
 export function resolveTrack(db: DatabaseSync, t: ApiTrack): number | null {
   const artist = t.artist?.trim();
   const title = t.title?.trim();
-  if (!artist || !title) return null;
+  if (!artist || !title || isPlaceholder(artist, title)) return null;
   const key = trackKey(artist, title);
   const isrc = t.isrc_id?.trim().toUpperCase() || null;
 

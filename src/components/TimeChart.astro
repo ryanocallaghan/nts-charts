@@ -1,0 +1,29 @@
+---
+// Interactive time-series chart (hover tooltip, zoom on long ranges) with a data-table fallback.
+import type { VizData } from "../scripts/charts.ts";
+interface Props {
+  title: string;
+  caption?: string;
+  data: VizData;
+  height?: number;
+}
+const { title, caption, data, height = 260 } = Astro.props;
+const fmt = (v: number | null) => (v == null ? "—" : data.kind === "rank" ? `#${v}` : v.toLocaleString("en-GB"));
+const rows = data.x.map((_, i) => ({ label: data.tip[i], value: data.y[i] })).filter((r) => r.value != null);
+---
+<section class="card viz-card">
+  <h2>{title}</h2>
+  {caption && <p class="caption">{caption}</p>}
+  <div class="viz" style={`height:${height}px`} data-viz={JSON.stringify(data)} role="img" aria-label={`${title}. Data table below.`}></div>
+  <details class="data-table">
+    <summary>Show data table</summary>
+    <table>
+      <thead><tr><th>Period</th><th>{data.name}</th></tr></thead>
+      <tbody>{rows.map((r) => <tr><td>{r.label}</td><td>{fmt(r.value)}</td></tr>)}</tbody>
+    </table>
+  </details>
+</section>
+
+<script>
+  import "../scripts/charts.ts";
+</script>

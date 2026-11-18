@@ -1,0 +1,72 @@
+---
+import Base from "../../layouts/Base.astro";
+import TimeChart from "../../components/TimeChart.astro";
+import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
+import { artistDetail, pagedArtists, type ArtistRow } from "../../lib/queries.ts";
+import { monthlyBars, rankLine } from "../../lib/series.ts";
+
+export function getStaticPaths() {
+  return pagedArtists().map((a) => ({ params: { slug: a.slug }, props: { artist: a } }));
+}
+
+const { artist } = Astro.props as { artist: ArtistRow };
+const d = artistDetail(artist.id);
+const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.rank)) : null;
+---
+<Base title={artist.name} description={`${artist.name} on NTS Radio: most-played tracks, the shows that play them, and chart history.`}>
+  <article data-pagefind-body>
+    <p class="eyebrow" data-pagefind-ignore>Artist</p>
+    <h1 data-pagefind-meta="title">{artist.name}</h1>
+
+    <div class="stats" data-pagefind-ignore>
+      <div class="stat"><div class="label">Episodes</div><div class="value">{d.stats.episodes.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Shows</div><div class="value">{d.stats.shows.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Tracks played</div><div class="value">{d.stats.tracks.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Peak weekly rank</div><div class="value">{peak ? `#${peak}` : "—"}</div></div>
+    </div>
+    <p class="muted section" style="margin-top:0.75rem" data-pagefind-ignore>
+      First played {formatDate(d.stats.first)} · most recently {formatDate(d.stats.last)}
+    </p>
+
+    <div class="grid-2 section" data-pagefind-ignore>
+      <TimeChart title="Plays over time" caption="Episodes that played them, per month" data={monthlyBars(d.monthly)} />
+      {d.chartHistory.length > 0
+        ? <TimeChart title="Weekly chart history" caption={`${plural(d.chartHistory.length, "week")} in the Top 50 artists`} data={rankLine(d.chartHistory)} />
+        : <section class="card"><h2>Weekly chart history</h2><p class="muted">Hasn't made the weekly Top 50 yet.</p></section>}
+    </div>
+
+    <div class="grid-2 section">
+      <section class="card">
+        <h2>Most-played tracks</h2>
+        <ul class="plain">
+          {d.topTracks.map((t) => (
+            <li>
+              <span>{t.title}{t.artistDisplay !== artist.name && <span class="muted"> — {t.artistDisplay}</span>}</span>
+              <span class="count">{plural(t.episodes, "episode")}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section class="card">
+        <h2>Shows that play them</h2>
+        <ul class="plain">
+          {d.shows.map((s) => (
+            <li><a href={`/shows/${s.alias}/`}>{s.name}</a><span class="count">{plural(s.episodes, "episode")}</span></li>
+          ))}
+        </ul>
+      </section>
+    </div>
+
+    <section class="card section" data-pagefind-ignore>
+      <h2>Recent plays</h2>
+      <ul class="plain">
+        {d.recent.map((r) => (
+          <li>
+            <span>{r.title} <span class="muted">on</span> <a href={ntsEpisodeUrl(r.show, r.episode)}>{r.name}</a></span>
+            <span class="count">{formatDate(r.broadcast)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </article>
+</Base>

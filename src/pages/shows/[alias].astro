@@ -1,0 +1,65 @@
+---
+import Base from "../../layouts/Base.astro";
+import ArtistLinks from "../../components/ArtistLinks.astro";
+import { formatDate, ntsEpisodeUrl, ntsShowUrl, plural } from "../../lib/format.ts";
+import { allShows, showDetail, type ShowRow } from "../../lib/queries.ts";
+
+export function getStaticPaths() {
+  return allShows().map((s) => ({ params: { alias: s.alias }, props: { show: s } }));
+}
+
+const { show } = Astro.props as { show: ShowRow };
+const d = showDetail(show.alias);
+---
+<Base title={show.name} description={`What ${show.name} plays on NTS Radio: most-played artists and tracks, and recent tracklists.`} section="shows">
+  <article data-pagefind-body>
+    <p class="eyebrow" data-pagefind-ignore>Show{show.location && ` · ${show.location}`}</p>
+    <h1 data-pagefind-meta="title">{show.name}</h1>
+    {show.genres.length > 0 && <p class="muted">{show.genres.join(" · ")}</p>}
+    <p data-pagefind-ignore><a href={ntsShowUrl(show.alias)}>Listen on nts.live →</a></p>
+
+    <div class="stats" data-pagefind-ignore>
+      <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{d.stats.episodes.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Plays</div><div class="value">{d.stats.plays.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Different tracks</div><div class="value">{d.stats.tracks.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">On air</div><div class="value" style="font-size:1rem;padding-top:0.4rem">{formatDate(d.stats.first)} – {formatDate(d.stats.last)}</div></div>
+    </div>
+
+    <div class="grid-2 section">
+      <section class="card">
+        <h2>Most-played artists</h2>
+        <ul class="plain">
+          {d.topArtists.map((a) => (
+            <li>{a.slug ? <a href={`/artists/${a.slug}/`}>{a.name}</a> : <span>{a.name}</span>}<span class="count">{plural(a.episodes, "episode")}</span></li>
+          ))}
+        </ul>
+      </section>
+      <section class="card">
+        <h2>Most-played tracks</h2>
+        {d.topTracks.length === 0
+          ? <p class="muted">No track has been played in more than one episode yet.</p>
+          : <ul class="plain">
+              {d.topTracks.map((t) => (
+                <li><span>{t.title} <span class="muted">— {t.artistDisplay}</span></span><span class="count">{plural(t.episodes, "episode")}</span></li>
+              ))}
+            </ul>}
+      </section>
+    </div>
+
+    <section class="card section" data-pagefind-ignore>
+      <h2>Recent episodes</h2>
+      {d.episodes.map((e) => (
+        <details class="episode">
+          <summary><span>{e.name}</span><span class="muted">{formatDate(e.broadcast)} · {plural(e.trackCount, "track")}</span></summary>
+          <ol>
+            {(d.tracklists.get(e.alias) ?? []).map((t) => (
+              <li><strong>{t.title}</strong> — <ArtistLinks artists={t.artists} fallback={t.artistDisplay} /></li>
+            ))}
+          </ol>
+          <a href={ntsEpisodeUrl(show.alias, e.alias)}>Listen to this episode →</a>
+        </details>
+      ))}
+      {d.stats.episodes > d.episodes.length && <p class="muted" style="margin-top:0.75rem">Showing the latest {d.episodes.length} of {d.stats.episodes} episodes. <a href={ntsShowUrl(show.alias)}>All episodes on nts.live</a></p>}
+    </section>
+  </article>
+</Base>

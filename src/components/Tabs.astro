@@ -1,0 +1,41 @@
+---
+// Client-side tab switch between pre-rendered panels. Without JS, all panels stay visible.
+interface Props { id: string; tabs: { key: string; label: string }[] }
+const { id, tabs } = Astro.props;
+---
+<div class="seg" role="tablist" data-tabs={id}>
+  {tabs.map((t, i) => (
+    <button type="button" role="tab" id={`${id}-tab-${t.key}`} aria-controls={`${id}-${t.key}`} aria-selected={i === 0 ? "true" : "false"} data-key={t.key}>
+      {t.label}
+    </button>
+  ))}
+</div>
+
+<script>
+  for (const list of document.querySelectorAll<HTMLElement>("[data-tabs]")) {
+    const id = list.dataset.tabs!;
+    const buttons = [...list.querySelectorAll<HTMLButtonElement>("button[role=tab]")];
+    const select = (key: string) => {
+      for (const b of buttons) {
+        const on = b.dataset.key === key;
+        b.setAttribute("aria-selected", String(on));
+        b.tabIndex = on ? 0 : -1;
+        const panel = document.getElementById(`${id}-${b.dataset.key}`);
+        if (panel) panel.hidden = !on;
+      }
+      // Charts in a newly shown panel need to size themselves.
+      window.dispatchEvent(new Event("resize"));
+    };
+    buttons.forEach((b, i) => {
+      b.addEventListener("click", () => select(b.dataset.key!));
+      b.addEventListener("keydown", (e) => {
+        const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!step) return;
+        const next = buttons[(i + step + buttons.length) % buttons.length];
+        next.focus();
+        select(next.dataset.key!);
+      });
+    });
+    select(buttons[0].dataset.key!);
+  }
+</script>
