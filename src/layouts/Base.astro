@@ -1,4 +1,5 @@
 ---
+import "../styles/carbon.scss";
 import "../styles/global.css";
 import { formatDate } from "../lib/format.ts";
 import { lastUpdated } from "../lib/queries.ts";
@@ -28,13 +29,19 @@ const nav = [
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='4' y='14' width='6' height='14' rx='2' fill='%232a78d6'/><rect x='13' y='6' width='6' height='22' rx='2' fill='%232a78d6'/><rect x='22' y='10' width='6' height='18' rx='2' fill='%232a78d6'/></svg>" />
   </head>
   <body>
-    <header class="site-header">
-      <div class="wrap">
-        <a class="brand" href="/">NTS Charts</a>
-        <nav class="site-nav" aria-label="Main">
-          {nav.map((n) => <a href={n.href} aria-current={section === n.key ? "page" : undefined}>{n.label}</a>)}
-        </nav>
-      </div>
+    <header class="cds--header site-header" aria-label="NTS Charts">
+      <a class="cds--header__name" href="/">NTS&nbsp;Charts</a>
+      <nav class="cds--header__nav" aria-label="Main">
+        <ul class="cds--header__menu-bar">
+          {nav.map((n) => (
+            <li>
+              <a class:list={["cds--header__menu-item", { "cds--header__menu-item--current": section === n.key }]} href={n.href} aria-current={section === n.key ? "page" : undefined}>
+                <span class="cds--text-truncate--end">{n.label}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </header>
     <main class="wrap">
       <slot />

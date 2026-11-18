@@ -41,19 +41,21 @@ const switchHref = (t: DatedPeriod) => {
 ---
 <Base title={`${eyebrow}: ${periodLabel(type, key)}`} section="archive">
   <p class="eyebrow">{eyebrow}</p>
-  <h1>{periodLabel(type, key)} {inProgress && <span class="badge">In progress</span>}</h1>
+  <h1>{periodLabel(type, key)} {inProgress && <span class="cds--tag cds--tag--md cds--tag--blue badge-tag">In progress</span>}</h1>
 
   <div class="period-nav">
-    <nav class="seg" aria-label="Chart period">
+    <nav class="cds--content-switcher cds--content-switcher--md period-switcher" aria-label="Chart period">
       {DATED_PERIODS.map((t) => (
-        <a href={switchHref(t)} aria-current={t === type ? "page" : undefined}>{typeLabel[t]}</a>
+        <a class:list={["cds--content-switcher-btn", { "cds--content-switcher--selected": t === type }]} href={switchHref(t)} aria-current={t === type ? "page" : undefined}>
+          <span class="cds--content-switcher__label">{typeLabel[t]}</span>
+        </a>
       ))}
-      <a href="/charts/all/">All time</a>
+      <a class="cds--content-switcher-btn" href="/charts/all/"><span class="cds--content-switcher__label">All time</span></a>
     </nav>
     <nav class="stepper" aria-label="Previous and next chart">
-      {prev ? <a href={`/charts/${type}/${prev}/`} rel="prev">← {stepLabel(prev)}</a> : <span class="disabled">← Earlier</span>}
+      {prev ? <a class="cds--link" href={`/charts/${type}/${prev}/`} rel="prev">← {stepLabel(prev)}</a> : <span class="cds--link cds--link--disabled">← Earlier</span>}
       <span class="muted">·</span>
-      {next ? <a href={`/charts/${type}/${next}/`} rel="next">{stepLabel(next)} →</a> : <span class="disabled">Later →</span>}
+      {next ? <a class="cds--link" href={`/charts/${type}/${next}/`} rel="next">{stepLabel(next)} →</a> : <span class="cds--link cds--link--disabled">Later →</span>}
     </nav>
   </div>
 

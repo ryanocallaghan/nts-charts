@@ -5,7 +5,8 @@ interface Props { movement?: boolean; rows: ArtistEntry[]; periodNoun: string }
 const { rows, periodNoun, movement = true } = Astro.props;
 ---
 {rows.length === 0 ? <p class="muted">No artists charted in this period yet.</p> : (
-  <table class="chart">
+  <div class="cds--data-table-container chart-table">
+  <table class="cds--data-table cds--data-table--lg chart">
     <thead>
       <tr>
         <th class="rank">#</th>
@@ -29,4 +30,5 @@ const { rows, periodNoun, movement = true } = Astro.props;
       ))}
     </tbody>
   </table>
+  </div>
 )}

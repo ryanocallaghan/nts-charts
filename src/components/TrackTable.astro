@@ -7,7 +7,8 @@ interface Props { movement?: boolean; rows: TrackEntry[]; periodNoun: string; pl
 const { rows, periodNoun, movement = true, plays } = Astro.props;
 ---
 {rows.length === 0 ? <p class="muted">No tracks charted in this period yet.</p> : (
-  <table class="chart">
+  <div class="cds--data-table-container chart-table">
+  <table class="cds--data-table cds--data-table--lg chart">
     <thead>
       <tr>
         <th class="rank">#</th>
@@ -35,4 +36,5 @@ const { rows, periodNoun, movement = true, plays } = Astro.props;
       ))}
     </tbody>
   </table>
+  </div>
 )}

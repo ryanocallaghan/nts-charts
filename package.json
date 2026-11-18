@@ -19,6 +19,9 @@
     "echarts": "6.1.0"
   },
   "devDependencies": {
+    "@carbon/styles": "1.119.0",
+    "@ibm/plex-sans": "2.0.0",
+    "sass": "1.108.2",
     "typescript": "7.0.2",
     "vitest": "5.1.1",
     "wrangler": "4.164.0"
@@ -26,6 +29,24 @@
   "allowScripts": {
     "esbuild@0.28.2": true,
     "workerd@1.20261117.1": true,
-    "fsevents": false
+    "fsevents": false,
+    "@carbon/colors": false,
+    "@carbon/feature-flags": false,
+    "@carbon/grid": false,
+    "@carbon/layout": false,
+    "@carbon/motion": false,
+    "@carbon/styles": false,
+    "@carbon/themes": false,
+    "@carbon/type": false,
+    "@ibm/plex": false,
+    "@ibm/plex-mono": false,
+    "@ibm/plex-sans": false,
+    "@ibm/plex-sans-arabic": false,
+    "@ibm/plex-sans-devanagari": false,
+    "@ibm/plex-sans-hebrew": false,
+    "@ibm/plex-sans-thai": false,
+    "@ibm/plex-sans-thai-looped": false,
+    "@ibm/plex-serif": false,
+    "@parcel/watcher": false
   }
 }

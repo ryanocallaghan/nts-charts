@@ -15,7 +15,7 @@ const topArtists = artistChart("all", "all", 10);
 ---
 <Base title="NTS Charts" section="charts">
   <p class="eyebrow">Last 4 weeks</p>
-  <h1>{latest ? periodLabel("rolling", latest).split(" · ")[1] : "No charts yet"} {inProgress && <span class="badge">In progress</span>}</h1>
+  <h1>{latest ? periodLabel("rolling", latest).split(" · ")[1] : "No charts yet"} {inProgress && <span class="cds--tag cds--tag--md cds--tag--blue badge-tag">In progress</span>}</h1>
   <p class="lede">
     The tracks and artists played on the most NTS Radio episodes over the last four weeks. A track scores once per
     episode that plays it, so one show repeating a record doesn't top the chart.

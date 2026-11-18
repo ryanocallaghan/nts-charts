@@ -12,4 +12,6 @@ const view: Record<string, { text: string; label: string }> = {
 };
 const v = view[status] ?? view.same;
 ---
-<span class={`move ${status}`} title={v.label}><span aria-hidden="true">{v.text}</span><span class="visually-hidden">{v.label}</span></span>
+{status === "new" || status === "reentry"
+  ? <span class={`cds--tag cds--tag--sm ${status === "new" ? "cds--tag--green" : "cds--tag--cool-gray"} move-tag`} title={v.label}><span aria-hidden="true">{v.text}</span><span class="visually-hidden">{v.label}</span></span>
+  : <span class={`move ${status}`} title={v.label}><span aria-hidden="true">{v.text}</span><span class="visually-hidden">{v.label}</span></span>}

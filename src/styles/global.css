@@ -1,40 +1,29 @@
+/* Site tokens, aliased to IBM Carbon's theme tokens (src/styles/carbon.scss switches light/dark).
+   src/scripts/charts.ts reads these to theme the ECharts charts. */
 :root {
-  color-scheme: light;
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #6f6d68;
-  --grid: #e1e0d9;
-  --axis: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
-  --hover: rgba(11, 11, 11, 0.04);
-  --series-1: #2a78d6;
-  --series-1-wash: rgba(42, 120, 214, 0.1);
-  --up: #006300;
-  --down: #b42b2b;
-  --link: #1c5cab;
-  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --radius: 10px;
+  --page: var(--cds-background);
+  --surface: var(--cds-layer-01);
+  --ink: var(--cds-text-primary);
+  --ink-2: var(--cds-text-secondary);
+  --muted: var(--cds-text-helper);
+  --grid: var(--cds-border-subtle-01);
+  --axis: var(--cds-border-strong-01);
+  --border: var(--cds-border-subtle-01);
+  --hover: var(--cds-layer-hover-01);
+  --link: var(--cds-link-primary);
+  --up: var(--cds-support-success);
+  --down: var(--cds-support-error);
+  /* Single chart series: Carbon blue-60 (light) / blue-50 (dark), validated with the dataviz palette checks. */
+  --series-1: #0f62fe;
+  --series-1-wash: rgba(15, 98, 254, 0.1);
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 0;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    color-scheme: dark;
-    --page: #0d0d0d;
-    --surface: #1a1a19;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --muted: #9a9890;
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --border: rgba(255, 255, 255, 0.1);
-    --hover: rgba(255, 255, 255, 0.05);
-    --series-1: #3987e5;
-    --series-1-wash: rgba(57, 135, 229, 0.12);
-    --up: #0ca30c;
-    --down: #e66767;
-    --link: #86b6ef;
+    --series-1: #4589ff;
+    --series-1-wash: rgba(69, 137, 255, 0.14);
   }
 }
 
@@ -48,19 +37,24 @@ body {
 }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
-h1, h2, h3 { line-height: 1.2; margin: 0 0 0.5rem; }
-h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.02em; }
-h2 { font-size: 1.15rem; }
+/* Carbon productive type scale: light headings, 600 only for small labels. */
+h1, h2, h3 { line-height: 1.25; margin: 0 0 0.5rem; font-weight: 400; }
+h1 { font-size: clamp(1.75rem, 4vw, 2.625rem); line-height: 1.2; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1rem; font-weight: 600; }
 p { margin: 0 0 1rem; }
 
 .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
 
-.site-header { border-bottom: 1px solid var(--border); background: var(--surface); }
-.site-header .wrap { display: flex; align-items: center; gap: 1.25rem; min-height: 56px; flex-wrap: wrap; }
-.brand { font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
-.site-nav { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.95rem; }
-.site-nav a { color: var(--ink-2); }
-.site-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+/* Carbon's UI-shell header is fixed and hides its nav on narrow screens (expecting a JS side nav).
+   Here it scrolls with the page and the nav stays visible, scrolling sideways if it must. */
+.site-header.cds--header { position: sticky; top: 0; z-index: 10; }
+.site-header .cds--header__nav { display: block; overflow-x: auto; scrollbar-width: none; }
+.site-header .cds--header__nav::before { display: none; }
+@media (max-width: 40rem) {
+  .site-header .cds--header__name { padding: 0 0.75rem 0 1rem; }
+  .site-header .cds--header__menu-item { padding: 0 0.6rem; }
+}
 
 main.wrap { padding-top: 1.75rem; padding-bottom: 3rem; }
 .site-footer { border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; padding: 1.5rem 0 2.5rem; }
@@ -73,15 +67,16 @@ main.wrap { padding-top: 1.75rem; padding-bottom: 3rem; }
   border: 1px solid var(--border); border-radius: 999px; color: var(--ink-2); vertical-align: middle;
 }
 
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+/* Cards and stats are Carbon tiles: flat layer, no border or radius. */
+.card { background: var(--cds-layer-01); padding: 1rem; }
 .grid-2 { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
 .section { margin-top: 2rem; }
 
 /* Stat tiles */
-.stats { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin: 1rem 0 0; }
-.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; }
-.stat .label { color: var(--muted); font-size: 0.8rem; }
-.stat .value { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
+.stats { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin: 1rem 0 0; }
+.stat { background: var(--cds-layer-01); padding: 1rem; }
+.stat .label { color: var(--cds-text-secondary); font-size: 0.75rem; letter-spacing: 0.02em; }
+.stat .value { font-size: 1.75rem; font-weight: 400; margin-top: 0.25rem; }
 
 /* Period navigation */
 .period-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
@@ -95,19 +90,16 @@ main.wrap { padding-top: 1.75rem; padding-bottom: 3rem; }
 .stepper { display: flex; gap: 0.5rem; font-size: 0.9rem; }
 .stepper .disabled { color: var(--muted); opacity: 0.5; }
 
-/* Chart tables */
-table.chart { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-table.chart th {
-  text-align: left; font-weight: 500; font-size: 0.75rem; color: var(--muted); text-transform: uppercase;
-  letter-spacing: 0.04em; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--grid);
-}
-table.chart td { padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--grid); vertical-align: top; }
-table.chart tr:hover td { background: var(--hover); }
-table.chart .num { text-align: right; white-space: nowrap; }
-table.chart .rank { width: 2.5rem; font-weight: 600; font-size: 1.05rem; }
-table.chart .mv { width: 3.5rem; }
-table.chart .title { font-weight: 500; }
-table.chart .sub { color: var(--ink-2); font-size: 0.9rem; }
+/* Chart tables (Carbon data table) */
+.chart-table { background: var(--cds-layer-01); }
+table.chart { font-variant-numeric: tabular-nums; }
+table.chart td { vertical-align: top; padding-top: 0.875rem; padding-bottom: 0.875rem; }
+table.chart th.num .cds--table-header-label, table.chart .num { text-align: right; white-space: nowrap; }
+table.chart th.num { text-align: right; }
+table.chart .rank { width: 3rem; font-size: 1.125rem; }
+table.chart .mv { width: 4.5rem; }
+table.chart .title { font-weight: 400; }
+table.chart .sub { color: var(--cds-text-secondary); font-size: 0.875rem; }
 @media (max-width: 640px) {
   table.chart .hide-sm { display: none; }
 }
@@ -116,16 +108,19 @@ table.chart .sub { color: var(--ink-2); font-size: 0.9rem; }
 .move.up { color: var(--up); }
 .move.down { color: var(--down); }
 .move.same { color: var(--muted); }
-.move.new, .move.reentry { color: var(--ink-2); letter-spacing: 0.03em; }
+.move-tag { margin: 0; }
 
 /* Collapsible charts (home page shows 10 rows at a time) */
 table.chart tr[hidden] { display: none; }
-button.show-all {
-  display: block; width: 100%; margin-top: 0.75rem; padding: 0.55rem; font: inherit; font-size: 0.9rem; cursor: pointer;
-  color: var(--link); background: none; border: 1px solid var(--border); border-radius: 8px;
-}
-button.show-all:hover { background: var(--hover); }
+button.show-all { width: 100%; max-width: none; justify-content: center; margin-top: 1px; background: var(--cds-layer-01); }
 button.show-all[hidden] { display: none; }
+
+/* Carbon tabs and content switcher */
+.cds--tabs { margin-top: 1.5rem; }
+.chart-panels { margin-top: 0; }
+.period-switcher { max-width: 100%; overflow-x: auto; }
+.period-switcher .cds--content-switcher-btn { text-decoration: none; white-space: nowrap; }
+.period-switcher .cds--content-switcher-btn:not(.cds--content-switcher--selected):hover { color: var(--cds-text-primary); }
 
 /* Interactive charts */
 .viz { width: 100%; height: 260px; }
@@ -183,3 +178,9 @@ ul.plain li[hidden] { display: none; }
 
 .theme { display: block; font-size: 0.8rem; color: var(--muted); }
 .theme a { color: inherit; text-decoration: underline; text-decoration-color: var(--axis); }
+.badge-tag { vertical-align: middle; position: relative; top: -0.2em; }
+/* Size the period switcher to its labels instead of Carbon's equal-width, truncating buttons. */
+nav.period-switcher.cds--content-switcher { display: inline-flex; inline-size: auto; }
+nav.period-switcher.cds--content-switcher a.cds--content-switcher-btn { flex: 0 0 auto; inline-size: auto; padding-inline: 1rem; }
+nav.period-switcher .cds--content-switcher__label { overflow: visible; text-overflow: clip; }
+.move-tag { white-space: nowrap; min-inline-size: auto; }
