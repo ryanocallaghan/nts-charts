@@ -1,6 +1,6 @@
 name: Backfill archive
 
-# Crawls the full NTS archive in hourly chunks (GitHub jobs are capped at 6h).
+# Crawls the full NTS archive in short chunks (30 min by default; GitHub caps jobs at 6h).
 # Each chunk resumes from the database stored on the "db-latest" release,
 # uploads its progress, dispatches the next chunk until nothing remains, and
 # redeploys the site so it fills in as the archive arrives.
