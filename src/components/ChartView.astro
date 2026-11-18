@@ -6,8 +6,9 @@ import ArtistTable from "./ArtistTable.astro";
 import Tabs from "./Tabs.astro";
 import TrackTable from "./TrackTable.astro";
 
-interface Props { type: PeriodType; periodKey: string; limit?: number }
-const { type, periodKey, limit = type === "all" ? 100 : 50 } = Astro.props;
+// `initial`: show only the top N rows until "Show all" is clicked (rows beyond it are in the page, just hidden).
+interface Props { type: PeriodType; periodKey: string; limit?: number; initial?: number }
+const { type, periodKey, limit = type === "all" ? 100 : 50, initial } = Astro.props;
 const noun = { week: "Week", rolling: "Week", month: "Month", year: "Year", all: "" }[type];
 const movement = type !== "all";
 const tracks = trackChart(type, periodKey, limit);
@@ -18,9 +19,36 @@ const id = `chart-${type}-${periodKey}`;
 <Tabs id={id} tabs={[{ key: "tracks", label: "Tracks" }, { key: "artists", label: "Artists" }]} />
 <div class="card section" style="margin-top:1rem">
   <div class="tabpanel" id={`${id}-tracks`} role="tabpanel" aria-labelledby={`${id}-tab-tracks`}>
-    <TrackTable rows={tracks} periodNoun={noun} movement={movement} plays={plays} />
+    <div data-collapsible={initial && tracks.length > initial ? "" : undefined}>
+      <TrackTable rows={tracks} periodNoun={noun} movement={movement} plays={plays} initial={initial} />
+      {initial && tracks.length > initial && <button type="button" class="show-all" hidden data-more={`Show all ${tracks.length} tracks`} data-less={`Show top ${initial}`}></button>}
+    </div>
   </div>
   <div class="tabpanel" id={`${id}-artists`} role="tabpanel" aria-labelledby={`${id}-tab-artists`}>
-    <ArtistTable rows={artists} periodNoun={noun} movement={movement} />
+    <div data-collapsible={initial && artists.length > initial ? "" : undefined}>
+      <ArtistTable rows={artists} periodNoun={noun} movement={movement} initial={initial} />
+      {initial && artists.length > initial && <button type="button" class="show-all" hidden data-more={`Show all ${artists.length} artists`} data-less={`Show top ${initial}`}></button>}
+    </div>
   </div>
 </div>
+
+<script>
+  // Collapse long charts to their top rows; without JS every row stays visible.
+  for (const box of document.querySelectorAll<HTMLElement>("[data-collapsible]")) {
+    const button = box.querySelector<HTMLButtonElement>("button.show-all");
+    if (!button) continue;
+    const set = (collapsed: boolean) => {
+      box.classList.toggle("collapsed", collapsed);
+      button.textContent = collapsed ? button.dataset.more! : button.dataset.less!;
+      button.setAttribute("aria-expanded", String(!collapsed));
+    };
+    set(true);
+    button.hidden = false;
+    button.addEventListener("click", () => {
+      const collapsing = !box.classList.contains("collapsed");
+      set(collapsing);
+      // When collapsing, keep the table's top in view instead of leaving the reader far down the page.
+      if (collapsing && box.getBoundingClientRect().top < 0) box.scrollIntoView({ block: "start" });
+    });
+  }
+</script>

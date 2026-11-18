@@ -118,6 +118,15 @@ table.chart .sub { color: var(--ink-2); font-size: 0.9rem; }
 .move.same { color: var(--muted); }
 .move.new, .move.reentry { color: var(--ink-2); letter-spacing: 0.03em; }
 
+/* Collapsible charts (home page shows the top 10) */
+.collapsed tr.more-row { display: none; }
+button.show-all {
+  display: block; width: 100%; margin-top: 0.75rem; padding: 0.55rem; font: inherit; font-size: 0.9rem; cursor: pointer;
+  color: var(--link); background: none; border: 1px solid var(--border); border-radius: 8px;
+}
+button.show-all:hover { background: var(--hover); }
+button.show-all[hidden] { display: none; }
+
 /* Interactive charts */
 .viz { width: 100%; height: 260px; }
 .viz-card h2 { margin-bottom: 0.25rem; }

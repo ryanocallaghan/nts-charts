@@ -23,7 +23,7 @@ const topArtists = artistChart("all", "all", 10);
 
   {latest && (
     <>
-      <ChartView type="rolling" periodKey={latest} />
+      <ChartView type="rolling" periodKey={latest} initial={10} />
       <p class="section">{latestWeek && <><a href={`/charts/week/${latestWeek}/`}>This week only</a> · </>} <a href="/charts/">Browse every chart since {stats.first ? formatDate(stats.first).split(" ").at(-1) : "the start"}</a></p>
     </>
   )}
