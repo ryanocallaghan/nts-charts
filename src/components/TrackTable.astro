@@ -3,8 +3,8 @@ import type { EpisodePlay, TrackEntry } from "../lib/queries.ts";
 import EpisodePlays from "./EpisodePlays.astro";
 import ArtistLinks from "./ArtistLinks.astro";
 import Movement from "./Movement.astro";
-interface Props { initial?: number; movement?: boolean; rows: TrackEntry[]; periodNoun: string; plays?: Map<number, { total: number; episodes: EpisodePlay[] }> }
-const { rows, periodNoun, initial, movement = true, plays } = Astro.props;
+interface Props { movement?: boolean; rows: TrackEntry[]; periodNoun: string; plays?: Map<number, { total: number; episodes: EpisodePlay[] }> }
+const { rows, periodNoun, movement = true, plays } = Astro.props;
 ---
 {rows.length === 0 ? <p class="muted">No tracks charted in this period yet.</p> : (
   <table class="chart">
@@ -19,8 +19,8 @@ const { rows, periodNoun, initial, movement = true, plays } = Astro.props;
       </tr>
     </thead>
     <tbody>
-      {rows.map((r, i) => (
-        <tr class={initial && i >= initial ? "more-row" : undefined}>
+      {rows.map((r) => (
+        <tr>
           <td class="rank">{r.rank}</td>
           {movement && <td class="mv"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></td>}
           <td>

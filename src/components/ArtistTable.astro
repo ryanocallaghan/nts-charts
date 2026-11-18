@@ -1,8 +1,8 @@
 ---
 import type { ArtistEntry } from "../lib/queries.ts";
 import Movement from "./Movement.astro";
-interface Props { initial?: number; movement?: boolean; rows: ArtistEntry[]; periodNoun: string }
-const { rows, periodNoun, initial, movement = true } = Astro.props;
+interface Props { movement?: boolean; rows: ArtistEntry[]; periodNoun: string }
+const { rows, periodNoun, movement = true } = Astro.props;
 ---
 {rows.length === 0 ? <p class="muted">No artists charted in this period yet.</p> : (
   <table class="chart">
@@ -17,8 +17,8 @@ const { rows, periodNoun, initial, movement = true } = Astro.props;
       </tr>
     </thead>
     <tbody>
-      {rows.map((r, i) => (
-        <tr class={initial && i >= initial ? "more-row" : undefined}>
+      {rows.map((r) => (
+        <tr>
           <td class="rank">{r.rank}</td>
           {movement && <td class="mv"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></td>}
           <td class="title">{r.slug ? <a href={`/artists/${r.slug}/`}>{r.name}</a> : r.name}</td>
