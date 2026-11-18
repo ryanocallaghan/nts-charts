@@ -39,6 +39,15 @@ const showNames = new Map(all<{ alias: string; name: string }>("SELECT alias, co
 const peaks = new Map(all<{ id: number; peak: number }>(
   "SELECT entity_id id, min(rank) peak FROM chart_entries WHERE entity_type = 'artist' AND period_type = 'week' GROUP BY entity_id",
 ).map((r) => [r.id, r.peak]));
+// Theme tunes, by track: [show name, link] for each show the track opens or closes.
+const themesByTrack = new Map<number, [string, string][]>();
+for (const r of all<{ track: number; key: string; name: string | null }>(
+  "SELECT tt.track_id track, tt.show_key key, s.name FROM theme_tunes tt LEFT JOIN shows s ON s.alias = tt.show_key",
+)) {
+  const g = r.key.startsWith("guests/") ? guestPages().get(r.key.slice(7)) : undefined;
+  const label: [string, string] = g ? [g.name, `/shows/guests/${g.slug}/`] : [r.name ?? r.key, `/shows/${r.key}/`];
+  themesByTrack.set(r.track, [...(themesByTrack.get(r.track) ?? []), label]);
+}
 const track = (id: number) => get<{ title: string; credit: string }>("SELECT title_display title, artist_display credit FROM tracks WHERE id = ?", id)!;
 
 const shards: ArtistShard[] = Array.from({ length: ARTIST_SHARDS }, () => ({ a: {}, ep: [], sh: {} }));
@@ -104,7 +113,10 @@ function flush() {
     p: peaks.get(current.id) ?? null,
     t: top.map((t) => {
       const tr = track(t.id);
-      return [tr.title, tr.credit === current!.name ? null : tr.credit, t.eps.length, t.eps.slice(0, EPISODES_PER_TRACK).map(idx)];
+      const row: LongtailArtist["t"][number] = [tr.title, tr.credit === current!.name ? null : tr.credit, t.eps.length, t.eps.slice(0, EPISODES_PER_TRACK).map(idx)];
+      const themes = themesByTrack.get(t.id);
+      if (themes) row.push(themes);
+      return row;
     }),
     h: [...shows].sort((a, b) => b[1] - a[1]).slice(0, SHOWS_PER_ARTIST),
     m: [...months].sort((a, b) => a[0].localeCompare(b[0])),

@@ -52,10 +52,13 @@ import Base from "../../layouts/Base.astro";
         ? "" : `<span class="muted"> · <a class="quiet" href="${esc(showHref)}">${esc(showName)}</a></span>`;
       return { html: `<time datetime="${date}">${formatDate(date)}</time><span><a href="${esc(ntsEpisodeUrl(show, alias))}">${esc(name)}</a>${showLink}</span>` };
     };
-    const tracks = a.t.map(([title, credit, total, eps]) => {
+    const tracks = a.t.map(([title, credit, total, eps, themes]) => {
+      const theme = themes?.length
+        ? `<span class="theme" title="Opens or closes most episodes of this show, so those plays don't count towards charts">theme tune of ${themes.map(([n, h]) => `<a href="${esc(h)}">${esc(n)}</a>`).join(", ")}</span>`
+        : "";
       const list = eps.map((i) => `<li>${ep(i).html}</li>`).join("");
       const more = total > eps.length ? `<p class="muted">and ${plural(total - eps.length, "earlier episode")}</p>` : "";
-      return `<li><span>${esc(title)}${credit ? `<span class="muted"> — ${esc(credit)}</span>` : ""}
+      return `<li><span>${esc(title)}${credit ? `<span class="muted"> — ${esc(credit)}</span>` : ""}${theme}
         <details class="plays"><summary>Episodes</summary><ul>${list}</ul>${more}</details></span>
         <span class="count">${plural(total, "episode")}</span></li>`;
     }).join("");

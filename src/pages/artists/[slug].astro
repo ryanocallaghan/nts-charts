@@ -1,9 +1,10 @@
 ---
 import Base from "../../layouts/Base.astro";
 import EpisodePlays from "../../components/EpisodePlays.astro";
+import ThemeLabel from "../../components/ThemeLabel.astro";
 import TimeChart from "../../components/TimeChart.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
-import { artistDetail, episodesForTracks, pagedArtists, type ArtistRow } from "../../lib/queries.ts";
+import { artistDetail, episodesForTracks, pagedArtists, themeTunesFor, type ArtistRow } from "../../lib/queries.ts";
 import { monthlyBars, rankLine } from "../../lib/series.ts";
 
 export function getStaticPaths() {
@@ -13,6 +14,7 @@ export function getStaticPaths() {
 const { artist } = Astro.props as { artist: ArtistRow };
 const d = artistDetail(artist.id);
 const plays = episodesForTracks(d.topTracks.map((t) => t.id));
+const themes = themeTunesFor(d.topTracks.map((t) => t.id));
 const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.rank)) : null;
 ---
 <Base title={artist.name} description={`${artist.name} on NTS Radio: most-played tracks, the shows that play them, and chart history.`}>
@@ -45,6 +47,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
             <li>
               <span>
                 {t.title}{t.artistDisplay !== artist.name && <span class="muted"> — {t.artistDisplay}</span>}
+                <ThemeLabel themes={themes.get(t.id)} />
                 <EpisodePlays plays={plays.get(t.id)} label="Episodes" />
               </span>
               <span class="count">{plural(t.episodes, "episode")}</span>

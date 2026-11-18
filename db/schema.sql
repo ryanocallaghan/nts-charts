@@ -81,3 +81,13 @@ CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT
 );
+
+-- A show's theme tune: a track that opens or closes most of its episodes (rebuilt by aggregate.ts).
+-- Its plays on that show don't count towards charts. show_key is a show alias, or 'guests/<slug>'.
+CREATE TABLE IF NOT EXISTS theme_tunes (
+  show_key  TEXT NOT NULL,
+  track_id  INTEGER NOT NULL,
+  episodes  INTEGER NOT NULL,     -- episodes it opened or closed
+  of_total  INTEGER NOT NULL,     -- the show's episodes with tracklists
+  PRIMARY KEY (show_key, track_id)
+);

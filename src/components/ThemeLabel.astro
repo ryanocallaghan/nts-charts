@@ -1,0 +1,11 @@
+---
+// "theme tune of <show>": shown next to a track that opens or closes most of a show's episodes.
+import type { ThemeOf } from "../lib/queries.ts";
+interface Props { themes?: ThemeOf[] }
+const { themes } = Astro.props;
+---
+{themes && themes.length > 0 && (
+  <span class="theme" title="Opens or closes most episodes of this show, so those plays don't count towards charts">
+    theme tune of {themes.map((t, i) => <>{i > 0 && ", "}<a href={t.href}>{t.name}</a></>)}
+  </span>
+)}

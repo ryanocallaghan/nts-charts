@@ -9,7 +9,8 @@ export interface LongtailArtist {
   f: string; // first play (YYYY-MM-DD)
   l: string; // last play
   p: number | null; // peak weekly rank, if it ever charted
-  t: [title: string, credit: string | null, episodes: number, eps: number[]][]; // most-played first, eps newest first
+  // Most-played first; eps newest first; themes: shows this track is the theme tune of ([name, href]).
+  t: [title: string, credit: string | null, episodes: number, eps: number[], themes?: [string, string][]][];
   h: [show: string, episodes: number][]; // show keys (see ArtistShard.sh); guests count individually
   m: [month: string, episodes: number][];
 }

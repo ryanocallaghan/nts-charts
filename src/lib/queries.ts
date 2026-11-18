@@ -40,6 +40,25 @@ export function showLink(r: { show: string; guest: string | null; showName: stri
     : { name: (r.guestName ?? r.guest).trim(), href: ntsEpisodeUrl(r.show, r.anyEpisode), guest: true };
 }
 
+export interface ThemeOf { name: string; href: string }
+/** For each track that is some show's theme tune, the show(s) it opens or closes. */
+export function themeTunesFor(trackIds: number[]): Map<number, ThemeOf[]> {
+  const out = new Map<number, ThemeOf[]>();
+  if (!trackIds.length) return out;
+  for (const r of all<{ trackId: number; key: string; showName: string | null }>(
+    `SELECT tt.track_id trackId, tt.show_key key, s.name showName FROM theme_tunes tt LEFT JOIN shows s ON s.alias = tt.show_key
+     WHERE tt.track_id IN (${trackIds.map(() => "?").join(",")})`,
+    ...trackIds,
+  )) {
+    const guest = r.key.startsWith("guests/") ? guestPages().get(r.key.slice(7)) : undefined;
+    const theme = guest
+      ? { name: guest.name, href: `/shows/guests/${guest.slug}/` }
+      : { name: r.showName ?? r.key, href: `/shows/${r.key}/` };
+    out.set(r.trackId, [...(out.get(r.trackId) ?? []), theme]);
+  }
+  return out;
+}
+
 // Shared FROM clause: an artist's plays.
 const ARTIST_PLAYS = `track_artists ta
   JOIN plays p ON p.track_id = ta.track_id
@@ -290,7 +309,10 @@ export function episodesForTracks(
   const out = new Map<number, { total: number; episodes: EpisodePlay[] }>();
   if (!trackIds.length) return out;
   const filter = period ? periodFilter(period.type, period.key) : { sql: "", params: [] };
-  const where = filter.sql;
+  // In a chart, leave out theme-tune plays, which don't count towards the chart (see theme_tunes).
+  const where = filter.sql + (period
+    ? ` AND NOT EXISTS (SELECT 1 FROM theme_tunes tt WHERE tt.show_key = ${SHOW_KEY} AND tt.track_id = p.track_id)`
+    : "");
   const rows = all<EpisodePlay & { trackId: number; rn: number; total: number }>(
     `SELECT * FROM (
        SELECT p.track_id trackId, e.alias episode, e.show_alias show, coalesce(s.name, e.show_alias) showName,

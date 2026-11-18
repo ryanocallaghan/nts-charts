@@ -1,6 +1,6 @@
 // Rebuild chart_entries from plays. Cheap enough to recompute fully on every run.
 //   node ingest/aggregate.ts
-import { PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type PeriodType, type Ranked } from "./charts.ts";
+import { findThemeTunes, PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type PeriodType, type Ranked } from "./charts.ts";
 import { openDb, setMeta, tx } from "./db.ts";
 import { isPlaceholder, slugify } from "./normalize.ts";
 
@@ -41,6 +41,20 @@ tx(db, () => {
   if (changed) console.log(`  named ${changed} guest mixes`);
 });
 
+// Theme tunes: a track that opens or closes most of a show's episodes doesn't count for that show.
+tx(db, () => {
+  const ends = db.prepare(`
+    SELECT coalesce('guests/' || e.guest_slug, e.show_alias) show,
+           (SELECT track_id FROM plays WHERE episode_alias = e.alias ORDER BY position LIMIT 1) first,
+           (SELECT track_id FROM plays WHERE episode_alias = e.alias ORDER BY position DESC LIMIT 1) last
+    FROM episodes e WHERE e.track_count > 0`).all() as { show: string; first: number | null; last: number | null }[];
+  const themes = findThemeTunes(ends.filter((e) => e.first != null && e.last != null) as { show: string; first: number; last: number }[]);
+  db.exec("DELETE FROM theme_tunes");
+  const ins = db.prepare("INSERT INTO theme_tunes(show_key, track_id, episodes, of_total) VALUES (?, ?, ?, ?)");
+  for (const t of themes) ins.run(t.show, t.trackId, t.episodes, t.ofTotal);
+  console.log(`  ${themes.length} theme tunes`);
+});
+
 // Distinct episodes / shows per (period, entity). Ties: more shows, then most recent play.
 function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
   const join = entity === "track" ? "" : "JOIN track_artists ta ON ta.track_id = p.track_id";
@@ -58,6 +72,7 @@ function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
              count(DISTINCT ep.show_key) AS shows,
              max(ep.broadcast_at) AS last_play
       FROM plays p JOIN ep ON ep.alias = p.episode_alias ${join}
+      WHERE NOT EXISTS (SELECT 1 FROM theme_tunes tt WHERE tt.show_key = ep.show_key AND tt.track_id = p.track_id)
       GROUP BY ep.pk, ${id}
       HAVING score >= ?
     ),

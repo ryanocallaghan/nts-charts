@@ -60,3 +60,29 @@ export function withMovement(rows: Ranked[]): Charted[] {
   }
   return out;
 }
+
+export interface EpisodeEnds { show: string; first: number; last: number }
+export interface ThemeTune { show: string; trackId: number; episodes: number; ofTotal: number }
+
+/**
+ * Theme tunes: a track that opens or closes at least `minShare` of a show's tracklisted episodes,
+ * and at least `minEpisodes` of them (e.g. a show that always starts with the same record).
+ */
+export function findThemeTunes(episodes: EpisodeEnds[], minEpisodes = 4, minShare = 0.5): ThemeTune[] {
+  const totals = new Map<string, number>();
+  const counts = new Map<string, Map<number, number>>();
+  for (const e of episodes) {
+    totals.set(e.show, (totals.get(e.show) ?? 0) + 1);
+    const byTrack = counts.get(e.show) ?? new Map<number, number>();
+    for (const id of new Set([e.first, e.last])) byTrack.set(id, (byTrack.get(id) ?? 0) + 1);
+    counts.set(e.show, byTrack);
+  }
+  const out: ThemeTune[] = [];
+  for (const [show, byTrack] of counts) {
+    const total = totals.get(show)!;
+    for (const [trackId, n] of byTrack) {
+      if (n >= minEpisodes && n / total >= minShare) out.push({ show, trackId, episodes: n, ofTotal: total });
+    }
+  }
+  return out;
+}

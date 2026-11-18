@@ -180,3 +180,6 @@ input.filter {
 ul.plain.columns { columns: 2 280px; column-gap: 2rem; margin-top: 0.75rem; }
 ul.plain.columns li { break-inside: avoid; }
 ul.plain li[hidden] { display: none; }
+
+.theme { display: block; font-size: 0.8rem; color: var(--muted); }
+.theme a { color: inherit; text-decoration: underline; text-decoration-color: var(--axis); }
