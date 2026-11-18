@@ -5,8 +5,9 @@ import type { PeriodType } from "./format.ts";
 const ARTIST_MIN_EPISODES = Number(process.env.ARTIST_MIN_EPISODES ?? 3);
 const ARTIST_MIN_SHOWS = Number(process.env.ARTIST_MIN_SHOWS ?? 2);
 // ...and at most this many (the most-played first). Cloudflare Pages allows 20,000 files per deploy;
-// shows and chart pages take roughly another 3,000.
-const ARTIST_PAGE_LIMIT = Number(process.env.ARTIST_PAGE_LIMIT ?? 15000);
+// shows, charts and the data/search shards take roughly another 5,500. Every other artist gets a
+// page rendered in the browser from a data shard (see artists/404.astro).
+const ARTIST_PAGE_LIMIT = Number(process.env.ARTIST_PAGE_LIMIT ?? 12000);
 
 // Shared FROM clause: an artist's plays.
 const ARTIST_PLAYS = `track_artists ta
@@ -36,30 +37,20 @@ export function artistsWithPages(): Map<number, string> {
   return pageSlugs;
 }
 
-/** Everything the search page can find: artists with pages and all shows (u = slug / alias). */
-export function searchIndex(): { n: string; u: string; k: "a" | "s"; e: number }[] {
-  const artists = loadPageArtists();
-  const out: { n: string; u: string; k: "a" | "s"; e: number }[] = [];
-  for (const r of pagedArtists()) out.push({ n: r.name, u: r.slug, k: "a", e: artists.get(r.id)?.episodes ?? 0 });
-  for (const s of allShows()) out.push({ n: s.name, u: s.alias, k: "s", e: s.episodes });
-  return out;
-}
-
 export interface ArtistRef { id: number; name: string; slug: string | null }
 
-/** Credited artists per track, in credit order, with slugs only where a page exists. */
+/** Credited artists per track, in credit order. */
 function artistsForTracks(trackIds: number[]): Map<number, ArtistRef[]> {
   const out = new Map<number, ArtistRef[]>();
   if (!trackIds.length) return out;
-  const pages = artistsWithPages();
-  const rows = all<{ track_id: number; id: number; name: string }>(
-    `SELECT ta.track_id, a.id, a.name FROM track_artists ta JOIN artists a ON a.id = ta.artist_id
+  const rows = all<{ track_id: number; id: number; name: string; slug: string }>(
+    `SELECT ta.track_id, a.id, a.name, a.slug FROM track_artists ta JOIN artists a ON a.id = ta.artist_id
      WHERE ta.track_id IN (${trackIds.map(() => "?").join(",")}) ORDER BY ta.rowid`,
     ...trackIds,
   );
   for (const r of rows) {
     const list = out.get(r.track_id) ?? [];
-    list.push({ id: r.id, name: r.name, slug: pages.get(r.id) ?? null });
+    list.push({ id: r.id, name: r.name, slug: r.slug });
     out.set(r.track_id, list);
   }
   return out;
@@ -89,13 +80,12 @@ export function trackChart(type: PeriodType, key: string, limit = 50): TrackEntr
 }
 
 export function artistChart(type: PeriodType, key: string, limit = 50): ArtistEntry[] {
-  const pages = artistsWithPages();
   return all<ArtistEntry>(
     `SELECT ${MOVEMENT}, a.id, a.name, a.slug
      FROM chart_entries c JOIN artists a ON a.id = c.entity_id
      WHERE c.period_type = ? AND c.period_key = ? AND c.entity_type = 'artist' AND c.rank <= ? ORDER BY c.rank`,
     type, key, limit,
-  ).map((r) => ({ ...r, slug: pages.has(r.id) ? r.slug : null }));
+  );
 }
 
 // ---------- site-wide ----------
@@ -205,13 +195,12 @@ export function showDetail(alias: string) {
      FROM episodes e JOIN plays p ON p.episode_alias = e.alias WHERE e.show_alias = ?`,
     alias,
   )!;
-  const pages = artistsWithPages();
-  const topArtists = all<{ id: number; name: string; episodes: number }>(
-    `SELECT a.id, a.name, count(DISTINCT p.episode_alias) episodes
+  const topArtists = all<{ id: number; name: string; slug: string; episodes: number }>(
+    `SELECT a.id, a.name, a.slug, count(DISTINCT p.episode_alias) episodes
      FROM ${ARTIST_PLAYS} JOIN artists a ON a.id = ta.artist_id
      WHERE e.show_alias = ? GROUP BY a.id ORDER BY episodes DESC, a.name LIMIT 20`,
     alias,
-  ).map((r) => ({ ...r, slug: pages.get(r.id) ?? null }));
+  );
   const topTracks = all<{ id: number; title: string; artistDisplay: string; episodes: number }>(
     `SELECT t.id, t.title_display title, t.artist_display artistDisplay, count(DISTINCT p.episode_alias) episodes
      FROM plays p JOIN episodes e ON e.alias = p.episode_alias JOIN tracks t ON t.id = p.track_id

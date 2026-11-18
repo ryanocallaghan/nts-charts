@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 ---
 <Base title="Search" section="search">
   <h1>Search</h1>
-  <p class="lede">Find an artist or show.</p>
+  <p class="lede">Find any artist or show played on NTS.</p>
   <label class="visually-hidden" for="q">Artist or show name</label>
   <input id="q" class="filter" type="search" placeholder="Artist or show name" autocomplete="off" autofocus />
   <p class="muted" id="status" aria-live="polite"></p>
@@ -12,52 +12,64 @@ import Base from "../layouts/Base.astro";
 </Base>
 
 <script>
-  type Entry = { n: string; u: string; k: "a" | "s"; e: number };
-  const norm = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  // Search files are split by word prefix (see src/lib/shard.ts and scripts/build-data.ts), so a query
+  // only downloads the one file for its most specific word.
+  import { searchFile, searchNorm, STOPWORDS } from "../lib/shard.ts";
+  import type { SearchEntry } from "../lib/longtail-types.ts";
 
   const input = document.getElementById("q") as HTMLInputElement;
   const status = document.getElementById("status")!;
   const results = document.getElementById("results")!;
-  let index: (Entry & { key: string })[] = [];
+  const files = new Map<string, Promise<(SearchEntry & { words?: string[] })[]>>();
+  const manifest = fetch("/data/search/index.json").then((r) => r.json() as Promise<{ split: string[] }>).then((m) => new Set(m.split));
+  const load = (f: string) => {
+    if (!files.has(f)) files.set(f, fetch(`/data/search/${f}.json`).then((r) => (r.ok ? r.json() : [])).catch(() => []));
+    return files.get(f)!;
+  };
 
-  function render() {
-    const q = norm(input.value);
-    results.replaceChildren();
-    if (!q) { status.textContent = ""; return; }
-    // Whole-name prefix beats word prefix beats anywhere; then the most-played first.
-    const scored = [];
-    for (const it of index) {
-      const at = it.key.indexOf(q);
-      if (at < 0) continue;
-      const tier = at === 0 ? 0 : it.key[at - 1] === " " ? 1 : 2;
-      scored.push({ it, tier });
+  let seq = 0;
+  async function render() {
+    const mine = ++seq;
+    const words = searchNorm(input.value).split(" ").filter(Boolean);
+    const q = words.join(" ");
+    if (!words.length) { results.replaceChildren(); status.textContent = ""; return; }
+    // Look up the longest word that isn't a stopword (or the longest of any if all are).
+    const pick = [...(words.some((w) => !STOPWORDS.has(w)) ? words.filter((w) => !STOPWORDS.has(w)) : words)].sort((a, b) => b.length - a.length)[0];
+    const split = await manifest;
+    if (pick.length < 2 && words.length === 1) { status.textContent = "Keep typing…"; results.replaceChildren(); return; }
+    if (pick.length < 3 && split.has(searchFile(pick, new Set()))) { status.textContent = "Keep typing…"; results.replaceChildren(); return; }
+    status.textContent = "Searching…";
+    const entries = await load(searchFile(pick, split));
+    if (mine !== seq) return;
+
+    // Every query word must start a word in the name; exact and leading matches rank first.
+    const scored: { e: SearchEntry; tier: number }[] = [];
+    for (const e of entries) {
+      const name = searchNorm(e[0]);
+      const nameWords = name.split(" ");
+      if (!words.every((w) => nameWords.some((nw) => nw.startsWith(w)))) continue;
+      scored.push({ e, tier: name === q ? 0 : name.startsWith(q) ? 1 : 2 });
     }
-    scored.sort((a, b) => a.tier - b.tier || b.it.e - a.it.e);
+    scored.sort((a, b) => a.tier - b.tier || b.e[2] - a.e[2]);
     status.textContent = scored.length ? `${scored.length.toLocaleString("en-GB")} match${scored.length === 1 ? "" : "es"}` : "No matches.";
-    for (const { it } of scored.slice(0, 50)) {
-      const li = document.createElement("li");
-      const a = document.createElement("a");
-      a.href = `/${it.k === "a" ? "artists" : "shows"}/${it.u}/`;
-      a.textContent = it.n;
-      const meta = document.createElement("span");
-      meta.className = "count";
-      meta.textContent = `${it.k === "a" ? "Artist" : "Show"} · ${it.e.toLocaleString("en-GB")} episode${it.e === 1 ? "" : "s"}`;
-      li.append(a, meta);
-      results.append(li);
-    }
+    results.replaceChildren(
+      ...scored.slice(0, 50).map(({ e: [name, path, eps] }) => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        const [kind, slug] = [path.slice(0, 1), path.slice(2)];
+        a.href = `/${kind === "a" ? "artists" : "shows"}/${slug}/`;
+        a.textContent = name;
+        const meta = document.createElement("span");
+        meta.className = "count";
+        meta.textContent = `${kind === "a" ? "Artist" : "Show"} · ${eps.toLocaleString("en-GB")} episode${eps === 1 ? "" : "s"}`;
+        li.append(a, meta);
+        return li;
+      }),
+    );
   }
 
-  status.textContent = "Loading…";
-  fetch("/search-index.json")
-    .then((r) => r.json())
-    .then((data: Entry[]) => {
-      index = data.map((d) => ({ ...d, key: norm(d.n) }));
-      const fromUrl = new URLSearchParams(location.search).get("q");
-      if (fromUrl && !input.value) input.value = fromUrl;
-      render();
-    })
-    .catch(() => { status.textContent = "Search couldn't load. Try again later, or browse all shows."; });
-
+  const fromUrl = new URLSearchParams(location.search).get("q");
+  if (fromUrl) { input.value = fromUrl; render(); }
   input.addEventListener("input", () => {
     render();
     const url = new URL(location.href);

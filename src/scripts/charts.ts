@@ -123,7 +123,14 @@ const io = new IntersectionObserver(
   },
   { rootMargin: "200px" },
 );
-document.querySelectorAll<HTMLElement>("[data-viz]").forEach((el) => io.observe(el));
+/** Lazily mount every [data-viz] chart under root (call again after inserting charts). */
+export function observeViz(root: ParentNode = document) {
+  root.querySelectorAll<HTMLElement>("[data-viz]:not([data-viz-seen])").forEach((el) => {
+    el.dataset.vizSeen = "";
+    io.observe(el);
+  });
+}
+observeViz();
 
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   for (const m of mounted) m.chart.setOption(option(m.data), true);

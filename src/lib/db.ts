@@ -14,3 +14,8 @@ export function all<T>(sql: string, ...params: Param[]): T[] {
 export function get<T>(sql: string, ...params: Param[]): T | undefined {
   return db.prepare(sql).get(...params) as T | undefined;
 }
+
+/** Stream rows instead of loading them all (for whole-archive passes). */
+export function iterate<T>(sql: string, ...params: Param[]): IterableIterator<T> {
+  return db.prepare(sql).iterate(...params) as IterableIterator<T>;
+}

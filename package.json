@@ -10,7 +10,7 @@
     "incremental": "node ingest/incremental.ts",
     "aggregate": "node ingest/aggregate.ts",
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && node scripts/build-data.ts",
     "preview": "astro preview",
     "test": "vitest run"
   },
