@@ -33,7 +33,9 @@ function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
   const sql = `
     WITH ep AS (
       SELECT alias, show_alias, broadcast_at, ${PERIOD_KEY_SQL[periodType]} AS pk
-      FROM episodes WHERE broadcast_at IS NOT NULL
+      FROM episodes ${periodType === "rolling" ? ", (SELECT 0 k UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3)" : ""}
+      WHERE broadcast_at IS NOT NULL
+        ${periodType === "rolling" ? `AND pk <= (SELECT max(strftime('%G-W%V', broadcast_at)) FROM episodes WHERE track_count > 0)` : ""}
     ),
     agg AS (
       SELECT ep.pk, ${id} AS eid,

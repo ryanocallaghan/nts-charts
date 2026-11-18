@@ -18,11 +18,20 @@ const next = keys[i + 1];
 const inProgress = key === currentPeriodKey(type);
 
 // Switching type keeps you near the same date.
-const start = type === "week" ? isoWeekStart(key) : new Date(`${type === "month" ? `${key}-01` : `${key}-01-01`}T00:00:00Z`);
+const start = type === "week" || type === "rolling" ? isoWeekStart(key) : new Date(`${type === "month" ? `${key}-01` : `${key}-01-01`}T00:00:00Z`);
 const near: Record<DatedPeriod, string> = {
   week: isoWeekKey(start),
+  rolling: isoWeekKey(start),
   month: start.toISOString().slice(0, 7),
   year: String(start.getUTCFullYear()),
+};
+const eyebrow = type === "rolling" ? "4-week chart" : `${typeLabel[type]} chart`;
+// Short labels for previous/next: "Week 46", "October 2026", "2025", or "To 15 Nov" for 4-week charts.
+const stepLabel = (k: string) => {
+  if (type !== "rolling") return periodLabel(type, k).split(" · ")[0];
+  const end = isoWeekStart(k);
+  end.setUTCDate(end.getUTCDate() + 6);
+  return `To ${end.getUTCDate()} ${end.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
 };
 const switchHref = (t: DatedPeriod) => {
   const ks = periodKeys(t);
@@ -30,8 +39,8 @@ const switchHref = (t: DatedPeriod) => {
   return target ? `/charts/${t}/${target}/` : "/charts/";
 };
 ---
-<Base title={`${typeLabel[type]} chart: ${periodLabel(type, key)}`} section="archive">
-  <p class="eyebrow">{typeLabel[type]} chart</p>
+<Base title={`${eyebrow}: ${periodLabel(type, key)}`} section="archive">
+  <p class="eyebrow">{eyebrow}</p>
   <h1>{periodLabel(type, key)} {inProgress && <span class="badge">In progress</span>}</h1>
 
   <div class="period-nav">
@@ -41,10 +50,10 @@ const switchHref = (t: DatedPeriod) => {
       ))}
       <a href="/charts/all/">All time</a>
     </nav>
-    <nav class="stepper" aria-label={`Previous and next ${type}`}>
-      {prev ? <a href={`/charts/${type}/${prev}/`} rel="prev">← {periodLabel(type, prev).split(" · ")[0]}</a> : <span class="disabled">← Earlier</span>}
+    <nav class="stepper" aria-label="Previous and next chart">
+      {prev ? <a href={`/charts/${type}/${prev}/`} rel="prev">← {stepLabel(prev)}</a> : <span class="disabled">← Earlier</span>}
       <span class="muted">·</span>
-      {next ? <a href={`/charts/${type}/${next}/`} rel="next">{periodLabel(type, next).split(" · ")[0]} →</a> : <span class="disabled">Later →</span>}
+      {next ? <a href={`/charts/${type}/${next}/`} rel="next">{stepLabel(next)} →</a> : <span class="disabled">Later →</span>}
     </nav>
   </div>
 

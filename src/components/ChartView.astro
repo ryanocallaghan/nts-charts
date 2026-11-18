@@ -8,7 +8,7 @@ import TrackTable from "./TrackTable.astro";
 
 interface Props { type: PeriodType; periodKey: string; limit?: number }
 const { type, periodKey, limit = type === "all" ? 100 : 50 } = Astro.props;
-const noun = { week: "Week", month: "Month", year: "Year", all: "" }[type];
+const noun = { week: "Week", rolling: "Week", month: "Month", year: "Year", all: "" }[type];
 const movement = type !== "all";
 const tracks = trackChart(type, periodKey, limit);
 const artists = artistChart(type, periodKey, limit);

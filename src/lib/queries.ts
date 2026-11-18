@@ -1,5 +1,5 @@
 import { all, get } from "./db.ts";
-import type { PeriodType } from "./format.ts";
+import { rollingStartKey, type PeriodType } from "./format.ts";
 
 // Artists get their own page only above this activity (keeps the site under hosting file limits).
 const ARTIST_MIN_EPISODES = Number(process.env.ARTIST_MIN_EPISODES ?? 3);
@@ -234,12 +234,13 @@ export function showDetail(alias: string) {
 
 export interface EpisodePlay { episode: string; show: string; showName: string; name: string; broadcast: string }
 
-const PERIOD_KEY_SQL: Record<PeriodType, string> = {
-  week: "strftime('%G-W%V', e.broadcast_at)",
-  month: "strftime('%Y-%m', e.broadcast_at)",
-  year: "strftime('%Y', e.broadcast_at)",
-  all: "'all'",
-};
+/** SQL condition (and params) selecting a chart period's episodes (alias e). */
+function periodFilter(type: PeriodType, key: string): { sql: string; params: string[] } {
+  if (type === "all") return { sql: "", params: [] };
+  if (type === "rolling") return { sql: "AND strftime('%G-W%V', e.broadcast_at) BETWEEN ? AND ?", params: [rollingStartKey(key), key] };
+  const fmt = { week: "%G-W%V", month: "%Y-%m", year: "%Y" }[type];
+  return { sql: `AND strftime('${fmt}', e.broadcast_at) = ?`, params: [key] };
+}
 
 /**
  * The episodes that played each track, newest first, optionally only within one chart period.
@@ -252,7 +253,8 @@ export function episodesForTracks(
 ): Map<number, { total: number; episodes: EpisodePlay[] }> {
   const out = new Map<number, { total: number; episodes: EpisodePlay[] }>();
   if (!trackIds.length) return out;
-  const where = period ? `AND ${PERIOD_KEY_SQL[period.type]} = ?` : "";
+  const filter = period ? periodFilter(period.type, period.key) : { sql: "", params: [] };
+  const where = filter.sql;
   const rows = all<EpisodePlay & { trackId: number; rn: number; total: number }>(
     `SELECT * FROM (
        SELECT p.track_id trackId, e.alias episode, e.show_alias show, coalesce(s.name, e.show_alias) showName,
@@ -264,7 +266,7 @@ export function episodesForTracks(
        LEFT JOIN shows s ON s.alias = e.show_alias
        WHERE e.broadcast_at IS NOT NULL ${where}
      ) WHERE rn <= ? ORDER BY trackId, rn`,
-    ...trackIds, ...(period ? [period.key] : []), limit,
+    ...trackIds, ...filter.params, limit,
   );
   for (const { trackId, rn: _rn, total, ...ep } of rows) {
     const entry = out.get(trackId) ?? { total, episodes: [] };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoWeekKey, isoWeekStart, periodLabel } from "./format.ts";
+import { isoWeekKey, isoWeekStart, periodLabel, rollingStartKey } from "./format.ts";
 
 describe("ISO weeks", () => {
   it("matches known ISO week numbers, including year boundaries", () => {
@@ -16,5 +16,11 @@ describe("ISO weeks", () => {
     expect(periodLabel("week", "2026-W47")).toBe("Week 47 · 16–22 Nov 2026");
     expect(periodLabel("week", "2026-W49")).toBe("Week 49 · 30 Nov – 6 Dec 2026");
     expect(periodLabel("month", "2026-11")).toBe("November 2026");
+    expect(periodLabel("rolling", "2026-W47")).toBe("4 weeks · 26 Oct – 22 Nov 2026");
+    expect(periodLabel("rolling", "2026-W02")).toBe("4 weeks · 15 Dec 2025 – 11 Jan 2026");
+  });
+  it("finds the first week of a 4-week window", () => {
+    expect(rollingStartKey("2026-W47")).toBe("2026-W44");
+    expect(rollingStartKey("2026-W02")).toBe("2025-W51");
   });
 });

@@ -5,25 +5,26 @@ import ChartView from "../components/ChartView.astro";
 import { currentPeriodKey, formatDate, periodLabel } from "../lib/format.ts";
 import { artistChart, periodKeys, siteStats, trackChart } from "../lib/queries.ts";
 
-const weeks = periodKeys("week");
-const latest = weeks.at(-1);
-const inProgress = latest === currentPeriodKey("week");
+// Lead with the 4-week chart: NTS rarely repeats a track within a single week.
+const latest = periodKeys("rolling").at(-1);
+const latestWeek = periodKeys("week").at(-1);
+const inProgress = latest === currentPeriodKey("rolling");
 const stats = siteStats();
 const topTracks = trackChart("all", "all", 10);
 const topArtists = artistChart("all", "all", 10);
 ---
 <Base title="NTS Charts" section="charts">
-  <p class="eyebrow">Weekly chart</p>
-  <h1>{latest ? periodLabel("week", latest) : "No charts yet"} {inProgress && <span class="badge">In progress</span>}</h1>
+  <p class="eyebrow">Last 4 weeks</p>
+  <h1>{latest ? periodLabel("rolling", latest).split(" · ")[1] : "No charts yet"} {inProgress && <span class="badge">In progress</span>}</h1>
   <p class="lede">
-    The tracks and artists played on the most NTS Radio episodes this week. A track scores once per episode that plays
-    it, so one show repeating a record doesn't top the chart.
+    The tracks and artists played on the most NTS Radio episodes over the last four weeks. A track scores once per
+    episode that plays it, so one show repeating a record doesn't top the chart.
   </p>
 
   {latest && (
     <>
-      <ChartView type="week" periodKey={latest} />
-      <p class="section"><a href={`/charts/week/${latest}/`}>Full week view</a> · <a href="/charts/">Browse every chart since {stats.first ? formatDate(stats.first).split(" ").at(-1) : "the start"}</a></p>
+      <ChartView type="rolling" periodKey={latest} />
+      <p class="section">{latestWeek && <><a href={`/charts/week/${latestWeek}/`}>This week only</a> · </>} <a href="/charts/">Browse every chart since {stats.first ? formatDate(stats.first).split(" ").at(-1) : "the start"}</a></p>
     </>
   )}
 

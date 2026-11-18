@@ -1,6 +1,6 @@
-export type PeriodType = "week" | "month" | "year" | "all";
+export type PeriodType = "week" | "rolling" | "month" | "year" | "all";
 export type DatedPeriod = Exclude<PeriodType, "all">;
-export const DATED_PERIODS: DatedPeriod[] = ["week", "month", "year"];
+export const DATED_PERIODS: DatedPeriod[] = ["week", "rolling", "month", "year"];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -25,7 +25,7 @@ export function isoWeekKey(d: Date): string {
 }
 
 export function currentPeriodKey(type: PeriodType, now = new Date()): string {
-  if (type === "week") return isoWeekKey(now);
+  if (type === "week" || type === "rolling") return isoWeekKey(now);
   if (type === "all") return "all";
   if (type === "month") return now.toISOString().slice(0, 7);
   return String(now.getUTCFullYear());
@@ -41,6 +41,13 @@ export function periodLabel(type: PeriodType, key: string): string {
   const start = isoWeekStart(key);
   const end = new Date(start);
   end.setUTCDate(start.getUTCDate() + 6);
+  if (type === "rolling") {
+    start.setUTCDate(start.getUTCDate() - 21);
+    const from = start.getUTCFullYear() === end.getUTCFullYear()
+      ? `${start.getUTCDate()} ${MONTHS[start.getUTCMonth()]}`
+      : `${start.getUTCDate()} ${MONTHS[start.getUTCMonth()]} ${start.getUTCFullYear()}`;
+    return `4 weeks · ${from} – ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]} ${end.getUTCFullYear()}`;
+  }
   const sameMonth = start.getUTCMonth() === end.getUTCMonth();
   const range = sameMonth
     ? `${start.getUTCDate()}–${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]}`
@@ -48,12 +55,19 @@ export function periodLabel(type: PeriodType, key: string): string {
   return `Week ${Number(key.split("-W")[1])} · ${range} ${end.getUTCFullYear()}`;
 }
 
+/** The first ISO week of a 4-week chart ending in `key`. */
+export function rollingStartKey(key: string): string {
+  const d = isoWeekStart(key);
+  d.setUTCDate(d.getUTCDate() - 21);
+  return isoWeekKey(d);
+}
+
 export function formatDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-export const typeLabel: Record<PeriodType, string> = { week: "Weekly", month: "Monthly", year: "Yearly", all: "All time" };
+export const typeLabel: Record<PeriodType, string> = { week: "Weekly", rolling: "4 weeks", month: "Monthly", year: "Yearly", all: "All time" };
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;

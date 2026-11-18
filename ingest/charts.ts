@@ -1,12 +1,15 @@
 // Pure chart logic (no DB) — unit tested in charts.test.ts.
 
-export type PeriodType = "week" | "month" | "year" | "all";
+export type PeriodType = "week" | "rolling" | "month" | "year" | "all";
 export type Status = "up" | "down" | "same" | "new" | "reentry";
 
-export const PERIOD_TYPES: PeriodType[] = ["week", "month", "year", "all"];
+export const PERIOD_TYPES: PeriodType[] = ["week", "rolling", "month", "year", "all"];
 // SQL expression giving an episode's period key (episodes alias: broadcast_at).
 export const PERIOD_KEY_SQL: Record<PeriodType, string> = {
   week: "strftime('%G-W%V', broadcast_at)", // ISO week, e.g. 2026-W47
+  // 4-week chart keyed by its last week: each episode counts towards the window ending in its own
+  // week and the three after (aggregate.ts fans episodes out over k = 0..3).
+  rolling: "strftime('%G-W%V', broadcast_at, '+' || (7 * k) || ' days')",
   month: "strftime('%Y-%m', broadcast_at)",
   year: "strftime('%Y', broadcast_at)",
   all: "'all'", // one all-time chart
