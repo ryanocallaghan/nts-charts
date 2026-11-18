@@ -1,13 +1,15 @@
 // Pure chart logic (no DB) — unit tested in charts.test.ts.
 
-export type PeriodType = "week" | "month" | "year";
+export type PeriodType = "week" | "month" | "year" | "all";
 export type Status = "up" | "down" | "same" | "new" | "reentry";
 
-export const PERIOD_TYPES: PeriodType[] = ["week", "month", "year"];
-export const PERIOD_FORMAT: Record<PeriodType, string> = {
-  week: "%G-W%V", // ISO week, e.g. 2026-W47
-  month: "%Y-%m",
-  year: "%Y",
+export const PERIOD_TYPES: PeriodType[] = ["week", "month", "year", "all"];
+// SQL expression giving an episode's period key (episodes alias: broadcast_at).
+export const PERIOD_KEY_SQL: Record<PeriodType, string> = {
+  week: "strftime('%G-W%V', broadcast_at)", // ISO week, e.g. 2026-W47
+  month: "strftime('%Y-%m', broadcast_at)",
+  year: "strftime('%Y', broadcast_at)",
+  all: "'all'", // one all-time chart
 };
 
 export interface Ranked {

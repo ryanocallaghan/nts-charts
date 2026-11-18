@@ -7,8 +7,9 @@ import Tabs from "./Tabs.astro";
 import TrackTable from "./TrackTable.astro";
 
 interface Props { type: PeriodType; periodKey: string; limit?: number }
-const { type, periodKey, limit = 50 } = Astro.props;
-const noun = { week: "Week", month: "Month", year: "Year" }[type];
+const { type, periodKey, limit = type === "all" ? 100 : 50 } = Astro.props;
+const noun = { week: "Week", month: "Month", year: "Year", all: "" }[type];
+const movement = type !== "all";
 const tracks = trackChart(type, periodKey, limit);
 const artists = artistChart(type, periodKey, limit);
 const id = `chart-${type}-${periodKey}`;
@@ -16,9 +17,9 @@ const id = `chart-${type}-${periodKey}`;
 <Tabs id={id} tabs={[{ key: "tracks", label: "Tracks" }, { key: "artists", label: "Artists" }]} />
 <div class="card section" style="margin-top:1rem">
   <div class="tabpanel" id={`${id}-tracks`} role="tabpanel" aria-labelledby={`${id}-tab-tracks`}>
-    <TrackTable rows={tracks} periodNoun={noun} />
+    <TrackTable rows={tracks} periodNoun={noun} movement={movement} />
   </div>
   <div class="tabpanel" id={`${id}-artists`} role="tabpanel" aria-labelledby={`${id}-tab-artists`}>
-    <ArtistTable rows={artists} periodNoun={noun} />
+    <ArtistTable rows={artists} periodNoun={noun} movement={movement} />
   </div>
 </div>

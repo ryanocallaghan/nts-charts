@@ -1,0 +1,22 @@
+---
+import Base from "../../layouts/Base.astro";
+import ChartView from "../../components/ChartView.astro";
+import { formatDate } from "../../lib/format.ts";
+import { siteStats } from "../../lib/queries.ts";
+
+const stats = siteStats();
+const since = stats.first ? formatDate(stats.first) : null;
+---
+<Base
+  title="All-time chart"
+  description="The 100 tracks and artists played on the most NTS Radio episodes, across the whole archive."
+  section="all"
+>
+  <p class="eyebrow">All-time chart</p>
+  <h1>All time</h1>
+  <p class="lede">
+    The 100 tracks and artists played on the most NTS Radio episodes{since && <> since {since}</>}, across
+    {" "}{stats.episodes.toLocaleString("en-GB")} episodes with tracklists. A track scores once per episode that plays it.
+  </p>
+  <ChartView type="all" periodKey="all" />
+</Base>

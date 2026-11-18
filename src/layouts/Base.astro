@@ -6,12 +6,13 @@ import { lastUpdated } from "../lib/queries.ts";
 interface Props {
   title: string;
   description?: string;
-  section?: "charts" | "archive" | "shows" | "search";
+  section?: "charts" | "all" | "archive" | "shows" | "search";
 }
 const { title, description = "Charts of the tracks and artists played on NTS Radio.", section } = Astro.props;
 const updated = lastUpdated();
 const nav = [
   { href: "/", label: "This week", key: "charts" },
+  { href: "/charts/all/", label: "All time", key: "all" },
   { href: "/charts/", label: "Archive", key: "archive" },
   { href: "/shows/", label: "Shows", key: "shows" },
   { href: "/search/", label: "Search", key: "search" },

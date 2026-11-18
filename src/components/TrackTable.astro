@@ -2,33 +2,33 @@
 import type { TrackEntry } from "../lib/queries.ts";
 import ArtistLinks from "./ArtistLinks.astro";
 import Movement from "./Movement.astro";
-interface Props { rows: TrackEntry[]; periodNoun: string }
-const { rows, periodNoun } = Astro.props;
+interface Props { movement?: boolean; rows: TrackEntry[]; periodNoun: string }
+const { rows, periodNoun, movement = true } = Astro.props;
 ---
 {rows.length === 0 ? <p class="muted">No tracks charted in this period yet.</p> : (
   <table class="chart">
     <thead>
       <tr>
         <th class="rank">#</th>
-        <th class="mv"><span class="visually-hidden">Movement</span></th>
+        {movement && <th class="mv"><span class="visually-hidden">Movement</span></th>}
         <th>Track</th>
         <th class="num" title="Distinct episodes that played it">Episodes</th>
         <th class="num hide-sm" title="Distinct shows that played it">Shows</th>
-        <th class="num hide-sm" title={`${periodNoun}s on chart`}>{periodNoun}s</th>
+        {movement && <th class="num hide-sm" title={`${periodNoun}s on chart`}>{periodNoun}s</th>}
       </tr>
     </thead>
     <tbody>
       {rows.map((r) => (
         <tr>
           <td class="rank">{r.rank}</td>
-          <td class="mv"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></td>
+          {movement && <td class="mv"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></td>}
           <td>
             <div class="title">{r.title}</div>
             <div class="sub"><ArtistLinks artists={r.artists} fallback={r.artistDisplay} /></div>
           </td>
           <td class="num">{r.score}</td>
           <td class="num hide-sm">{r.shows}</td>
-          <td class="num hide-sm">{r.periodsOnChart}</td>
+          {movement && <td class="num hide-sm">{r.periodsOnChart}</td>}
         </tr>
       ))}
     </tbody>

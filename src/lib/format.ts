@@ -1,4 +1,6 @@
-export type PeriodType = "week" | "month" | "year";
+export type PeriodType = "week" | "month" | "year" | "all";
+export type DatedPeriod = Exclude<PeriodType, "all">;
+export const DATED_PERIODS: DatedPeriod[] = ["week", "month", "year"];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -24,11 +26,13 @@ export function isoWeekKey(d: Date): string {
 
 export function currentPeriodKey(type: PeriodType, now = new Date()): string {
   if (type === "week") return isoWeekKey(now);
+  if (type === "all") return "all";
   if (type === "month") return now.toISOString().slice(0, 7);
   return String(now.getUTCFullYear());
 }
 
 export function periodLabel(type: PeriodType, key: string): string {
+  if (type === "all") return "All time";
   if (type === "year") return key;
   if (type === "month") {
     const [y, m] = key.split("-").map(Number);
@@ -49,7 +53,7 @@ export function formatDate(iso: string): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-export const typeLabel: Record<PeriodType, string> = { week: "Weekly", month: "Monthly", year: "Yearly" };
+export const typeLabel: Record<PeriodType, string> = { week: "Weekly", month: "Monthly", year: "Yearly", all: "All time" };
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;

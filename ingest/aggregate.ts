@@ -1,10 +1,11 @@
 // Rebuild chart_entries from plays. Cheap enough to recompute fully on every run.
 //   node ingest/aggregate.ts
-import { PERIOD_FORMAT, PERIOD_TYPES, withMovement, type Ranked } from "./charts.ts";
+import { PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type PeriodType, type Ranked } from "./charts.ts";
 import { openDb, setMeta, tx } from "./db.ts";
 import { isPlaceholder } from "./normalize.ts";
 
 const TOP_N = Number(process.env.CHART_SIZE ?? 50);
+const TOP_N_ALL_TIME = Number(process.env.ALL_TIME_CHART_SIZE ?? 100);
 // An item needs plays in this many distinct episodes to chart (filters one-off plays).
 const MIN_SCORE = Number(process.env.CHART_MIN_SCORE ?? 2);
 
@@ -26,12 +27,12 @@ tx(db, () => {
 });
 
 // Distinct episodes / shows per (period, entity). Ties: more shows, then most recent play.
-function ranked(periodFormat: string, entity: "track" | "artist"): Ranked[] {
+function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
   const join = entity === "track" ? "" : "JOIN track_artists ta ON ta.track_id = p.track_id";
   const id = entity === "track" ? "p.track_id" : "ta.artist_id";
   const sql = `
     WITH ep AS (
-      SELECT alias, show_alias, broadcast_at, strftime('${periodFormat}', broadcast_at) AS pk
+      SELECT alias, show_alias, broadcast_at, ${PERIOD_KEY_SQL[periodType]} AS pk
       FROM episodes WHERE broadcast_at IS NOT NULL
     ),
     agg AS (
@@ -48,7 +49,7 @@ function ranked(periodFormat: string, entity: "track" | "artist"): Ranked[] {
       FROM agg
     )
     SELECT pk AS periodKey, eid AS entityId, rk AS rank, score, shows FROM ranked WHERE rk <= ?`;
-  return db.prepare(sql).all(MIN_SCORE, TOP_N) as unknown as Ranked[];
+  return db.prepare(sql).all(MIN_SCORE, periodType === "all" ? TOP_N_ALL_TIME : TOP_N) as unknown as Ranked[];
 }
 
 const ins = db.prepare(
@@ -60,7 +61,7 @@ tx(db, () => {
   db.exec("DELETE FROM chart_entries");
   for (const periodType of PERIOD_TYPES) {
     for (const entity of ["track", "artist"] as const) {
-      const rows = withMovement(ranked(PERIOD_FORMAT[periodType], entity));
+      const rows = withMovement(ranked(periodType, entity));
       for (const r of rows) {
         ins.run(periodType, r.periodKey, entity, r.entityId, r.rank, r.score, r.shows, r.prevRank, r.status, r.periodsOnChart);
       }
