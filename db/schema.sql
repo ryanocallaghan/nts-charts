@@ -1,0 +1,82 @@
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS shows (
+  alias          TEXT PRIMARY KEY,
+  name           TEXT,
+  location       TEXT,
+  genres_json    TEXT,
+  image_url      TEXT,
+  updated        TEXT,
+  episodes_listed_at TEXT          -- when we last paged /shows/{alias}/episodes
+);
+
+CREATE TABLE IF NOT EXISTS episodes (
+  alias                TEXT PRIMARY KEY,
+  show_alias           TEXT NOT NULL,
+  name                 TEXT,
+  broadcast_at         TEXT,       -- ISO 8601 UTC
+  genres_json          TEXT,
+  moods_json           TEXT,
+  location             TEXT,
+  image_url            TEXT,
+  meta_fetched_at      TEXT,
+  tracklist_fetched_at TEXT,
+  track_count          INTEGER
+);
+CREATE INDEX IF NOT EXISTS episodes_broadcast ON episodes(broadcast_at);
+CREATE INDEX IF NOT EXISTS episodes_show ON episodes(show_alias);
+CREATE INDEX IF NOT EXISTS episodes_pending_tl ON episodes(tracklist_fetched_at) WHERE tracklist_fetched_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS tracks (
+  id             INTEGER PRIMARY KEY,
+  norm_key       TEXT NOT NULL UNIQUE,
+  isrc           TEXT,
+  deezer_id      INTEGER,
+  artist_display TEXT NOT NULL,
+  title_display  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tracks_isrc ON tracks(isrc) WHERE isrc IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS artists (
+  id        INTEGER PRIMARY KEY,
+  norm_name TEXT NOT NULL UNIQUE,
+  name      TEXT NOT NULL,
+  slug      TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS track_artists (
+  track_id  INTEGER NOT NULL REFERENCES tracks(id),
+  artist_id INTEGER NOT NULL REFERENCES artists(id),
+  PRIMARY KEY (track_id, artist_id)
+);
+CREATE INDEX IF NOT EXISTS track_artists_artist ON track_artists(artist_id);
+
+CREATE TABLE IF NOT EXISTS plays (
+  episode_alias TEXT NOT NULL REFERENCES episodes(alias),
+  position      INTEGER NOT NULL,
+  track_id      INTEGER NOT NULL REFERENCES tracks(id),
+  offset_s      INTEGER,
+  PRIMARY KEY (episode_alias, position)
+);
+CREATE INDEX IF NOT EXISTS plays_track ON plays(track_id);
+
+CREATE TABLE IF NOT EXISTS chart_entries (
+  period_type    TEXT NOT NULL,    -- week | month | year
+  period_key     TEXT NOT NULL,    -- 2026-W46 | 2026-11 | 2026
+  entity_type    TEXT NOT NULL,    -- track | artist
+  entity_id      INTEGER NOT NULL,
+  rank           INTEGER NOT NULL,
+  score          INTEGER NOT NULL, -- distinct episodes
+  shows_count    INTEGER NOT NULL, -- distinct shows
+  prev_rank      INTEGER,          -- rank in previous period of same type, NULL if absent
+  status         TEXT NOT NULL,    -- up | down | same | new | reentry
+  periods_on_chart INTEGER NOT NULL,
+  PRIMARY KEY (period_type, period_key, entity_type, rank)
+);
+CREATE INDEX IF NOT EXISTS chart_entity ON chart_entries(entity_type, entity_id);
+
+CREATE TABLE IF NOT EXISTS meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT
+);

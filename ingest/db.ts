@@ -1,0 +1,37 @@
+import { DatabaseSync } from "node:sqlite";
+import { readFileSync, mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+export const DB_PATH = process.env.NTS_DB ?? resolve(root, "data/nts.sqlite");
+
+export function openDb(path = DB_PATH): DatabaseSync {
+  mkdirSync(dirname(path), { recursive: true });
+  const db = new DatabaseSync(path);
+  db.exec(readFileSync(resolve(root, "db/schema.sql"), "utf8"));
+  db.exec("PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;");
+  return db;
+}
+
+/** Run fn inside a transaction, rolling back on error. */
+export function tx<T>(db: DatabaseSync, fn: () => T): T {
+  db.exec("BEGIN");
+  try {
+    const out = fn();
+    db.exec("COMMIT");
+    return out;
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
+export function setMeta(db: DatabaseSync, key: string, value: string) {
+  db.prepare("INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
+
+export function getMeta(db: DatabaseSync, key: string): string | undefined {
+  const row = db.prepare("SELECT value FROM meta WHERE key = ?").get(key) as { value: string } | undefined;
+  return row?.value;
+}

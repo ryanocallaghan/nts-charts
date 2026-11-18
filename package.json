@@ -1,0 +1,24 @@
+{
+  "name": "nts-charts",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "db:init": "node ingest/init-db.ts",
+    "backfill": "node ingest/backfill.ts",
+    "incremental": "node ingest/incremental.ts",
+    "aggregate": "node ingest/aggregate.ts",
+    "dev": "astro dev",
+    "build": "astro build && pagefind --site dist",
+    "preview": "astro preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "astro": "7.4.13"
+  },
+  "devDependencies": {
+    "pagefind": "1.6.0",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1"
+  }
+}
