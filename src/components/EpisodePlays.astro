@@ -1,0 +1,26 @@
+---
+// Expandable list of the episodes that played a track, with dates and links to nts.live.
+import type { EpisodePlay } from "../lib/queries.ts";
+import { formatDate, ntsEpisodeUrl, plural } from "../lib/format.ts";
+interface Props { plays?: { total: number; episodes: EpisodePlay[] }; label?: string }
+const { plays, label } = Astro.props;
+---
+{plays && plays.episodes.length > 0 && (
+  <details class="plays">
+    <summary>{label ?? `Played on ${plural(plays.total, "episode")}`}</summary>
+    <ul>
+      {plays.episodes.map((e) => (
+        <li>
+          <time datetime={e.broadcast}>{formatDate(e.broadcast)}</time>
+          <span>
+            <a href={ntsEpisodeUrl(e.show, e.episode)}>{e.name.trim()}</a>
+            {!e.name.toLowerCase().includes(e.showName.toLowerCase()) && (
+              <span class="muted"> · <a class="quiet" href={`/shows/${e.show}/`}>{e.showName}</a></span>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+    {plays.total > plays.episodes.length && <p class="muted">and {plural(plays.total - plays.episodes.length, "earlier episode")}</p>}
+  </details>
+)}

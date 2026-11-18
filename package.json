@@ -10,7 +10,7 @@
     "incremental": "node ingest/incremental.ts",
     "aggregate": "node ingest/aggregate.ts",
     "dev": "astro dev",
-    "build": "astro build && pagefind --site dist",
+    "build": "astro build",
     "preview": "astro preview",
     "test": "vitest run"
   },
@@ -19,7 +19,6 @@
     "echarts": "6.1.0"
   },
   "devDependencies": {
-    "pagefind": "1.6.0",
     "typescript": "7.0.2",
     "vitest": "5.1.1",
     "wrangler": "4.164.0"

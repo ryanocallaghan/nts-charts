@@ -1,7 +1,7 @@
 ---
 // One period's track + artist charts with a tab switch.
 import type { PeriodType } from "../lib/format.ts";
-import { artistChart, trackChart } from "../lib/queries.ts";
+import { artistChart, episodesForTracks, trackChart } from "../lib/queries.ts";
 import ArtistTable from "./ArtistTable.astro";
 import Tabs from "./Tabs.astro";
 import TrackTable from "./TrackTable.astro";
@@ -12,12 +12,13 @@ const noun = { week: "Week", month: "Month", year: "Year", all: "" }[type];
 const movement = type !== "all";
 const tracks = trackChart(type, periodKey, limit);
 const artists = artistChart(type, periodKey, limit);
+const plays = episodesForTracks(tracks.map((t) => t.id), { type, key: periodKey });
 const id = `chart-${type}-${periodKey}`;
 ---
 <Tabs id={id} tabs={[{ key: "tracks", label: "Tracks" }, { key: "artists", label: "Artists" }]} />
 <div class="card section" style="margin-top:1rem">
   <div class="tabpanel" id={`${id}-tracks`} role="tabpanel" aria-labelledby={`${id}-tab-tracks`}>
-    <TrackTable rows={tracks} periodNoun={noun} movement={movement} />
+    <TrackTable rows={tracks} periodNoun={noun} movement={movement} plays={plays} />
   </div>
   <div class="tabpanel" id={`${id}-artists`} role="tabpanel" aria-labelledby={`${id}-tab-artists`}>
     <ArtistTable rows={artists} periodNoun={noun} movement={movement} />

@@ -4,25 +4,45 @@ import type { PeriodType } from "./format.ts";
 // Artists get their own page only above this activity (keeps the site under hosting file limits).
 const ARTIST_MIN_EPISODES = Number(process.env.ARTIST_MIN_EPISODES ?? 3);
 const ARTIST_MIN_SHOWS = Number(process.env.ARTIST_MIN_SHOWS ?? 2);
+// ...and at most this many (the most-played first). Cloudflare Pages allows 20,000 files per deploy;
+// shows and chart pages take roughly another 3,000.
+const ARTIST_PAGE_LIMIT = Number(process.env.ARTIST_PAGE_LIMIT ?? 15000);
 
 // Shared FROM clause: an artist's plays.
 const ARTIST_PLAYS = `track_artists ta
   JOIN plays p ON p.track_id = ta.track_id
   JOIN episodes e ON e.alias = p.episode_alias`;
 
-let pageArtists: Map<number, string> | undefined;
-/** id -> slug for artists that get a page. */
-export function artistsWithPages(): Map<number, string> {
+let pageArtists: Map<number, { slug: string; episodes: number }> | undefined;
+function loadPageArtists() {
   pageArtists ??= new Map(
-    all<{ id: number; slug: string }>(
-      `SELECT a.id, a.slug FROM ${ARTIST_PLAYS} JOIN artists a ON a.id = ta.artist_id
-       GROUP BY a.id HAVING count(DISTINCT p.episode_alias) >= ? AND count(DISTINCT e.show_alias) >= ?
-       UNION
-       SELECT a.id, a.slug FROM artists a WHERE a.id IN (SELECT entity_id FROM chart_entries WHERE entity_type = 'artist')`,
-      ARTIST_MIN_EPISODES, ARTIST_MIN_SHOWS,
-    ).map((r) => [r.id, r.slug]),
+    all<{ id: number; slug: string; episodes: number }>(
+      `SELECT a.id, a.slug, count(DISTINCT p.episode_alias) episodes, count(DISTINCT e.show_alias) shows
+       FROM ${ARTIST_PLAYS} JOIN artists a ON a.id = ta.artist_id
+       GROUP BY a.id
+       HAVING (episodes >= ? AND shows >= ?)
+           OR a.id IN (SELECT entity_id FROM chart_entries WHERE entity_type = 'artist')
+       ORDER BY episodes DESC, shows DESC, a.id
+       LIMIT ?`,
+      ARTIST_MIN_EPISODES, ARTIST_MIN_SHOWS, ARTIST_PAGE_LIMIT,
+    ).map((r) => [r.id, { slug: r.slug, episodes: r.episodes }]),
   );
   return pageArtists;
+}
+let pageSlugs: Map<number, string> | undefined;
+/** id -> slug for artists that get a page. */
+export function artistsWithPages(): Map<number, string> {
+  pageSlugs ??= new Map([...loadPageArtists()].map(([id, a]) => [id, a.slug]));
+  return pageSlugs;
+}
+
+/** Everything the search page can find: artists with pages and all shows (u = slug / alias). */
+export function searchIndex(): { n: string; u: string; k: "a" | "s"; e: number }[] {
+  const artists = loadPageArtists();
+  const out: { n: string; u: string; k: "a" | "s"; e: number }[] = [];
+  for (const r of pagedArtists()) out.push({ n: r.name, u: r.slug, k: "a", e: artists.get(r.id)?.episodes ?? 0 });
+  for (const s of allShows()) out.push({ n: s.name, u: s.alias, k: "s", e: s.episodes });
+  return out;
 }
 
 export interface ArtistRef { id: number; name: string; slug: string | null }
@@ -219,4 +239,48 @@ export function showDetail(alias: string) {
     }
   }
   return { stats, topArtists, topTracks, episodes, tracklists };
+}
+
+// ---------- episodes that played a track ----------
+
+export interface EpisodePlay { episode: string; show: string; showName: string; name: string; broadcast: string }
+
+const PERIOD_KEY_SQL: Record<PeriodType, string> = {
+  week: "strftime('%G-W%V', e.broadcast_at)",
+  month: "strftime('%Y-%m', e.broadcast_at)",
+  year: "strftime('%Y', e.broadcast_at)",
+  all: "'all'",
+};
+
+/**
+ * The episodes that played each track, newest first, optionally only within one chart period.
+ * Returns at most `limit` per track, plus the total so callers can say "and N more".
+ */
+export function episodesForTracks(
+  trackIds: number[],
+  period?: { type: PeriodType; key: string },
+  limit = 25,
+): Map<number, { total: number; episodes: EpisodePlay[] }> {
+  const out = new Map<number, { total: number; episodes: EpisodePlay[] }>();
+  if (!trackIds.length) return out;
+  const where = period ? `AND ${PERIOD_KEY_SQL[period.type]} = ?` : "";
+  const rows = all<EpisodePlay & { trackId: number; rn: number; total: number }>(
+    `SELECT * FROM (
+       SELECT p.track_id trackId, e.alias episode, e.show_alias show, coalesce(s.name, e.show_alias) showName,
+              coalesce(e.name, e.alias) name, e.broadcast_at broadcast,
+              row_number() OVER (PARTITION BY p.track_id ORDER BY e.broadcast_at DESC) rn,
+              count(*) OVER (PARTITION BY p.track_id) total
+       FROM (SELECT DISTINCT track_id, episode_alias FROM plays WHERE track_id IN (${trackIds.map(() => "?").join(",")})) p
+       JOIN episodes e ON e.alias = p.episode_alias
+       LEFT JOIN shows s ON s.alias = e.show_alias
+       WHERE e.broadcast_at IS NOT NULL ${where}
+     ) WHERE rn <= ? ORDER BY trackId, rn`,
+    ...trackIds, ...(period ? [period.key] : []), limit,
+  );
+  for (const { trackId, rn: _rn, total, ...ep } of rows) {
+    const entry = out.get(trackId) ?? { total, episodes: [] };
+    entry.episodes.push(ep);
+    out.set(trackId, entry);
+  }
+  return out;
 }

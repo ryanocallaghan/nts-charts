@@ -1,9 +1,10 @@
 ---
-import type { TrackEntry } from "../lib/queries.ts";
+import type { EpisodePlay, TrackEntry } from "../lib/queries.ts";
+import EpisodePlays from "./EpisodePlays.astro";
 import ArtistLinks from "./ArtistLinks.astro";
 import Movement from "./Movement.astro";
-interface Props { movement?: boolean; rows: TrackEntry[]; periodNoun: string }
-const { rows, periodNoun, movement = true } = Astro.props;
+interface Props { movement?: boolean; rows: TrackEntry[]; periodNoun: string; plays?: Map<number, { total: number; episodes: EpisodePlay[] }> }
+const { rows, periodNoun, movement = true, plays } = Astro.props;
 ---
 {rows.length === 0 ? <p class="muted">No tracks charted in this period yet.</p> : (
   <table class="chart">
@@ -25,6 +26,7 @@ const { rows, periodNoun, movement = true } = Astro.props;
           <td>
             <div class="title">{r.title}</div>
             <div class="sub"><ArtistLinks artists={r.artists} fallback={r.artistDisplay} /></div>
+            <EpisodePlays plays={plays?.get(r.id)} label="Episodes" />
           </td>
           <td class="num">{r.score}</td>
           <td class="num hide-sm">{r.shows}</td>

@@ -62,6 +62,16 @@ jobs:
       - name: Build site
         run: npm run build
 
+      - name: Check the deploy fits Cloudflare's file limit
+        run: |
+          files=$(find dist -type f | wc -l)
+          echo "$files files"
+          # Cloudflare Pages rejects deploys over 20,000 files; fail here so the live site stays up.
+          if [ "$files" -gt 19800 ]; then
+            echo "::error::$files files is over the Cloudflare Pages limit. Lower ARTIST_PAGE_LIMIT."
+            exit 1
+          fi
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

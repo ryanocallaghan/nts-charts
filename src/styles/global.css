@@ -128,6 +128,16 @@ details.data-table table { border-collapse: collapse; margin-top: 0.5rem; font-v
 details.data-table td, details.data-table th { padding: 0.15rem 0.75rem 0.15rem 0; text-align: left; }
 .tabpanel[hidden] { display: none; }
 
+/* Episodes that played a track */
+details.plays { margin-top: 0.2rem; font-size: 0.85rem; }
+details.plays summary { cursor: pointer; color: var(--muted); width: fit-content; }
+details.plays summary:hover { color: var(--ink-2); }
+details.plays ul { list-style: none; margin: 0.35rem 0 0.25rem; padding: 0; }
+details.plays li { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.75rem; padding: 0.15rem 0; }
+details.plays time { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+details.plays p { margin: 0.25rem 0 0; }
+a.quiet { color: inherit; }
+
 /* Lists */
 ul.plain { list-style: none; margin: 0; padding: 0; }
 ul.plain li { padding: 0.45rem 0; border-bottom: 1px solid var(--grid); display: flex; justify-content: space-between; gap: 1rem; }

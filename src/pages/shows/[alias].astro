@@ -12,13 +12,13 @@ const { show } = Astro.props as { show: ShowRow };
 const d = showDetail(show.alias);
 ---
 <Base title={show.name} description={`What ${show.name} plays on NTS Radio: most-played artists and tracks, and recent tracklists.`} section="shows">
-  <article data-pagefind-body>
-    <p class="eyebrow" data-pagefind-ignore>Show{show.location && ` · ${show.location}`}</p>
-    <h1 data-pagefind-meta="title">{show.name}</h1>
+  <article>
+    <p class="eyebrow">Show{show.location && ` · ${show.location}`}</p>
+    <h1>{show.name}</h1>
     {show.genres.length > 0 && <p class="muted">{show.genres.join(" · ")}</p>}
-    <p data-pagefind-ignore><a href={ntsShowUrl(show.alias)}>Listen on nts.live →</a></p>
+    <p><a href={ntsShowUrl(show.alias)}>Listen on nts.live →</a></p>
 
-    <div class="stats" data-pagefind-ignore>
+    <div class="stats">
       <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{d.stats.episodes.toLocaleString("en-GB")}</div></div>
       <div class="stat"><div class="label">Plays</div><div class="value">{d.stats.plays.toLocaleString("en-GB")}</div></div>
       <div class="stat"><div class="label">Different tracks</div><div class="value">{d.stats.tracks.toLocaleString("en-GB")}</div></div>
@@ -46,7 +46,7 @@ const d = showDetail(show.alias);
       </section>
     </div>
 
-    <section class="card section" data-pagefind-ignore>
+    <section class="card section">
       <h2>Recent episodes</h2>
       {d.episodes.map((e) => (
         <details class="episode">
