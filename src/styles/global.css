@@ -167,6 +167,9 @@ ol.ranked .title { font-weight: 500; }
 ol.ranked .sub { color: var(--ink-2); font-size: 0.9rem; }
 ol.ranked .count { color: var(--muted); white-space: nowrap; }
 .card h3 { font-size: 1rem; margin: 0; }
+/* On the move: climbers and new entries, one card per kind */
+.movers h4 { margin: 1rem 0 0; font-size: 0.75rem; font-weight: 400; letter-spacing: 0.02em; color: var(--cds-text-secondary); }
+.movers h4 + .small { margin: 0.5rem 0 0; }
 .card .more { margin: 0.75rem 0 0; font-size: 0.9rem; }
 
 details.episode { border-bottom: 1px solid var(--grid); padding: 0.5rem 0; }
@@ -400,6 +403,7 @@ h1 .filter-heading { display: block; font-size: 1.25rem; color: var(--ink-2); ma
   .phone-tabs-bar { display: flex; margin: 0 0 0.75rem; }
   .phone-tabs-ready > .phone-tab-hidden { display: none; }
   .phone-tabs-ready > [data-tab] > h3:first-child { display: none; }
+  .phone-tabs-ready > .movers > h4:first-of-type { margin-top: 0; }
 }
 
 /* Home on phones: a compact hero so the #1s show on the first screen, roomier cards, one-column past years */

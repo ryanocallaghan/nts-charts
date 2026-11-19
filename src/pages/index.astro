@@ -95,23 +95,20 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
     </section>
   )}
 
-  {moves && (moves.climbers.length > 0 || moves.entries.length > 0) && (
+  {moves && [moves.tracks, moves.artists].some((m) => m.climbers.length > 0 || m.entries.length > 0) && (
     <section class="section">
       <h2>On the move</h2>
       <p class="section-meta">4-week chart, compared with last week's · <a href="/tastemakers/">who played them first</a></p>
       <div class="grid-2" data-phone-tabs="On the move">
-        {moves.climbers.length > 0 && (
-          <div class="card" data-tab="Climbers">
-            <h3>Biggest climbers</h3>
-            <RankedList items={moves.climbers} movement showKind />
+        {([["Tracks", moves.tracks], ["Artists", moves.artists]] as const).map(([name, m]) => (
+          <div class="card movers" data-tab={name}>
+            <h3>{name}</h3>
+            <h4>Biggest climbers</h4>
+            {m.climbers.length ? <RankedList items={m.climbers} movement /> : <p class="muted small">No climbers this week.</p>}
+            <h4>New entries</h4>
+            {m.entries.length ? <RankedList items={m.entries} movement /> : <p class="muted small">No new entries this week.</p>}
           </div>
-        )}
-        {moves.entries.length > 0 && (
-          <div class="card" data-tab="New entries">
-            <h3>New entries</h3>
-            <RankedList items={moves.entries} movement showKind />
-          </div>
-        )}
+        ))}
       </div>
     </section>
   )}
