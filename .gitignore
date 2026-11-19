@@ -5,3 +5,5 @@ data/*.sqlite*
 data/*.gz
 .env
 .wrangler/
+seed/
+*.pem
