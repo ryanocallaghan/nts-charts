@@ -31,9 +31,11 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
       <div class="stat"><div class="label">Tracks played</div><div class="value">{d.stats.tracks.toLocaleString("en-GB")}</div></div>
       <div class="stat"><div class="label">Peak weekly rank</div><div class="value">{peak ? `#${peak}` : "—"}</div></div>
     </div>
-    <p class="muted section" style="margin-top:0.75rem">
-      First played {formatDate(d.stats.first)} · most recently {formatDate(d.stats.last)}
-    </p>
+    {d.stats.first && (
+      <p class="muted section" style="margin-top:0.75rem">
+        {d.stats.first.slice(0, 10) === d.stats.last?.slice(0, 10) ? `Played ${formatDate(d.stats.first)}` : `First played ${formatDate(d.stats.first)} · most recently ${formatDate(d.stats.last!)}`}
+      </p>
+    )}
 
     <div class="grid-2 section">
       <TimeChart title="Plays over time" caption="Episodes that played them, per month" data={monthlyBars(d.monthly)} />

@@ -84,7 +84,7 @@ import Base from "../../layouts/Base.astro";
         <div class="stat"><div class="label">Tracks played</div><div class="value">${n(a.k)}</div></div>
         <div class="stat"><div class="label">Peak weekly rank</div><div class="value">${a.p ? `#${a.p}` : "—"}</div></div>
       </div>
-      <p class="muted section" style="margin-top:0.75rem">${a.f === a.l ? `Played ${formatDate(a.f)}` : `First played ${formatDate(a.f)} · most recently ${formatDate(a.l)}`}</p>
+      ${a.f ? `<p class="muted section" style="margin-top:0.75rem">${a.f === a.l ? `Played ${formatDate(a.f)}` : `First played ${formatDate(a.f)} · most recently ${formatDate(a.l)}`}</p>` : ""}
       ${a.m.length > 1 ? `<section class="card viz-card section"><h2>Plays over time</h2><p class="caption">Episodes that played them, per month</p>
         <div class="viz" style="height:260px" data-viz="${esc(JSON.stringify(viz))}" role="img" aria-label="Plays over time"></div></section>` : ""}
       <div class="grid-2 section">

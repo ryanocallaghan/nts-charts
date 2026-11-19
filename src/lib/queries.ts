@@ -1,5 +1,6 @@
 import { all, get } from "./db.ts";
 import { PAGE_ARTISTS_PARAMS, PAGE_ARTISTS_SQL, SHOW_KEY } from "./artist-pages.ts";
+import { DATED } from "./dates.ts";
 import { ntsEpisodeUrl, rollingStartKey, type PeriodType } from "./format.ts";
 
 // NTS files one-off guest mixes under one catch-all show. Each guest counts as its own "show"
@@ -128,7 +129,7 @@ export function siteStats() {
     `SELECT (SELECT count(*) FROM shows) shows,
             (SELECT count(*) FROM episodes WHERE track_count > 0) episodes,
             (SELECT count(*) FROM plays) plays, (SELECT count(*) FROM tracks) tracks, (SELECT count(*) FROM artists) artists,
-            (SELECT min(broadcast_at) FROM episodes WHERE track_count > 0) first`,
+            (SELECT min(broadcast_at) FROM episodes e WHERE track_count > 0 AND ${DATED}) first`,
   )!;
 }
 
@@ -178,9 +179,10 @@ export function artistInfo(id: number): ArtistInfo | null {
 }
 
 export function artistDetail(id: number) {
-  const stats = get<{ episodes: number; shows: number; tracks: number; first: string; last: string }>(
+  const stats = get<{ episodes: number; shows: number; tracks: number; first: string | null; last: string | null }>(
     `SELECT count(DISTINCT p.episode_alias) episodes, count(DISTINCT ${SHOW_KEY}) shows,
-            count(DISTINCT p.track_id) tracks, min(e.broadcast_at) first, max(e.broadcast_at) last
+            count(DISTINCT p.track_id) tracks,
+            min(CASE WHEN ${DATED} THEN e.broadcast_at END) first, max(CASE WHEN ${DATED} THEN e.broadcast_at END) last
      FROM ${ARTIST_PLAYS} WHERE ta.artist_id = ?`,
     id,
   )!;
@@ -200,7 +202,7 @@ export function artistDetail(id: number) {
   ).map((r) => ({ ...showLink(r), episodes: r.episodes }));
   const monthly = all<{ month: string; episodes: number }>(
     `SELECT strftime('%Y-%m', e.broadcast_at) month, count(DISTINCT p.episode_alias) episodes
-     FROM ${ARTIST_PLAYS} WHERE ta.artist_id = ? GROUP BY month ORDER BY month`,
+     FROM ${ARTIST_PLAYS} WHERE ta.artist_id = ? AND ${DATED} GROUP BY month ORDER BY month`,
     id,
   );
   const recent = all<{ episode: string; show: string; showName: string; name: string; broadcast: string; title: string }>(
@@ -252,7 +254,7 @@ export function showDetail(alias: string, guest?: string) {
   const [col, key] = guest ? ["guest_slug", guest] : ["show_alias", alias];
   const stats = get<{ episodes: number; plays: number; tracks: number; first: string; last: string }>(
     `SELECT count(DISTINCT e.alias) episodes, count(p.track_id) plays, count(DISTINCT p.track_id) tracks,
-            min(e.broadcast_at) first, max(e.broadcast_at) last
+            min(CASE WHEN ${DATED} THEN e.broadcast_at END) first, max(CASE WHEN ${DATED} THEN e.broadcast_at END) last
      FROM episodes e JOIN plays p ON p.episode_alias = e.alias WHERE e.${col} = ?`,
     key,
   )!;

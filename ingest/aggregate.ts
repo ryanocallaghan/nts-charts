@@ -3,6 +3,7 @@
 import { findThemeTunes, PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type PeriodType, type Ranked } from "./charts.ts";
 import { openDb, setMeta, tx } from "./db.ts";
 import { isPlaceholder, slugify } from "./normalize.ts";
+import { FIRST_VALID_DATE } from "../src/lib/dates.ts";
 
 // NTS files one-off guest mixes under one catch-all show; each guest (from the episode name) counts as its own show.
 const GUESTS_SHOW = "guests";
@@ -63,7 +64,7 @@ function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
     WITH ep AS (
       SELECT alias, coalesce('guests/' || guest_slug, show_alias) AS show_key, broadcast_at, ${PERIOD_KEY_SQL[periodType]} AS pk
       FROM episodes ${periodType === "rolling" ? ", (SELECT 0 k UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3)" : ""}
-      WHERE broadcast_at IS NOT NULL
+      WHERE broadcast_at >= '${FIRST_VALID_DATE}'
         ${periodType === "rolling" ? `AND pk <= (SELECT max(strftime('%G-W%V', broadcast_at)) FROM episodes WHERE track_count > 0)` : ""}
     ),
     agg AS (

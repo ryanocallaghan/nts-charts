@@ -7,6 +7,7 @@ import { mkdirSync, renameSync, rmSync, writeFileSync, existsSync } from "node:f
 import { all, get, iterate } from "../src/lib/db.ts";
 import { artistsWithPages, guestPages } from "../src/lib/queries.ts";
 import { ntsEpisodeUrl } from "../src/lib/format.ts";
+import { FIRST_VALID_DATE } from "../src/lib/dates.ts";
 import { ARTIST_SHARDS, artistShard, searchFile, searchKey, searchWords } from "../src/lib/shard.ts";
 import type { ArtistShard, LongtailArtist, SearchEntry } from "../src/lib/longtail-types.ts";
 
@@ -94,6 +95,7 @@ function flush() {
     const show = showOf(a);
     shows.set(show.key, (shows.get(show.key) ?? 0) + 1);
     shard.sh[show.key] ??= [show.name, show.href];
+    if (date < FIRST_VALID_DATE) continue; // symbolic pre-NTS dates don't count as plays in time
     months.set(date.slice(0, 7), (months.get(date.slice(0, 7)) ?? 0) + 1);
     if (date < first) first = date;
     if (date > last) last = date;
@@ -108,7 +110,7 @@ function flush() {
     e: eps.size,
     s: shows.size,
     k: tracks.size,
-    f: first,
+    f: first === "9999" ? "" : first, // no dated plays (only symbolic pre-NTS dates)
     l: last,
     p: peaks.get(current.id) ?? null,
     t: top.map((t) => {
