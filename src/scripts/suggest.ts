@@ -1,6 +1,8 @@
 // Search suggestions for every form[data-suggest] (see HeaderSearch.astro): an ARIA combobox with a
 // listbox of up to 8 results from /api/search.json, then "All results". Arrow keys move, Enter opens,
 // Escape closes. Without a highlighted option, Enter submits the form to /search/ as normal.
+import { linkKind, track } from "./analytics.ts";
+
 interface Result { name: string; href: string; meta: string }
 
 for (const form of document.querySelectorAll<HTMLFormElement>("form[data-suggest]")) {
@@ -40,6 +42,9 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form[data-suggest
     const a = document.createElement("a");
     a.href = href;
     a.tabIndex = -1;
+    // Counted by Umami on click; Enter is counted below.
+    a.dataset.umamiEvent = "Search suggestion";
+    a.dataset.umamiEventKind = linkKind(href);
     a.textContent = label;
     li.append(a);
     if (meta) {
@@ -82,7 +87,9 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form[data-suggest
       highlight(active + (e.key === "ArrowDown" ? 1 : -1));
     } else if (e.key === "Enter" && !list.hidden && active >= 0) {
       e.preventDefault();
-      location.href = options()[active].querySelector("a")!.href;
+      const a = options()[active].querySelector("a")!;
+      track("Search suggestion", { kind: a.dataset.umamiEventKind ?? "" });
+      location.href = a.href;
     } else if (e.key === "Escape" && !list.hidden) {
       e.preventDefault();
       close();

@@ -1,0 +1,29 @@
+---
+// Leave this browser's visits out of the analytics (Umami reads umami.disabled from localStorage).
+// Not linked from anywhere; open /ignore-me/ on each browser you use.
+import Base from "../layouts/Base.astro";
+---
+<Base title="Leave out my visits">
+  <h1>Leave out my visits</h1>
+  <p class="lede" id="ignore-status">This needs JavaScript.</p>
+  <button type="button" class="cds--btn cds--btn--primary" id="ignore-toggle" hidden></button>
+</Base>
+
+<script>
+  const status = document.getElementById("ignore-status")!;
+  const button = document.getElementById("ignore-toggle") as HTMLButtonElement;
+  const KEY = "umami.disabled";
+  const get = () => { try { return localStorage.getItem(KEY) === "1"; } catch { return null; } };
+  function show() {
+    const off = get();
+    if (off === null) { status.textContent = "This browser blocks site storage, so it can't be left out."; return; }
+    status.textContent = off ? "This browser's visits are left out of the analytics." : "This browser's visits count like anyone else's.";
+    button.textContent = off ? "Count my visits again" : "Leave out this browser's visits";
+    button.hidden = false;
+  }
+  button.addEventListener("click", () => {
+    try { get() ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, "1"); } catch {}
+    show();
+  });
+  show();
+</script>

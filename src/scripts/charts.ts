@@ -6,6 +6,7 @@ import { CalendarComponent, DataZoomComponent, GridComponent, TooltipComponent, 
 import { SVGRenderer } from "echarts/renderers";
 import { formatViz, heatBins } from "../lib/series.ts";
 import { formatDate } from "../lib/format.ts";
+import { linkKind, track } from "./analytics.ts";
 
 echarts.use([BarChart, GraphChart, HeatmapChart, LineChart, CalendarComponent, GridComponent, TooltipComponent, DataZoomComponent, VisualMapComponent, SVGRenderer]);
 
@@ -313,8 +314,10 @@ function mount(el: HTMLElement) {
       chart.setOption(option(data, el.dataset.year), true);
     });
   }
-  if (data.kind === "bump") chart.on("click", (p) => { const href = data.hrefs?.[p.seriesIndex ?? -1]; if (href) location.href = href; });
-  if (data.kind === "graph") chart.on("click", (p) => { const href = (p.data as { href?: string })?.href; if (href) location.href = href; });
+  // Chart clicks open the line's or node's page; counted as events (Umami can't see clicks inside a chart).
+  const open = (name: string, href?: string) => { if (!href) return; track(name, { kind: linkKind(href) }); location.href = href; };
+  if (data.kind === "bump") chart.on("click", (p) => open("Bump chart click", data.hrefs?.[p.seriesIndex ?? -1]));
+  if (data.kind === "graph") chart.on("click", (p) => open("Connections click", (p.data as { href?: string })?.href));
   new ResizeObserver(() => chart.resize()).observe(el);
   mounted.push({ chart, data, el });
 }

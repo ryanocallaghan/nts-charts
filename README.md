@@ -63,6 +63,8 @@ Cron on the server, in UK time, kept clear of MY BIN.DAY's jobs (2pm, 6pm and ea
 
 The weekly backup keeps the last four copies in `~/backups` and uploads one to the `db-latest` release. It needs the GitHub CLI (`sudo apt install gh`), signed in once with `gh auth login --with-token` using a fine-grained token for this repository with **Contents: read and write**.
 
+**Analytics.** Visits are counted, without cookies, by the [Umami](https://umami.is) that MY BIN.DAY runs on the same server: one dashboard at https://stats.mybin.day, with this site as a second website there. Its script and the address visits are sent to are served from this site (`/s/app.js`, see that project's `deploy/Caddyfile`), so ad blockers skip them more often. Put the website ID from Umami in `~/nts-charts/.env` as `UMAMI_WEBSITE_ID=...` and run `docker compose up -d web`. Without it, pages have no analytics script. Page views are recorded without query strings, so searches and chart filters are counted as events instead (`src/scripts/analytics.ts`). The events are: Searched, Filtered chart, Search suggestion, Listen on NTS, Show more, Calendar year, Bump chart click and Connections click. To leave out your own visits, open `/ignore-me/` in each browser you use.
+
 To crawl the whole archive again (rarely needed), run `docker compose exec -T web node ingest/backfill.ts --max-minutes 120` by hand, in the daytime and never across 5:30–6:30pm.
 
 ## Running in Docker

@@ -16,6 +16,9 @@ interface Props {
 const { title, description = "Charts of the tracks and artists played on NTS Radio.", section, hideWordmark = false } = Astro.props;
 const updated = lastUpdated();
 const latestChart = periodKeys("rolling").at(-1);
+// Umami analytics (cookie-free, on the same server; see README): its website ID, read when the page is
+// rendered. Unset: no analytics script.
+const umamiId = process.env.UMAMI_WEBSITE_ID || null;
 const nav = [
   { href: "/", label: "Home", key: "home" },
   { href: latestChart ? `/charts/rolling/${latestChart}/` : "/charts/", label: "Charts", key: "charts" },
@@ -34,6 +37,10 @@ const nav = [
     <title>{title === SITE_NAME ? title : `${title} · ${SITE_NAME}`}</title>
     <meta name="description" content={description} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {umamiId && (
+      // Served from this site (Caddy passes /s/ to Umami). Without query strings: searches and filters are events.
+      <script is:inline defer src="/s/app.js" data-website-id={umamiId} data-host-url="/s" data-domains="nts.ryanocallaghan.com" data-exclude-search="true" data-exclude-hash="true"></script>
+    )}
   </head>
   <body>
     <header class="cds--header site-header" aria-label={SITE_NAME} data-defer-logo={hideWordmark ? "" : undefined}>
@@ -106,6 +113,7 @@ const nav = [
     <script>
       import "../scripts/suggest.ts";
       import "../scripts/collapse.ts";
+      import "../scripts/analytics.ts";
     </script>
     <main class="wrap">
       <slot />
@@ -117,6 +125,7 @@ const nav = [
           Listen at <a href="https://www.nts.live">nts.live</a>.
         </p>
         <p>Artist info from <a href="https://musicbrainz.org">MusicBrainz</a> and <a href="https://en.wikipedia.org">Wikipedia</a>; credited on each artist page.</p>
+        {umamiId && <p>Visits are counted with <a href="https://umami.is">Umami</a>, without cookies.</p>}
         {updated && <p>Data updated {formatDate(updated)}.</p>}
       </div>
     </footer>

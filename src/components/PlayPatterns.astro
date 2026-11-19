@@ -19,7 +19,7 @@ const hours = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
       <p class="caption">{what}, per day</p>
       {years.length > 1 && (
         <div class="year-switch" role="group" aria-label="Year">
-          {years.map((y) => <button type="button" class="year-btn" data-cal-year={y} aria-pressed={String(y === latest)} hidden>{y}</button>)}
+          {years.map((y) => <button type="button" class="year-btn" data-cal-year={y} data-umami-event="Calendar year" aria-pressed={String(y === latest)} hidden>{y}</button>)}
         </div>
       )}
       <div class="viz" style="height:150px" data-viz={JSON.stringify(calendar)} data-year={latest} role="img" aria-label={`${what}, per day, by year.`}></div>

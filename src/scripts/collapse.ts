@@ -20,6 +20,7 @@ export function initCollapse(root: ParentNode = document) {
       const all = shown >= items.length;
       const next = Math.min(step, items.length - shown);
       button.textContent = all ? "Show fewer" : `Show ${next} more (${shown + 1}–${shown + next} of ${items.length})`;
+      button.dataset.umamiEvent = all ? "Show fewer" : "Show more"; // counted by Umami on click
       button.setAttribute("aria-expanded", String(all));
     };
     button.addEventListener("click", () => {

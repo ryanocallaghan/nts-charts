@@ -9,6 +9,8 @@ services:
     environment:
       # Applies to ingest run with `docker compose exec` too.
       NODE_OPTIONS: --max-old-space-size=384
+      # Umami analytics: the website ID from stats.mybin.day, set in ~/nts-charts/.env. Unset: none.
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
     volumes:
       - nts-data:/data
     # So nts-charts can never take memory or CPU from bin day lookups. Ingest runs inside this

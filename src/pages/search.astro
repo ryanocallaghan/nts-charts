@@ -16,7 +16,7 @@ const r = q.trim() ? search(q) : null;
     <SearchField id="q" name="q" value={q} label="Artist or show name" autofocus />
   </form>
   <p class="muted" id="status" aria-live="polite">{r ? searchStatus(r) : ""}</p>
-  <ul class="plain" id="results" data-collapse-list="10">
+  <ul class="plain" id="results" data-collapse-list="10" data-total={r?.total}>
     {r?.results.map((x) => <li><a href={x.href}>{x.name}</a><span class="count">{x.meta}</span></li>)}
   </ul>
 </Base>
@@ -24,6 +24,7 @@ const r = q.trim() ? search(q) : null;
 <script>
   import type { SearchResult } from "../lib/search.ts";
   import { recollapse } from "../scripts/collapse.ts";
+  import { searchTerm, track } from "../scripts/analytics.ts";
 
   const input = document.getElementById("q") as HTMLInputElement;
   const status = document.getElementById("status")!;
@@ -31,13 +32,28 @@ const r = q.trim() ? search(q) : null;
 
   let seq = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+
+  // Count a search once typing has paused for 2 seconds (or when leaving the page first), not every
+  // keystroke. A term already in the address when the page opened is counted by analytics.ts.
+  let counted = searchTerm(input.value);
+  let pending: { q: string; results: number } | null = null;
+  let countTimer: ReturnType<typeof setTimeout> | undefined;
+  function count() {
+    clearTimeout(countTimer);
+    if (pending && pending.q.length >= 2 && pending.q !== counted) {
+      counted = pending.q;
+      track("Searched", pending);
+    }
+    pending = null;
+  }
+  addEventListener("pagehide", count);
   async function render() {
     const mine = ++seq;
     const q = input.value.trim();
     if (!q) { results.replaceChildren(); recollapse(results); status.textContent = ""; return; }
     try {
       const res = await fetch(`/api/search.json?q=${encodeURIComponent(q)}`);
-      const data = (await res.json()) as { status: string; results: SearchResult[] };
+      const data = (await res.json()) as { status: string; total?: number; results: SearchResult[] };
       if (mine !== seq) return;
       status.textContent = data.status;
       results.replaceChildren(
@@ -54,6 +70,9 @@ const r = q.trim() ? search(q) : null;
         }),
       );
       recollapse(results);
+      pending = { q: searchTerm(q), results: data.total ?? data.results.length };
+      clearTimeout(countTimer);
+      countTimer = setTimeout(count, 2000);
     } catch {
       if (mine === seq) status.textContent = "Search isn't working right now. Press Enter to try again.";
     }
