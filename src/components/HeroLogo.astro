@@ -1,0 +1,25 @@
+---
+// The block-style Top of the NTS logo as text (see design/README.md). Plex Mono's symbol subset covers the
+// box-drawing and block characters; ● isn't in Plex Mono, so each sits in a fixed 1ch box to keep alignment.
+import { SITE_NAME } from "../lib/format.ts";
+---
+<h1 class="hero-logo">
+  <span class="visually-hidden">{SITE_NAME}</span>
+  <span class="ascii" aria-hidden="true" set:html={` <span class="dot">●</span>  ┌───────────────────────┐  █
+    │   █████  ███  ████    │  █
+ █  │     █   █   █ █   █   │  █
+ █  │     █   █   █ ████    │  █
+ █  │     █   █   █ █       │  █
+ █  │     █    ███  █       │  █
+ █  └───────────────────────┘  █
+ █  ┌──────────┐ ┌──────────┐  █
+ █  │       OF │ │ THE      │  █
+ █  └──────────┘ └──────────┘  █
+ █  ┌───────────────────────┐  █
+ █  │   █   █ █████  ████   │  █
+ █  │   ██  █   █   █       │  █
+ █  │   █ █ █   █    ███    │  █
+ █  │   █  ██   █       █   │  █
+ █  │   █   █   █   ████    │   
+ █  └───────────────────────┘  <span class="dot">●</span>`} />
+</h1>

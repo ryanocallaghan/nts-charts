@@ -195,3 +195,18 @@ ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
 .small { font-size: 0.85rem; }
 .otd { margin: 0.75rem 0 0; }
 .section > h2 + .grid-2, .section > h2 + .card, .section > h2 + .viz-card { margin-top: 0.75rem; }
+
+/* Home hero: the block-style ASCII logo beside the intro. */
+.hero { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem 2.5rem; }
+.hero-logo { margin: 0; line-height: 1; font-weight: 600; }
+.hero-logo .ascii {
+  display: block; white-space: pre; font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  /* 31 columns: scale down to fit narrow screens, up to 18px. */
+  font-size: clamp(8px, calc((100vw - 2rem) / 19), 18px); line-height: 1.05; letter-spacing: 0;
+  color: var(--cds-text-primary);
+}
+.hero-logo .dot { display: inline-block; width: 1ch; text-align: center; overflow: visible; }
+.hero-text { flex: 1 1 20rem; }
+.hero-text .lede { margin-bottom: 1.25rem; }
+.hero-period { font-size: 1.75rem; margin: 0 0 0.25rem; }
+.headline { margin-top: 0.75rem; }

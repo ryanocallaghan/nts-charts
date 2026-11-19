@@ -1,6 +1,7 @@
 ---
 // Home: an overview of the latest 4-week window, with the full tables a click away.
 import Base from "../layouts/Base.astro";
+import HeroLogo from "../components/HeroLogo.astro";
 import RankedList from "../components/RankedList.astro";
 import Spotlight from "../components/Spotlight.astro";
 import StatTile from "../components/StatTile.astro";
@@ -40,20 +41,19 @@ const history = latestWeek ? onThisDay(latestWeek) : [];
 const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: artistChart("all", "all", 5).map(artistItem) };
 ---
 <Base title={SITE_NAME} section="charts">
-  <h1>{latest ? "Last 4 weeks" : "No charts yet"}</h1>
-  {covered && (
-    <p class="page-sub">
-      {dateRange(new Date(covered.from), new Date(new Date(covered.to).getTime() - 1))}
-      {inProgress && <span class="cds--tag cds--tag--sm cds--tag--blue">In progress, runs to {endLabel}</span>}
-    </p>
-  )}
-  <p class="lede">What NTS Radio has been playing, from the tracklists of every episode. Tracks and artists score once per episode that plays them.</p>
-
-  {headline.length > 0 && (
-    <div class="stats headline" aria-label="Last 4 weeks in numbers">
-      {headline.map((s) => <StatTile stat={s} />)}
+  <div class="hero">
+    <HeroLogo />
+    <div class="hero-text">
+      <p class="lede">What NTS Radio has been playing, from the tracklists of every episode. Tracks and artists score once per episode that plays them.</p>
+      <h2 class="hero-period">{latest ? "Last 4 weeks" : "No charts yet"}</h2>
+      {covered && (
+        <p class="page-sub">
+          {dateRange(new Date(covered.from), new Date(new Date(covered.to).getTime() - 1))}
+          {inProgress && <span class="cds--tag cds--tag--sm cds--tag--blue">In progress, runs to {endLabel}</span>}
+        </p>
+      )}
     </div>
-  )}
+  </div>
 
   {spot && (spot.track || spot.artist) && (
     <section class="section">
@@ -105,6 +105,15 @@ const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: a
             <RankedList items={moves.entries} movement showKind />
           </div>
         )}
+      </div>
+    </section>
+  )}
+
+  {headline.length > 0 && (
+    <section class="section">
+      <h2>In numbers</h2>
+      <div class="stats headline" aria-label="Last 4 weeks in numbers">
+        {headline.map((st) => <StatTile stat={st} />)}
       </div>
     </section>
   )}

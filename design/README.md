@@ -6,7 +6,7 @@ The header uses the one-liner wordmark as live text in IBM Plex Mono (`public/fo
 ¡ [ TOP ] [ of | the ] [ NTS ] !
 ```
 
-On narrow screens it's set slightly smaller. The favicon (`public/favicon.svg`) draws the ¡ and ! as shapes, in white on the site's blue.
+On narrow screens it's set slightly smaller. The favicon (`public/favicon.svg`) draws the ¡ and ! as shapes, in the dark theme's off-white on near-black. The block-style version leads the home page (`src/components/HeroLogo.astro`).
 
 Other versions, for places with more room:
 
