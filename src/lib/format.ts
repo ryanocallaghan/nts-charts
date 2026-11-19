@@ -1,9 +1,9 @@
 /** The site's public name (the repo, URL and Cloudflare project stay "nts-charts"). */
 export const SITE_NAME = "Top of the NTS";
 
-export type PeriodType = "week" | "rolling" | "month" | "year" | "all";
+export type PeriodType = "week" | "rolling" | "month" | "quarter" | "year" | "all";
 export type DatedPeriod = Exclude<PeriodType, "all">;
-export const DATED_PERIODS: DatedPeriod[] = ["week", "rolling", "month", "year"];
+export const DATED_PERIODS: DatedPeriod[] = ["week", "rolling", "month", "quarter", "year"];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -27,16 +27,23 @@ export function isoWeekKey(d: Date): string {
   return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
+/** Quarter key for a date: "2026-Q4" (matching ingest/charts.ts). */
+export function quarterKey(d: Date): string {
+  return `${d.getUTCFullYear()}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+}
+
 export function currentPeriodKey(type: PeriodType, now = new Date()): string {
   if (type === "week" || type === "rolling") return isoWeekKey(now);
   if (type === "all") return "all";
   if (type === "month") return now.toISOString().slice(0, 7);
+  if (type === "quarter") return quarterKey(now);
   return String(now.getUTCFullYear());
 }
 
 export function periodLabel(type: PeriodType, key: string): string {
   if (type === "all") return "All time";
   if (type === "year") return key;
+  if (type === "quarter") { const [y, q] = key.split("-Q"); return `Q${q} ${y}`; }
   if (type === "month") {
     const [y, m] = key.split("-").map(Number);
     return `${MONTHS_LONG[m - 1]} ${y}`;
@@ -61,18 +68,22 @@ export function periodLabel(type: PeriodType, key: string): string {
 /**
  * A chart page's heading: the chart's name, plus a smaller line with its type and dates.
  *   week    -> "Week 47"            / "Weekly chart · 16–22 Nov 2026"
- *   rolling -> "4 weeks to 22 Nov"  / "4-week chart · 26 Oct – 22 Nov 2026"
+ *   rolling -> "4 weeks to 22 Nov"  / "4-week chart · 26 Oct – 22 Nov 2026"  ("Last 4 weeks" while in progress)
  *   month   -> "November 2026"      / "Monthly chart"
+ *   quarter -> "Q4 2026"            / "Quarterly chart"
  */
-export function periodHeading(type: PeriodType, key: string): { title: string; sub: string; dates: string } {
+export function periodHeading(type: PeriodType, key: string, inProgress = false): { title: string; sub: string; dates: string } {
   if (type === "all") return { title: "All time", sub: "", dates: "" };
   if (type === "year") return { title: key, sub: "Yearly chart", dates: "" };
+  if (type === "quarter") return { title: periodLabel(type, key), sub: "Quarterly chart", dates: "" };
   if (type === "month") return { title: periodLabel(type, key), sub: "Monthly chart", dates: "" };
   const [name, dates] = periodLabel(type, key).split(" · ");
   if (type === "week") return { title: name, sub: `Weekly chart · ${dates}`, dates };
   const end = isoWeekStart(key);
   end.setUTCDate(end.getUTCDate() + 6);
-  return { title: `4 weeks to ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]}`, sub: `4-week chart · ${dates}`, dates };
+  // A running window's end date hasn't been reached yet, so don't promise it in the title.
+  const title = inProgress ? "Last 4 weeks" : `4 weeks to ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]}`;
+  return { title, sub: `4-week chart · ${dates}`, dates };
 }
 
 const DAY = 86_400_000;
@@ -142,6 +153,7 @@ export function periodBounds(type: Exclude<PeriodType, "all">, key: string): { s
   if (type === "week") { const start = isoWeekStart(key); return { start, end: new Date(start.getTime() + 7 * DAY) }; }
   if (type === "rolling") return { start: isoWeekStart(rollingStartKey(key)), end: new Date(isoWeekStart(key).getTime() + 7 * DAY) };
   if (type === "month") { const [y, m] = key.split("-").map(Number); return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)) }; }
+  if (type === "quarter") { const [y, q] = key.split("-Q").map(Number); return { start: new Date(Date.UTC(y, (q - 1) * 3, 1)), end: new Date(Date.UTC(y, q * 3, 1)) }; }
   const y = Number(key);
   return { start: new Date(Date.UTC(y, 0, 1)), end: new Date(Date.UTC(y + 1, 0, 1)) };
 }
@@ -149,13 +161,18 @@ export function periodBounds(type: Exclude<PeriodType, "all">, key: string): { s
 /**
  * The dates a chart covers, for labels shared by every page. While the period is still running
  * (the data stops before its end) it's the dates so far: "26 Oct – 18 Nov 2026, so far".
- * Finished periods give their full range, or nothing for months and years (the title says it).
+ * Finished periods give their full range: just the months for quarters ("Oct – Dec 2026"), and
+ * nothing for months and years (the title says it).
  */
 export function periodDates(type: PeriodType, key: string, asOf: Date): { text: string; inProgress: boolean } {
   if (type === "all") return { text: "", inProgress: false };
   const { start, end } = periodBounds(type, key);
   if (asOf < end) return { text: `${dateRange(start, asOf < start ? start : asOf)}, so far`, inProgress: true };
   if (type === "month" || type === "year") return { text: "", inProgress: false };
+  if (type === "quarter") {
+    const last = new Date(end.getTime() - 1);
+    return { text: `${MONTHS[start.getUTCMonth()]} – ${MONTHS[last.getUTCMonth()]} ${last.getUTCFullYear()}`, inProgress: false };
+  }
   return { text: dateRange(start, new Date(end.getTime() - 1)), inProgress: false };
 }
 
@@ -164,7 +181,7 @@ export function formatDate(iso: string): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-export const typeLabel: Record<PeriodType, string> = { week: "Weekly", rolling: "4 weeks", month: "Monthly", year: "Yearly", all: "All time" };
+export const typeLabel: Record<PeriodType, string> = { week: "Weekly", rolling: "4 weeks", month: "Monthly", quarter: "Quarterly", year: "Yearly", all: "All time" };
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;

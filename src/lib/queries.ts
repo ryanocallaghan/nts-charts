@@ -301,6 +301,9 @@ export interface EpisodePlay { episode: string; show: string; showName: string; 
 function periodFilter(type: PeriodType, key: string): { sql: string; params: string[] } {
   if (type === "all") return { sql: "", params: [] };
   if (type === "rolling") return { sql: "AND strftime('%G-W%V', e.broadcast_at) BETWEEN ? AND ?", params: [rollingStartKey(key), key] };
+  if (type === "quarter") {
+    return { sql: "AND strftime('%Y', e.broadcast_at) || '-Q' || ((CAST(strftime('%m', e.broadcast_at) AS INTEGER) + 2) / 3) = ?", params: [key] };
+  }
   const fmt = { week: "%G-W%V", month: "%Y-%m", year: "%Y" }[type];
   return { sql: `AND strftime('${fmt}', e.broadcast_at) = ?`, params: [key] };
 }

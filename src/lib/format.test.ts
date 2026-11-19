@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareWindows, dateRange, periodDates, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
+import { compareWindows, dateRange, periodBounds, periodDates, quarterKey, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
 
 describe("ISO weeks", () => {
   it("matches known ISO week numbers, including year boundaries", () => {
@@ -71,5 +71,25 @@ describe("overview helpers", () => {
     expect(weekYearsAgo("2026-W47", 10)).toBe("2016-W47");
     expect(weekYearsAgo("2026-W53", 1)).toBe("2025-W52"); // 2025 has 52 ISO weeks
     expect(weekYearsAgo("2026-W53", 6)).toBe("2020-W53"); // 2020 has 53
+  });
+});
+
+describe("quarters and in-progress titles", () => {
+  it("names, keys and bounds quarters", () => {
+    expect(quarterKey(new Date("2026-11-18T00:00:00Z"))).toBe("2026-Q4");
+    expect(quarterKey(new Date("2026-03-31T23:59:59Z"))).toBe("2026-Q1");
+    expect(periodLabel("quarter", "2026-Q4")).toBe("Q4 2026");
+    expect(periodHeading("quarter", "2026-Q4")).toMatchObject({ title: "Q4 2026", sub: "Quarterly chart" });
+    const b = periodBounds("quarter", "2026-Q4");
+    expect([b.start.toISOString(), b.end.toISOString()]).toEqual(["2026-10-01T00:00:00.000Z", "2027-01-01T00:00:00.000Z"]);
+  });
+  it("labels quarter dates", () => {
+    const asOf = new Date("2026-11-18T09:00:00Z");
+    expect(periodDates("quarter", "2026-Q3", asOf)).toEqual({ text: "Jul – Sep 2026", inProgress: false });
+    expect(periodDates("quarter", "2026-Q4", asOf)).toEqual({ text: "1 Oct – 18 Nov 2026, so far", inProgress: true });
+  });
+  it("doesn't promise an end date for a running 4-week chart", () => {
+    expect(periodHeading("rolling", "2026-W47", true).title).toBe("Last 4 weeks");
+    expect(periodHeading("rolling", "2026-W46").title).toBe("4 weeks to 15 Nov");
   });
 });

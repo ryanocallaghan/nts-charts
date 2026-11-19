@@ -9,7 +9,7 @@ import TrackTable from "./TrackTable.astro";
 // `initial`: show N rows at a time, with a button to reveal N more (all rows are in the page, just hidden).
 interface Props { type: PeriodType; periodKey: string; limit?: number; initial?: number }
 const { type, periodKey, limit = type === "all" ? 100 : 50, initial } = Astro.props;
-const noun = { week: "Week", rolling: "Week", month: "Month", year: "Year", all: "" }[type];
+const noun = { week: "Week", rolling: "Week", month: "Month", quarter: "Quarter", year: "Year", all: "" }[type];
 const movement = type !== "all";
 const tracks = trackChart(type, periodKey, limit);
 const artists = artistChart(type, periodKey, limit);
