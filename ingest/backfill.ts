@@ -49,6 +49,17 @@ function shouldStop(): boolean {
 // One bad item shouldn't kill a multi-hour run, but a block/outage should stop it fast.
 let consecutiveErrors = 0;
 let totalErrors = 0;
+
+function countRemaining(): number {
+  return (db
+    .prepare(
+      `SELECT (SELECT count(*) FROM shows WHERE episodes_listed_at IS NULL)
+            + (SELECT count(*) FROM episodes WHERE meta_fetched_at IS NULL)
+            + (SELECT count(*) FROM episodes WHERE tracklist_fetched_at IS NULL AND broadcast_at < ?) AS remaining`,
+    )
+    .get(new Date().toISOString()) as { remaining: number }).remaining;
+}
+const remainingAtStart = countRemaining();
 async function guarded(label: string, fn: () => Promise<void>) {
   try {
     await fn();
@@ -126,8 +137,10 @@ if (phase("meta") && !stopping) {
     if (shouldStop()) return;
     const ep = await getJson<ApiEpisode>(`shows/${r.show_alias}/episodes/${r.alias}`);
     if (ep) upsertEpisode(db, ep);
-    else db.prepare("UPDATE episodes SET meta_fetched_at = ?, tracklist_fetched_at = ?, track_count = 0 WHERE alias = ?")
-      .run("missing", "missing", r.alias); // 404 — don't retry forever
+    // 404s, and junk sitemap aliases (e.g. "…-invalid%20date") that the API answers under a different
+    // alias: mark the requested row handled either way, or it would be retried forever.
+    db.prepare("UPDATE episodes SET meta_fetched_at = ?, tracklist_fetched_at = coalesce(tracklist_fetched_at, ?), track_count = coalesce(track_count, 0) WHERE alias = ? AND meta_fetched_at IS NULL")
+      .run("missing", "missing", r.alias);
     tick();
   }));
 }
@@ -152,15 +165,12 @@ if (phase("tracklists") && !stopping) {
 }
 
 // Work left for a future run (CI uses this to decide whether to chain another chunk).
-const { remaining } = db
-  .prepare(
-    `SELECT (SELECT count(*) FROM shows WHERE episodes_listed_at IS NULL)
-          + (SELECT count(*) FROM episodes WHERE meta_fetched_at IS NULL)
-          + (SELECT count(*) FROM episodes WHERE tracklist_fetched_at IS NULL AND broadcast_at < ?) AS remaining`,
-  )
-  .get(new Date().toISOString()) as { remaining: number };
+const remaining = countRemaining();
 console.log(`Remaining work items: ${remaining}  (errors this run: ${totalErrors})`);
-if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `remaining=${remaining}\n`);
+// Never chain a chunk that made no progress: whatever is left can't be done by retrying.
+const chain = remaining > 0 && remaining < remainingAtStart ? remaining : 0;
+if (remaining > 0 && !chain) console.warn(`No progress this run (${remainingAtStart} -> ${remaining}); not queuing another chunk.`);
+if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `remaining=${chain}\n`);
 
 const stats = db
   .prepare(

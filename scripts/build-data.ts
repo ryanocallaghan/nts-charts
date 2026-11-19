@@ -14,7 +14,7 @@ const DIST = "dist";
 const TRACKS_PER_ARTIST = 25;
 const EPISODES_PER_TRACK = 10;
 const SHOWS_PER_ARTIST = 15;
-const SPLIT_AT = 3000; // entries in a two-letter search file before it's split by third letter
+const SPLIT_AT = 6000; // entries in a two-letter search file before it's split by third letter
 
 const started = Date.now();
 const paged = artistsWithPages();

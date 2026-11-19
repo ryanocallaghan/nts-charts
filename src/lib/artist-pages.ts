@@ -7,7 +7,7 @@ export const ARTIST_MIN_SHOWS = Number(process.env.ARTIST_MIN_SHOWS ?? 2);
 // ...and at most this many (the most-played first). Cloudflare Pages allows 20,000 files per deploy;
 // shows, charts and the data/search shards take roughly another 5,500. Every other artist gets a
 // page rendered in the browser from a data shard (see src/pages/artists/404.astro).
-export const ARTIST_PAGE_LIMIT = Number(process.env.ARTIST_PAGE_LIMIT ?? 12000);
+export const ARTIST_PAGE_LIMIT = Number(process.env.ARTIST_PAGE_LIMIT ?? 10000);
 
 /** A show, or for NTS's catch-all guests show, the individual guest (episodes alias e). */
 export const SHOW_KEY = "coalesce('guests/' || e.guest_slug, e.show_alias)";
