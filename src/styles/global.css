@@ -100,6 +100,7 @@ main.wrap { padding-top: 1.75rem; padding-bottom: 3rem; }
 /* Period navigation */
 .period-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
 .stepper { display: flex; gap: 0.5rem; font-size: 0.9rem; }
+.episode-pager { margin-top: 1rem; justify-content: space-between; }
 
 /* Chart tables (Carbon data table) */
 .chart-table { background: var(--cds-layer-01); }

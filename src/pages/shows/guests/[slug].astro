@@ -7,12 +7,14 @@ import { GUESTS_SHOW, guestPages, showDetail } from "../../../lib/queries.ts";
 
 const guest = guestPages().get(Astro.params.slug ?? "");
 if (!guest) return new Response(null, { status: 404 });
-const d = showDetail(GUESTS_SHOW, guest.slug);
+const page = Math.max(1, Math.floor(Number(Astro.url.searchParams.get("page")) || 1));
+const d = showDetail(GUESTS_SHOW, guest.slug, page);
+if (page > d.pages) return new Response(null, { status: 404 });
 ---
 <Base title={guest.name} description={`${guest.name}'s guest mixes on NTS Radio: tracklists, most-played artists and tracks.`} section="shows">
   <article>
     <p class="eyebrow"><a href="/shows/guests/">Guest</a> · {plural(guest.mixes, "mix", "mixes")}</p>
     <h1>{guest.name}</h1>
-    <ShowBody show={GUESTS_SHOW} showKey={`guests/${guest.slug}`} detail={d} moreHref={ntsShowUrl(GUESTS_SHOW)} episodesLabel="Guest mixes" />
+    <ShowBody show={GUESTS_SHOW} showKey={`guests/${guest.slug}`} detail={d} moreHref={ntsShowUrl(GUESTS_SHOW)} path={`/shows/guests/${guest.slug}/`} episodesLabel="Guest mixes" />
   </article>
 </Base>

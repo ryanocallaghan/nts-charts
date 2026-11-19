@@ -227,9 +227,44 @@ export function showByAlias(alias: string): ShowRow | undefined {
   return memo("showsByAlias", () => new Map(allShows().map((s) => [s.alias, s]))).get(alias);
 }
 
-/** A show's page data, or a repeat guest's (their mixes on the catch-all guests show). */
-export function showDetail(alias: string, guest?: string) {
+export const SHOW_EPISODES_PER_PAGE = 50;
+
+/**
+ * A show's page data, or a repeat guest's (their mixes on the catch-all guests show): totals and
+ * most-played artists and tracks over every episode (cached per show), and one page of its episodes,
+ * newest first, with their tracklists.
+ */
+export function showDetail(alias: string, guest?: string, page = 1) {
   const [col, key] = guest ? ["guest_slug", guest] : ["show_alias", alias];
+  // A guest's page lists every mix, even ones without a tracklist; a show's, those with one.
+  const listed = `${col} = ? AND broadcast_at IS NOT NULL ${guest ? "" : "AND track_count > 0"}`;
+  const { stats, topArtists, topTracks, episodeTotal } = cached(`showSummary:${col}:${key}`, () => showSummary(col, key, listed));
+  const pages = Math.max(1, Math.ceil(episodeTotal / SHOW_EPISODES_PER_PAGE));
+  const episodes = all<{ alias: string; name: string; broadcast: string; trackCount: number; guest: string | null }>(
+    `SELECT alias, trim(coalesce(name, alias)) name, broadcast_at broadcast, coalesce(track_count, 0) trackCount, guest_slug guest
+     FROM episodes WHERE ${listed} ORDER BY broadcast_at DESC LIMIT ? OFFSET ?`,
+    key, SHOW_EPISODES_PER_PAGE, (page - 1) * SHOW_EPISODES_PER_PAGE,
+  );
+  const tracklists = new Map<string, { id: number; title: string; artists: ArtistRef[]; artistDisplay: string }[]>();
+  if (episodes.length) {
+    const rows = all<{ ep: string; trackId: number; title: string; artistDisplay: string }>(
+      `SELECT p.episode_alias ep, t.id trackId, t.title_display title, t.artist_display artistDisplay
+       FROM plays p JOIN tracks t ON t.id = p.track_id
+       WHERE p.episode_alias IN (${episodes.map(() => "?").join(",")}) ORDER BY p.episode_alias, p.position`,
+      ...episodes.map((e) => e.alias),
+    );
+    const artists = artistsForTracks([...new Set(rows.map((r) => r.trackId))]);
+    for (const r of rows) {
+      const list = tracklists.get(r.ep) ?? [];
+      list.push({ id: r.trackId, title: r.title, artistDisplay: r.artistDisplay, artists: artists.get(r.trackId) ?? [] });
+      tracklists.set(r.ep, list);
+    }
+  }
+  return { stats, topArtists, topTracks, episodes, tracklists, episodeTotal, page, pages };
+}
+
+/** Totals and most-played artists and tracks over every one of a show's (or guest's) episodes. */
+function showSummary(col: string, key: string, listed: string) {
   const stats = get<{ episodes: number; plays: number; tracks: number; first: string; last: string }>(
     `SELECT count(DISTINCT e.alias) episodes, count(p.track_id) plays, count(DISTINCT p.track_id) tracks,
             min(CASE WHEN ${DATED} THEN e.broadcast_at END) first, max(CASE WHEN ${DATED} THEN e.broadcast_at END) last
@@ -248,29 +283,8 @@ export function showDetail(alias: string, guest?: string) {
      WHERE e.${col} = ? GROUP BY t.id HAVING episodes > 1 ORDER BY episodes DESC, t.title_display LIMIT 20`,
     key,
   );
-  // A guest's page lists every mix (there are only a few), even ones without a tracklist.
-  const episodes = all<{ alias: string; name: string; broadcast: string; trackCount: number; guest: string | null }>(
-    `SELECT alias, trim(coalesce(name, alias)) name, broadcast_at broadcast, coalesce(track_count, 0) trackCount, guest_slug guest
-     FROM episodes WHERE ${col} = ? AND broadcast_at IS NOT NULL ${guest ? "" : "AND track_count > 0"}
-     ORDER BY broadcast_at DESC LIMIT 30`,
-    key,
-  );
-  const tracklists = new Map<string, { id: number; title: string; artists: ArtistRef[]; artistDisplay: string }[]>();
-  if (episodes.length) {
-    const rows = all<{ ep: string; trackId: number; title: string; artistDisplay: string }>(
-      `SELECT p.episode_alias ep, t.id trackId, t.title_display title, t.artist_display artistDisplay
-       FROM plays p JOIN tracks t ON t.id = p.track_id
-       WHERE p.episode_alias IN (${episodes.map(() => "?").join(",")}) ORDER BY p.episode_alias, p.position`,
-      ...episodes.map((e) => e.alias),
-    );
-    const artists = artistsForTracks([...new Set(rows.map((r) => r.trackId))]);
-    for (const r of rows) {
-      const list = tracklists.get(r.ep) ?? [];
-      list.push({ id: r.trackId, title: r.title, artistDisplay: r.artistDisplay, artists: artists.get(r.trackId) ?? [] });
-      tracklists.set(r.ep, list);
-    }
-  }
-  return { stats, topArtists, topTracks, episodes, tracklists };
+  const episodeTotal = get<{ n: number }>(`SELECT count(*) n FROM episodes WHERE ${listed}`, key)!.n;
+  return Object.freeze({ stats, topArtists, topTracks, episodeTotal });
 }
 
 // ---------- tracks ----------

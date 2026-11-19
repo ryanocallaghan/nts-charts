@@ -5,11 +5,14 @@ import ThemeLabel from "./ThemeLabel.astro";
 import PlayPatterns from "./PlayPatterns.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../lib/format.ts";
 import { trackHref } from "../lib/search.ts";
-import { guestPages, playTimes, showEarlyPlays, similarShows, themeTunesFor, type showDetail } from "../lib/queries.ts";
+import { guestPages, playTimes, showEarlyPlays, similarShows, SHOW_EPISODES_PER_PAGE, themeTunesFor, type showDetail } from "../lib/queries.ts";
 
 // `showKey`: the show alias, or 'guests/<slug>' for a repeat guest (for similar shows and early plays).
-interface Props { show: string; showKey: string; detail: ReturnType<typeof showDetail>; episodesLabel?: string; moreHref: string }
-const { show, showKey, detail: d, episodesLabel = "Recent episodes", moreHref } = Astro.props;
+// `path`: the page's address, for the episode pages (?page=2 onwards).
+interface Props { show: string; showKey: string; detail: ReturnType<typeof showDetail>; episodesLabel?: string; moreHref: string; path: string }
+const { show, showKey, detail: d, episodesLabel = "Episodes", moreHref, path } = Astro.props;
+const pageHref = (n: number) => (n === 1 ? path : `${path}?page=${n}`);
+const from = (d.page - 1) * SHOW_EPISODES_PER_PAGE + 1;
 const similar = similarShows(showKey);
 const early = showEarlyPlays(showKey);
 const guests = guestPages();
@@ -45,8 +48,9 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
 
 {showKey !== "guests" && <PlayPatterns times={playTimes("show", showKey)} />}
 
-<section class="card section">
+<section class="card section" id="episodes">
   <h2>{episodesLabel}</h2>
+  {d.pages > 1 && <p class="caption muted">Newest first · {from.toLocaleString("en-GB")}–{(from + d.episodes.length - 1).toLocaleString("en-GB")} of {d.episodeTotal.toLocaleString("en-GB")}</p>}
   {d.episodes.map((e) => (
     <details class="episode">
       <summary>
@@ -61,7 +65,14 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
       <a href={ntsEpisodeUrl(show, e.alias)}>Listen to this episode →</a>
     </details>
   ))}
-  {d.stats.episodes > d.episodes.length && <p class="muted" style="margin-top:0.75rem">Showing the latest {d.episodes.length} of {d.stats.episodes} episodes. <a href={moreHref}>All episodes on nts.live</a></p>}
+  {d.pages > 1 && (
+    <nav class="stepper episode-pager" aria-label="Episode pages">
+      {d.page > 1 ? <a class="cds--link" href={`${pageHref(d.page - 1)}#episodes`} rel="prev">← Newer</a> : <span class="cds--link cds--link--disabled">← Newer</span>}
+      <span class="muted">Page {d.page} of {d.pages}</span>
+      {d.page < d.pages ? <a class="cds--link" href={`${pageHref(d.page + 1)}#episodes`} rel="next">Older →</a> : <span class="cds--link cds--link--disabled">Older →</span>}
+    </nav>
+  )}
+  <p class="muted small" style="margin:0.75rem 0 0"><a href={moreHref}>All episodes on nts.live</a></p>
 </section>
 
 {(similar.length > 0 || early.tracks > 0) && (
