@@ -80,18 +80,20 @@ const DAY = 86_400_000;
 export interface Window { from: string; to: string } // ISO timestamps, [from, to)
 
 /**
- * The 4-week window ending in ISO week `key`, cut off at `asOf` while it's in progress, and the
- * same number of days at the start of the previous 4 weeks, for like-for-like comparisons.
+ * The 4-week window ending in ISO week `key`, cut off at `asOf` while it's in progress, and exactly
+ * the same elapsed time from the start of the previous 4 weeks, for like-for-like comparisons.
  */
 export function compareWindows(key: string, asOf: Date): { current: Window; previous: Window; previousFull: Window; days: number } {
   const start = isoWeekStart(rollingStartKey(key));
   const end = new Date(isoWeekStart(key).getTime() + 7 * DAY);
   const cut = new Date(Math.min(end.getTime(), Math.max(asOf.getTime(), start.getTime() + DAY)));
-  const days = Math.ceil((cut.getTime() - start.getTime()) / DAY);
+  const elapsed = cut.getTime() - start.getTime();
+  const days = Math.ceil(elapsed / DAY);
   const prevStart = new Date(start.getTime() - 28 * DAY);
   return {
     current: { from: start.toISOString(), to: cut.toISOString() },
-    previous: { from: prevStart.toISOString(), to: new Date(prevStart.getTime() + days * DAY).toISOString() },
+    // Same elapsed time to the millisecond: rounding to whole days would hand the previous window extra hours.
+    previous: { from: prevStart.toISOString(), to: new Date(prevStart.getTime() + elapsed).toISOString() },
     previousFull: { from: prevStart.toISOString(), to: start.toISOString() },
     days,
   };
@@ -122,6 +124,12 @@ export function rollingStartKey(key: string): string {
   const d = isoWeekStart(key);
   d.setUTCDate(d.getUTCDate() - 21);
   return isoWeekKey(d);
+}
+
+/** "26 Oct – 18 Nov 2026" (years shown on both ends only when they differ). */
+export function dateRange(from: Date, to: Date): string {
+  const d = (x: Date, year: boolean) => `${x.getUTCDate()} ${MONTHS[x.getUTCMonth()]}${year ? ` ${x.getUTCFullYear()}` : ""}`;
+  return `${d(from, from.getUTCFullYear() !== to.getUTCFullYear())} – ${d(to, true)}`;
 }
 
 export function formatDate(iso: string): string {
