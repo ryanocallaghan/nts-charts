@@ -1,0 +1,10 @@
+.git
+.github
+.astro
+.wrangler
+.env
+node_modules
+dist
+data
+design
+*.md

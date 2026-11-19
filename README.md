@@ -37,6 +37,17 @@ npm run build && npm start   # production server on HOST/PORT (default localhost
 npm run smoke -- http://localhost:4321
 ```
 
+## Running in Docker
+
+`Dockerfile` builds the server; ingest runs in the same container. `docker-compose.yml` is for the production server: the database lives in the `nts-data` volume, and Caddy reaches the site on the shared `web` network.
+
+```sh
+docker network create web    # once
+docker compose up -d --build
+docker compose exec -T web node ingest/incremental.ts
+docker compose exec -T web node ingest/aggregate.ts
+```
+
 ## Data
 
 The latest database is attached to the [`db-latest` release](../../releases/tag/db-latest) as `nts.sqlite.gz`. The **Backfill archive** workflow builds it in resumable chunks on GitHub Actions.

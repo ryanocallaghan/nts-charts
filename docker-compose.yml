@@ -1,0 +1,33 @@
+# nts-charts on the VPS shared with MY BIN.DAY: its own Compose project in ~/nts-charts.
+# Caddy (in the my-bin-day project) reaches it on the shared `web` network as nts:4321.
+# Create that network once: docker network create web
+services:
+  web:
+    build: .
+    image: nts-charts
+    restart: unless-stopped
+    environment:
+      # Applies to ingest run with `docker compose exec` too.
+      NODE_OPTIONS: --max-old-space-size=384
+    volumes:
+      - nts-data:/data
+    # So nts-charts can never take memory or CPU from bin day lookups. Ingest runs inside this
+    # container, so the caps cover it too. Measured on the full archive: the server idles at about
+    # 55 MB and aggregate.ts takes about 270 MB at its peak; the rest of the cap holds cached
+    # database pages, which the kernel gives back under pressure.
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: "1.0"
+    networks:
+      web:
+        aliases: [nts]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  nts-data:
+
+networks:
+  web:
+    external: true

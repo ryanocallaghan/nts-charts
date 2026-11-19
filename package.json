@@ -18,12 +18,12 @@
   },
   "dependencies": {
     "@astrojs/node": "11.1.12",
-    "astro": "7.4.13",
-    "echarts": "6.1.0"
+    "astro": "7.4.13"
   },
   "devDependencies": {
     "@carbon/styles": "1.119.0",
     "@ibm/plex-sans": "2.0.0",
+    "echarts": "6.1.0",
     "sass": "1.108.2",
     "typescript": "7.0.2",
     "vitest": "5.1.1",

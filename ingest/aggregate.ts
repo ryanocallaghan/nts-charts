@@ -19,8 +19,11 @@ const started = Date.now();
 // Prune placeholder tracks ("Unknown Artist – Unknown Track", "ID – ID") that were stored before the
 // filter existed or under older rules, plus any artists left with no tracks.
 tx(db, () => {
-  const tracks = db.prepare("SELECT id, artist_display a, title_display t FROM tracks").all() as { id: number; a: string; t: string }[];
-  const junk = tracks.filter((r) => isPlaceholder(r.a, r.t)).map((r) => r.id);
+  // Streamed: holding all ~1M tracks at once took several hundred MB.
+  const junk: number[] = [];
+  for (const r of db.prepare("SELECT id, artist_display a, title_display t FROM tracks").iterate() as IterableIterator<{ id: number; a: string; t: string }>) {
+    if (isPlaceholder(r.a, r.t)) junk.push(r.id);
+  }
   for (const id of junk) {
     db.prepare("DELETE FROM plays WHERE track_id = ?").run(id);
     db.prepare("DELETE FROM track_artists WHERE track_id = ?").run(id);
