@@ -70,3 +70,24 @@ export function shareLine(months: string[], shares: (number | null)[], max: numb
     y: shares,
   };
 }
+
+/**
+ * SVG path for a small rank sparkline: rank 1 at the top, `max` at the bottom, a break wherever the
+ * item was off the chart (null). Returns the path and the last point (for an end dot).
+ */
+export function sparklinePath(ranks: (number | null)[], width: number, height: number, max = 50, pad = 4) {
+  const n = ranks.length;
+  const x = (i: number) => (n === 1 ? width / 2 : pad + (i * (width - 2 * pad)) / (n - 1));
+  const y = (r: number) => pad + ((Math.min(r, max) - 1) * (height - 2 * pad)) / (max - 1);
+  let d = "";
+  let drawing = false;
+  let last: { x: number; y: number } | null = null;
+  ranks.forEach((r, i) => {
+    if (r == null) { drawing = false; return; }
+    const px = Math.round(x(i) * 10) / 10, py = Math.round(y(r) * 10) / 10;
+    d += `${drawing ? "L" : "M"}${px} ${py}`;
+    drawing = true;
+    last = { x: px, y: py };
+  });
+  return { d, last: last as { x: number; y: number } | null };
+}

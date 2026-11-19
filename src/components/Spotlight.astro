@@ -1,10 +1,11 @@
 ---
-// The current #1 track or artist: name, credits, how widely it was played, and its recent chart run.
+// The current #1 track or artist: name, credits, how widely it was played, how it got to #1, and a
+// small sparkline of its recent 4-week chart run (decorative; the movement text carries the meaning).
 import type { VizData } from "../scripts/charts.ts";
 import type { ArtistRef } from "../lib/queries.ts";
 import { plural } from "../lib/format.ts";
+import { sparklinePath } from "../lib/series.ts";
 import ArtistLinks from "./ArtistLinks.astro";
-import TimeChart from "./TimeChart.astro";
 interface Props {
   label: string;
   title: string;
@@ -14,16 +15,33 @@ interface Props {
   episodes: number;
   shows: number;
   weeksAtOne: number;
+  status: string;
+  prevRank: number | null;
   history: VizData;
 }
 const p = Astro.props;
+const how =
+  p.status === "new" ? "New at #1"
+  : p.status === "reentry" ? "Back at #1"
+  : p.prevRank && p.prevRank > 1 ? `▲ from #${p.prevRank}`
+  : "Steady at #1";
+const weeks = p.weeksAtOne > 1 ? `${p.weeksAtOne} weeks at #1` : "1st week at #1";
+const W = 160, H = 40;
+const spark = p.history.y.length > 1 ? sparklinePath(p.history.y, W, H, p.history.max ?? 50) : null;
 ---
 <section class="card spotlight">
   <p class="spot-label">{p.label}</p>
-  <h3 class="spot-title">{p.href ? <a href={p.href}>{p.title}</a> : p.title}</h3>
-  {p.artists && <p class="spot-credit"><ArtistLinks artists={p.artists} fallback={p.credit ?? ""} /></p>}
-  <p class="spot-stats">
-    {plural(p.episodes, "episode")} across {plural(p.shows, "show")} · {p.weeksAtOne > 1 ? `${p.weeksAtOne} weeks at #1` : "1st week at #1"}
-  </p>
-  {p.history.x.length > 1 && <TimeChart bare title={`${p.title}: 4-week chart history`} data={p.history} height={140} />}
+  <h3 class="spot-title">{p.href ? <a href={p.href}>{p.title} <span aria-hidden="true">→</span></a> : p.title}</h3>
+  <p class="spot-credit">{p.artists ? <ArtistLinks artists={p.artists} fallback={p.credit ?? ""} /> : <span aria-hidden="true">&nbsp;</span>}</p>
+  <p class="spot-stats">{plural(p.episodes, "episode")} across {plural(p.shows, "show")}</p>
+  <div class="spot-run">
+    <p class="spot-move">{how.startsWith("▲") ? <><span class="move up" aria-hidden="true">▲</span><span class="visually-hidden">Up</span> {how.slice(2)}</> : how} · {weeks}</p>
+    {spark && (
+      <svg class="sparkline" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
+        <line x1="0" x2={W} y1="4" y2="4" class="spark-top" />
+        <path d={spark.d} class="spark-line" />
+        {spark.last && <circle cx={spark.last.x} cy={spark.last.y} r="4" class="spark-dot" />}
+      </svg>
+    )}
+  </div>
 </section>

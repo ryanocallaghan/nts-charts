@@ -48,17 +48,22 @@ p { margin: 0 0 1rem; }
 /* Carbon's UI-shell header is fixed and hides its nav on narrow screens (expecting a JS side nav).
    Here it scrolls with the page and the nav stays visible, scrolling sideways if it must. */
 .site-header.cds--header { position: sticky; top: 0; z-index: 10; }
+/* Header contents sit on the same 1080px column as the page content. */
+.site-header .header-inner { display: flex; align-items: stretch; width: 100%; max-width: 1080px; height: 100%; margin: 0 auto; padding: 0 16px; }
+.site-header .cds--header__nav { padding-left: 0; }
+/* With no wordmark (home), pull the nav left so its first label's text sits on the content edge. */
+.site-header .header-inner > nav:first-child { margin-left: -1rem; }
 .site-header .cds--header__nav { display: block; overflow-x: auto; scrollbar-width: none; }
 .site-header .cds--header__nav::before { display: none; }
 .site-header .cds--header__menu-item { white-space: nowrap; }
 /* Wordmark (see design/README.md): live text in IBM Plex Mono. */
-.site-header .site-logo { padding: 0 1.25rem 0 1rem; }
+.site-header .site-logo { padding: 0 1.5rem 0 0; }
 .site-header .wordmark { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; font-size: 0.875rem; letter-spacing: 0; white-space: pre; color: var(--cds-text-primary); }
 @media (max-width: 40rem) {
   .site-header .wordmark { font-size: 0.75rem; }
 }
 @media (max-width: 40rem) {
-  .site-header .cds--header__name { padding: 0 0.75rem 0 1rem; }
+  .site-header .cds--header__name { padding: 0 0.75rem 0 0; }
   .site-header .cds--header__menu-item { padding: 0 0.6rem; }
 }
 
@@ -186,9 +191,19 @@ nav.period-switcher .cds--content-switcher__label { overflow: visible; text-over
 .delta.same { color: var(--cds-text-secondary); }
 .delta .muted { color: var(--cds-text-helper); }
 .spotlight .spot-label, .spot-label { color: var(--cds-text-secondary); font-size: 0.75rem; letter-spacing: 0.02em; margin: 0; }
-.spotlight .spot-title { font-size: 1.75rem; font-weight: 400; margin: 0.25rem 0 0; line-height: 1.2; }
+.spotlight .spot-title { font-size: 1.25rem; font-weight: 400; margin: 0.25rem 0 0; line-height: 1.3; }
+/* Titles read the same linked or not; links show on hover/focus. */
+.spotlight .spot-title a { color: var(--cds-text-primary); }
+.spotlight .spot-title a:hover, .spotlight .spot-title a:focus-visible { text-decoration: underline; }
+.spotlight .spot-title a span { color: var(--cds-link-primary); }
 .spotlight .spot-credit { margin: 0.25rem 0 0; color: var(--cds-text-secondary); }
-.spotlight .spot-stats { margin: 0.5rem 0 0.75rem; font-size: 0.875rem; color: var(--cds-text-secondary); }
+.spotlight .spot-stats { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--cds-text-secondary); }
+.spotlight .spot-run { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--cds-border-subtle-01); }
+.spotlight .spot-move { margin: 0; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.sparkline { flex: none; overflow: visible; }
+.sparkline .spark-top { stroke: var(--cds-border-subtle-01); stroke-width: 1; stroke-dasharray: 2 3; }
+.sparkline .spark-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sparkline .spark-dot { fill: var(--series-1); stroke: var(--cds-layer-01); stroke-width: 2; }
 .multiples { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin-top: 0.75rem; }
 .multiples .viz-card h2 { font-size: 1rem; font-weight: 600; }
 ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
@@ -196,19 +211,22 @@ ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
 .otd { margin: 0.75rem 0 0; }
 .section > h2 + .grid-2, .section > h2 + .card, .section > h2 + .viz-card { margin-top: 0.75rem; }
 
-/* Home hero: the block-style ASCII logo beside the intro. */
-.hero { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem 2.5rem; }
-.hero-logo { margin: 0; line-height: 1; font-weight: 600; }
+/* Home hero: a compact block-style ASCII logo beside the period, intro and next steps. */
+.hero { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem 2.5rem; padding-bottom: 0.5rem; }
+.hero-logo { margin: 0; line-height: 1; font-weight: 600; flex: none; }
 .hero-logo .ascii {
   display: block; white-space: pre; font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
-  /* 31 columns: scale down to fit narrow screens, up to 18px. */
-  font-size: clamp(8px, calc((100vw - 2rem) / 19), 18px); line-height: 1.05; letter-spacing: 0;
+  /* 31 columns, ~10px characters on desktop (about 200px tall); scales down to fit phones. */
+  font-size: clamp(7px, calc((100vw - 2rem) / 19), 10.5px); line-height: 1.05; letter-spacing: 0;
   color: var(--cds-text-primary);
 }
 .hero-logo .dot { display: inline-block; width: 1ch; text-align: center; overflow: visible; }
-.hero-text { flex: 1 1 20rem; }
-.hero-text .lede { margin-bottom: 1.25rem; }
-.hero-period { font-size: 1.75rem; margin: 0 0 0.25rem; }
+.hero-text { flex: 1 1 22rem; }
+.hero-period { font-size: 2rem; font-weight: 400; margin: 0 0 0.25rem; }
+.hero-text .page-sub { margin: 0 0 0.75rem; }
+.hero-text .lede { max-width: 34rem; margin: 0 0 1rem; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.hero-actions .cds--btn { text-decoration: none; }
 .headline { margin-top: 0.75rem; }
 
 /* Artist "About" (MusicBrainz / Wikipedia) */
@@ -218,3 +236,6 @@ ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
 .about-credit { color: var(--cds-text-helper); font-size: 0.8rem; white-space: nowrap; }
 .about-credit a { color: inherit; text-decoration: underline; text-decoration-color: var(--cds-border-strong-01); }
 .about-links { margin: 0; display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: baseline; }
+
+/* Home type scale: section headings outrank the cards inside them. */
+.home .section > h2 { font-size: 1.75rem; font-weight: 400; margin-bottom: 0.25rem; }

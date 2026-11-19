@@ -2,17 +2,20 @@
 import "../styles/carbon.scss";
 import "../styles/global.css";
 import { formatDate, SITE_NAME } from "../lib/format.ts";
-import { lastUpdated } from "../lib/queries.ts";
+import { lastUpdated, periodKeys } from "../lib/queries.ts";
 
 interface Props {
   title: string;
   description?: string;
-  section?: "charts" | "all" | "archive" | "shows" | "search";
+  section?: "home" | "charts" | "all" | "archive" | "shows" | "search";
+  hideWordmark?: boolean; // the home page's ASCII logo is the brand there; avoid two logos on one screen
 }
-const { title, description = "Charts of the tracks and artists played on NTS Radio.", section } = Astro.props;
+const { title, description = "Charts of the tracks and artists played on NTS Radio.", section, hideWordmark = false } = Astro.props;
 const updated = lastUpdated();
+const latestChart = periodKeys("rolling").at(-1);
 const nav = [
-  { href: "/", label: "Latest", key: "charts" },
+  { href: "/", label: "Home", key: "home" },
+  { href: latestChart ? `/charts/rolling/${latestChart}/` : "/charts/", label: "Charts", key: "charts" },
   { href: "/charts/all/", label: "All time", key: "all" },
   { href: "/charts/", label: "Archive", key: "archive" },
   { href: "/shows/", label: "Shows", key: "shows" },
@@ -30,10 +33,13 @@ const nav = [
   </head>
   <body>
     <header class="cds--header site-header" aria-label={SITE_NAME}>
-      <a class="cds--header__name site-logo" href="/">
-        <span class="visually-hidden">{SITE_NAME}</span>
-        <span class="wordmark" aria-hidden="true">¡ [ TOP ] [ of | the ] [ NTS ] !</span>
-      </a>
+      <div class="header-inner">
+      {!hideWordmark && (
+        <a class="cds--header__name site-logo" href="/">
+          <span class="visually-hidden">{SITE_NAME}</span>
+          <span class="wordmark" aria-hidden="true">¡ [ TOP ] [ of | the ] [ NTS ] !</span>
+        </a>
+      )}
       <nav class="cds--header__nav" aria-label="Main">
         <ul class="cds--header__menu-bar">
           {nav.map((n) => (
@@ -45,6 +51,7 @@ const nav = [
           ))}
         </ul>
       </nav>
+      </div>
     </header>
     <main class="wrap">
       <slot />

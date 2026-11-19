@@ -39,9 +39,9 @@ const switchHref = (t: DatedPeriod) => {
   return target ? `/charts/${t}/${target}/` : "/charts/";
 };
 ---
-<Base title={`${heading.title} · ${heading.sub}`} section="archive">
+<Base title={`${heading.title} · ${heading.sub}`} section="charts">
   <h1>{heading.title}</h1>
-  <p class="page-sub">{heading.sub}{inProgress && <> <span class="cds--tag cds--tag--sm cds--tag--blue">In progress</span></>}</p>
+  <p class="page-sub">{heading.sub}{inProgress && <> <span class="cds--tag cds--tag--sm cds--tag--outline">In progress</span></>}</p>
 
   <div class="period-nav">
     <nav class="cds--content-switcher cds--content-switcher--md period-switcher" aria-label="Chart period">

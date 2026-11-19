@@ -40,18 +40,23 @@ const trends = genreTrends();
 const history = latestWeek ? onThisDay(latestWeek) : [];
 const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: artistChart("all", "all", 5).map(artistItem) };
 ---
-<Base title={SITE_NAME} section="charts">
+<Base title={SITE_NAME} section="home" hideWordmark>
+<div class="home">
   <div class="hero">
     <HeroLogo />
     <div class="hero-text">
-      <p class="lede">What NTS Radio has been playing, from the tracklists of every episode. Tracks and artists score once per episode that plays them.</p>
       <h2 class="hero-period">{latest ? "Last 4 weeks" : "No charts yet"}</h2>
       {covered && (
         <p class="page-sub">
           {dateRange(new Date(covered.from), new Date(new Date(covered.to).getTime() - 1))}
-          {inProgress && <span class="cds--tag cds--tag--sm cds--tag--blue">In progress, runs to {endLabel}</span>}
+          {inProgress && <span class="cds--tag cds--tag--sm cds--tag--outline">In progress, runs to {endLabel}</span>}
         </p>
       )}
+      <p class="lede">What NTS Radio has been playing, from the tracklists of every episode. Tracks and artists score once per episode that plays them.</p>
+      <div class="hero-actions">
+        <a class="cds--btn cds--btn--primary cds--btn--md" href={chartHref}>See the full chart</a>
+        <a class="cds--btn cds--btn--tertiary cds--btn--md" href="/search/">Search artists &amp; shows</a>
+      </div>
     </div>
   </div>
 
@@ -61,11 +66,11 @@ const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: a
       <div class="grid-2">
         {spot.track && (
           <Spotlight label="Track" title={spot.track.title} artists={spot.track.artists} credit={spot.track.artistDisplay}
-            episodes={spot.track.score} shows={spot.track.shows} weeksAtOne={spot.track.weeksAtOne} history={spot.track.history} />
+            episodes={spot.track.score} shows={spot.track.shows} weeksAtOne={spot.track.weeksAtOne} status={spot.track.status} prevRank={spot.track.prevRank} history={spot.track.history} />
         )}
         {spot.artist && (
           <Spotlight label="Artist" title={spot.artist.name} href={spot.artist.slug ? `/artists/${spot.artist.slug}/` : undefined}
-            episodes={spot.artist.score} shows={spot.artist.shows} weeksAtOne={spot.artist.weeksAtOne} history={spot.artist.history} />
+            episodes={spot.artist.score} shows={spot.artist.shows} weeksAtOne={spot.artist.weeksAtOne} status={spot.artist.status} prevRank={spot.artist.prevRank} history={spot.artist.history} />
         )}
       </div>
     </section>
@@ -179,4 +184,5 @@ const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: a
     </div>
     <p class="muted small" style="margin-top:0.75rem">Since {stats.first ? formatDate(stats.first) : "the start"}. <a href="/charts/">Browse every chart</a>.</p>
   </section>
+</div>
 </Base>
