@@ -75,7 +75,9 @@ export function trackKey(artist: string, title: string): string {
 // Placeholder credits DJs/NTS use for unidentified records. These are not real tracks.
 const PLACEHOLDER_ARTISTS = new Set(
   ["unknown", "unknown artist", "unknown artists", "various", "various artists", "va", "n/a", "id", "tba", "tbc",
-   "unidentified", "unidentified artist", "artist", "no artist", "?", "??", "???"].map(normText),
+   "unidentified", "unidentified artist", "artist", "no artist", "?", "??", "???",
+   // "Untitled" as a *credit* is a placeholder; "Untitled" as a song title by a real artist is a real track.
+   "untitled", "untitled artist"].map(normText),
 );
 const PLACEHOLDER_TITLES = new Set(
   ["unknown", "unknown track", "unknown title", "id", "tba", "tbc", "unidentified", "track", "?", "??", "???"].map(normText),

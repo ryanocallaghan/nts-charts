@@ -83,3 +83,12 @@ describe("slugify", () => {
     expect(slugify("坂本龍一")).toBe("");
   });
 });
+
+describe("isPlaceholder: untitled", () => {
+  it("treats an 'Untitled' credit as a placeholder but keeps real tracks called Untitled", () => {
+    expect(isPlaceholder("Untitled", "Untitled")).toBe(true);
+    expect(isPlaceholder("Untitled Artist", "Something")).toBe(true);
+    expect(isPlaceholder("Hype Williams", "Untitled")).toBe(false);
+    expect(isPlaceholder("D'Angelo", "Untitled (How Does It Feel?)")).toBe(false);
+  });
+});
