@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey } from "./format.ts";
+import { compareWindows, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
 
 describe("ISO weeks", () => {
   it("matches known ISO week numbers, including year boundaries", () => {
@@ -28,5 +28,33 @@ describe("ISO weeks", () => {
   it("finds the first week of a 4-week window", () => {
     expect(rollingStartKey("2026-W47")).toBe("2026-W44");
     expect(rollingStartKey("2026-W02")).toBe("2025-W51");
+  });
+});
+
+describe("overview helpers", () => {
+  it("compares an in-progress window with the same days of the previous one", () => {
+    const w = compareWindows("2026-W47", new Date("2026-11-19T12:00:00Z"));
+    expect(w.current).toEqual({ from: "2026-10-26T00:00:00.000Z", to: "2026-11-19T12:00:00.000Z" });
+    expect(w.days).toBe(25);
+    expect(w.previous).toEqual({ from: "2026-09-28T00:00:00.000Z", to: "2026-10-23T00:00:00.000Z" });
+    expect(w.previousFull.to).toBe("2026-10-26T00:00:00.000Z");
+  });
+  it("uses whole windows once they're over", () => {
+    const w = compareWindows("2026-W46", new Date("2026-12-01T00:00:00Z"));
+    expect(w.days).toBe(28);
+    expect(w.current.to).toBe("2026-11-16T00:00:00.000Z");
+  });
+  it("formats changes as percentages or points", () => {
+    expect(formatChange(112, 100, "pct")).toMatchObject({ text: "+12%", dir: "up" });
+    expect(formatChange(90, 100, "pct")).toMatchObject({ text: "−10%", dir: "down" });
+    expect(formatChange(98.1, 97.6, "pts")).toMatchObject({ text: "+0.5 pts", dir: "up" });
+    expect(formatChange(5, 5, "pct")).toMatchObject({ text: "No change", dir: "same" });
+    expect(formatChange(5, 0, "pct")).toBeNull();
+  });
+  it("finds the same week in earlier years", () => {
+    expect(weekYearsAgo("2026-W47", 1)).toBe("2025-W47");
+    expect(weekYearsAgo("2026-W47", 10)).toBe("2016-W47");
+    expect(weekYearsAgo("2026-W53", 1)).toBe("2025-W52"); // 2025 has 52 ISO weeks
+    expect(weekYearsAgo("2026-W53", 6)).toBe("2020-W53"); // 2020 has 53
   });
 });

@@ -90,7 +90,7 @@ export function artistsWithPages(): Map<number, string> {
 export interface ArtistRef { id: number; name: string; slug: string | null }
 
 /** Credited artists per track, in credit order. */
-function artistsForTracks(trackIds: number[]): Map<number, ArtistRef[]> {
+export function artistsForTracks(trackIds: number[]): Map<number, ArtistRef[]> {
   const out = new Map<number, ArtistRef[]>();
   if (!trackIds.length) return out;
   const rows = all<{ track_id: number; id: number; name: string; slug: string }>(

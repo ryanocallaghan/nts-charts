@@ -1,73 +1,164 @@
 ---
+// Home: an overview of the latest 4-week window, with the full tables a click away.
 import Base from "../layouts/Base.astro";
-import ArtistLinks from "../components/ArtistLinks.astro";
-import ChartView from "../components/ChartView.astro";
-import { currentPeriodKey, formatDate, periodHeading } from "../lib/format.ts";
-import { artistChart, periodKeys, siteStats, trackChart } from "../lib/queries.ts";
+import RankedList from "../components/RankedList.astro";
+import Spotlight from "../components/Spotlight.astro";
+import StatTile from "../components/StatTile.astro";
+import TimeChart from "../components/TimeChart.astro";
+import { currentPeriodKey, formatDate, periodHeading, periodLabel, SITE_NAME } from "../lib/format.ts";
+import { archiveComplete, genreMix, genreTrends, headlineStats, movers, onThisDay, spotlight, type Item } from "../lib/overview.ts";
+import { artistChart, periodKeys, siteStats, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
+import { genreBars, shareLine } from "../lib/series.ts";
 
-// Lead with the 4-week chart: NTS rarely repeats a track within a single week.
 const latest = periodKeys("rolling").at(-1);
 const latestWeek = periodKeys("week").at(-1);
 const inProgress = latest === currentPeriodKey("rolling");
 const stats = siteStats();
-const topTracks = trackChart("all", "all", 10);
-const topArtists = artistChart("all", "all", 10);
+const chartHref = latest ? `/charts/rolling/${latest}/` : "/charts/";
+
+const trackItem = (t: TrackEntry): Item => ({
+  rank: t.rank, title: t.title, artists: t.artists, credit: t.artistDisplay, kind: "track",
+  status: t.status, prevRank: t.prevRank, count: `${t.score} eps`,
+});
+const artistItem = (a: ArtistEntry): Item => ({
+  rank: a.rank, title: a.name, href: a.slug ? `/artists/${a.slug}/` : undefined, kind: "artist",
+  status: a.status, prevRank: a.prevRank, count: `${a.score} eps`,
+});
+
+const complete = archiveComplete();
+const headline = latest ? headlineStats(latest, complete) : [];
+const spot = latest ? spotlight(latest) : null;
+const top = latest ? { tracks: trackChart("rolling", latest, 5).map(trackItem), artists: artistChart("rolling", latest, 5).map(artistItem) } : null;
+const moves = latest ? movers(latest) : null;
+const mix = latest ? genreMix(latest) : [];
+const trends = genreTrends();
+const history = latestWeek ? onThisDay(latestWeek) : [];
+const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: artistChart("all", "all", 5).map(artistItem) };
 ---
-<Base title="NTS Charts" section="charts">
+<Base title={SITE_NAME} section="charts">
   <h1>{latest ? "Last 4 weeks" : "No charts yet"}</h1>
   {latest && <p class="page-sub">{periodHeading("rolling", latest).dates}{inProgress && <> <span class="cds--tag cds--tag--sm cds--tag--blue">In progress</span></>}</p>}
-  <p class="lede">
-    The tracks and artists played on the most NTS Radio episodes over the last four weeks. A track scores once per
-    episode that plays it, so one show repeating a record doesn't top the chart.
-  </p>
+  <p class="lede">What NTS Radio has been playing, from the tracklists of every episode. Tracks and artists score once per episode that plays them.</p>
 
-  {latest && (
-    <>
-      <ChartView type="rolling" periodKey={latest} initial={10} />
-      <p class="section">{latestWeek && <><a href={`/charts/week/${latestWeek}/`}>This week only</a> · </>} <a href="/charts/">Browse every chart since {stats.first ? formatDate(stats.first).split(" ").at(-1) : "the start"}</a></p>
-    </>
+  {headline.length > 0 && (
+    <div class="stats headline" aria-label="Last 4 weeks in numbers">
+      {headline.map((s) => <StatTile stat={s} />)}
+    </div>
   )}
 
-
-  {topTracks.length > 0 && (
+  {spot && (spot.track || spot.artist) && (
     <section class="section">
-      <h2>Most played of all time</h2>
-      <p class="muted">Counted by the number of episodes that played them, across the whole archive.</p>
+      <h2>Number one</h2>
+      <div class="grid-2">
+        {spot.track && (
+          <Spotlight label="Track" title={spot.track.title} artists={spot.track.artists} credit={spot.track.artistDisplay}
+            episodes={spot.track.score} shows={spot.track.shows} weeksAtOne={spot.track.weeksAtOne} history={spot.track.history} />
+        )}
+        {spot.artist && (
+          <Spotlight label="Artist" title={spot.artist.name} href={spot.artist.slug ? `/artists/${spot.artist.slug}/` : undefined}
+            episodes={spot.artist.score} shows={spot.artist.shows} weeksAtOne={spot.artist.weeksAtOne} history={spot.artist.history} />
+        )}
+      </div>
+    </section>
+  )}
+
+  {top && (
+    <section class="section">
+      <h2>Top 5</h2>
       <div class="grid-2">
         <div class="card">
           <h3>Tracks</h3>
-          <ol class="ranked">
-            {topTracks.map((t) => (
-              <li>
-                <span class="pos">{t.rank}</span>
-                <span class="what"><span class="title">{t.title}</span><span class="sub"><ArtistLinks artists={t.artists} fallback={t.artistDisplay} /></span></span>
-                <span class="count">{t.score}</span>
-              </li>
-            ))}
-          </ol>
+          <RankedList items={top.tracks} movement />
+          <p class="more"><a href={chartHref}>See the full chart →</a></p>
+        </div>
+        <div class="card">
+          <h3>Artists</h3>
+          <RankedList items={top.artists} movement />
+          <p class="more"><a href={`${chartHref}#artists`}>See the full chart →</a></p>
+        </div>
+      </div>
+    </section>
+  )}
+
+  {moves && (moves.climbers.length > 0 || moves.entries.length > 0) && (
+    <section class="section">
+      <h2>On the move</h2>
+      <div class="grid-2">
+        {moves.climbers.length > 0 && (
+          <div class="card">
+            <h3>Biggest climbers</h3>
+            <RankedList items={moves.climbers} movement showKind />
+          </div>
+        )}
+        {moves.entries.length > 0 && (
+          <div class="card">
+            <h3>New entries</h3>
+            <RankedList items={moves.entries} movement showKind />
+          </div>
+        )}
+      </div>
+    </section>
+  )}
+
+  {mix.length > 0 && (
+    <section class="section">
+      <h2>Genre mix</h2>
+      <TimeChart title="Top genres" caption="Share of episodes tagged with each genre, last 4 weeks. Hover for the change vs the previous 4 weeks." data={genreBars(mix)} height={Math.max(220, mix.length * 30)} />
+    </section>
+  )}
+
+  {trends.series.length > 0 && (
+    <section class="section">
+      <h2>Genre trends</h2>
+      <p class="muted">Share of each month's episodes, over the last 12 months. All charts use the same scale.</p>
+      <div class="multiples">
+        {trends.series.map((s) => <TimeChart title={s.genre} data={shareLine(s.months, s.shares, trends.max)} height={140} />)}
+      </div>
+    </section>
+  )}
+
+  {history.length > 0 && (
+    <section class="section">
+      <h2>This week, years ago</h2>
+      <div class="multiples">
+        {history.map((h) => (
+          <div class="card">
+            <h3><a href={`/charts/week/${h.key}/`}>{h.years === 1 ? "1 year ago" : `${h.years} years ago`}</a></h3>
+            <p class="muted small">{periodLabel("week", h.key)}</p>
+            {h.track && <p class="otd"><span class="spot-label">#1 track</span><br />{h.track.title} <span class="muted">— {h.track.artistDisplay}</span></p>}
+            {h.artist && <p class="otd"><span class="spot-label">#1 artist</span><br />{h.artist.slug ? <a href={`/artists/${h.artist.slug}/`}>{h.artist.name}</a> : h.artist.name}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
+  )}
+
+  {allTime.tracks.length > 0 && (
+    <section class="section">
+      <h2>Most played of all time</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Tracks</h3>
+          <RankedList items={allTime.tracks} />
           <p class="more"><a href="/charts/all/">Top 100 tracks →</a></p>
         </div>
         <div class="card">
           <h3>Artists</h3>
-          <ol class="ranked">
-            {topArtists.map((a) => (
-              <li>
-                <span class="pos">{a.rank}</span>
-                <span class="what"><span class="title">{a.slug ? <a href={`/artists/${a.slug}/`}>{a.name}</a> : a.name}</span></span>
-                <span class="count">{a.score}</span>
-              </li>
-            ))}
-          </ol>
+          <RankedList items={allTime.artists} />
           <p class="more"><a href="/charts/all/#artists">Top 100 artists →</a></p>
         </div>
       </div>
     </section>
   )}
 
-  <div class="stats section" aria-label="Archive size">
-    <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{stats.episodes.toLocaleString("en-GB")}</div></div>
-    <div class="stat"><div class="label">Plays</div><div class="value">{stats.plays.toLocaleString("en-GB")}</div></div>
-    <div class="stat"><div class="label">Tracks</div><div class="value">{stats.tracks.toLocaleString("en-GB")}</div></div>
-    <div class="stat"><div class="label">Artists</div><div class="value">{stats.artists.toLocaleString("en-GB")}</div></div>
-  </div>
+  <section class="section">
+    <h2>The archive</h2>
+    <div class="stats" aria-label="Archive size">
+      <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{stats.episodes.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Plays</div><div class="value">{stats.plays.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Tracks</div><div class="value">{stats.tracks.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Artists</div><div class="value">{stats.artists.toLocaleString("en-GB")}</div></div>
+    </div>
+    <p class="muted small" style="margin-top:0.75rem">Since {stats.first ? formatDate(stats.first) : "the start"}. <a href="/charts/">Browse every chart</a>.</p>
+  </section>
 </Base>

@@ -50,6 +50,9 @@ p { margin: 0 0 1rem; }
 .site-header.cds--header { position: sticky; top: 0; z-index: 10; }
 .site-header .cds--header__nav { display: block; overflow-x: auto; scrollbar-width: none; }
 .site-header .cds--header__nav::before { display: none; }
+/* Logo (public/logo.svg, outlined from design/logo-source.svg) in the 48px header. */
+.site-header .site-logo { padding: 0 1rem; }
+.site-header .site-logo img { display: block; height: 40px; width: auto; }
 @media (max-width: 40rem) {
   .site-header .cds--header__name { padding: 0 0.75rem 0 1rem; }
   .site-header .cds--header__menu-item { padding: 0 0.6rem; }
@@ -169,3 +172,22 @@ nav.period-switcher.cds--content-switcher { display: inline-flex; inline-size: a
 nav.period-switcher.cds--content-switcher a.cds--content-switcher-btn { flex: 0 0 auto; inline-size: auto; padding-inline: 1rem; }
 nav.period-switcher .cds--content-switcher__label { overflow: visible; text-overflow: clip; }
 .move-tag { white-space: nowrap; min-inline-size: auto; }
+
+/* Home page overview */
+.headline { margin-top: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.stat .caption { color: var(--cds-text-helper); font-size: 0.8rem; margin-top: 0.125rem; }
+.stat .delta { font-size: 0.8rem; margin-top: 0.5rem; font-variant-numeric: tabular-nums; }
+.delta.up { color: var(--up); }
+.delta.down { color: var(--down); }
+.delta.same { color: var(--cds-text-secondary); }
+.delta .muted { color: var(--cds-text-helper); }
+.spotlight .spot-label, .spot-label { color: var(--cds-text-secondary); font-size: 0.75rem; letter-spacing: 0.02em; margin: 0; }
+.spotlight .spot-title { font-size: 1.75rem; font-weight: 400; margin: 0.25rem 0 0; line-height: 1.2; }
+.spotlight .spot-credit { margin: 0.25rem 0 0; color: var(--cds-text-secondary); }
+.spotlight .spot-stats { margin: 0.5rem 0 0.75rem; font-size: 0.875rem; color: var(--cds-text-secondary); }
+.multiples { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin-top: 0.75rem; }
+.multiples .viz-card h2 { font-size: 1rem; font-weight: 600; }
+ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
+.small { font-size: 0.85rem; }
+.otd { margin: 0.75rem 0 0; }
+.section > h2 + .grid-2, .section > h2 + .card, .section > h2 + .viz-card { margin-top: 0.75rem; }

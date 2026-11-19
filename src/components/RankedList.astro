@@ -1,0 +1,22 @@
+---
+// Compact ranked list (rank, optional movement, title + credit, count).
+import type { Item } from "../lib/overview.ts";
+import ArtistLinks from "./ArtistLinks.astro";
+import Movement from "./Movement.astro";
+interface Props { items: Item[]; movement?: boolean; showKind?: boolean }
+const { items, movement = false, showKind = false } = Astro.props;
+---
+<ol class="ranked">
+  {items.map((it) => (
+    <li>
+      <span class="pos">{it.rank}</span>
+      {movement && it.status && <span class="mv"><Movement status={it.status} rank={it.rank} prevRank={it.prevRank ?? null} /></span>}
+      <span class="what">
+        <span class="title">{it.href ? <a href={it.href}>{it.title}</a> : it.title}</span>
+        {it.artists && <span class="sub"><ArtistLinks artists={it.artists} fallback={it.credit ?? ""} /></span>}
+        {showKind && !it.artists && <span class="sub">Artist</span>}
+      </span>
+      {it.count && <span class="count">{it.count}</span>}
+    </li>
+  ))}
+</ol>

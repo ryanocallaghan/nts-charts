@@ -1,0 +1,29 @@
+---
+// The current #1 track or artist: name, credits, how widely it was played, and its recent chart run.
+import type { VizData } from "../scripts/charts.ts";
+import type { ArtistRef } from "../lib/queries.ts";
+import { plural } from "../lib/format.ts";
+import ArtistLinks from "./ArtistLinks.astro";
+import TimeChart from "./TimeChart.astro";
+interface Props {
+  label: string;
+  title: string;
+  href?: string;
+  artists?: ArtistRef[];
+  credit?: string;
+  episodes: number;
+  shows: number;
+  weeksAtOne: number;
+  history: VizData;
+}
+const p = Astro.props;
+---
+<section class="card spotlight">
+  <p class="spot-label">{p.label}</p>
+  <h3 class="spot-title">{p.href ? <a href={p.href}>{p.title}</a> : p.title}</h3>
+  {p.artists && <p class="spot-credit"><ArtistLinks artists={p.artists} fallback={p.credit ?? ""} /></p>}
+  <p class="spot-stats">
+    {plural(p.episodes, "episode")} across {plural(p.shows, "show")} · {p.weeksAtOne > 1 ? `${p.weeksAtOne} weeks at #1` : "1st week at #1"}
+  </p>
+  {p.history.x.length > 1 && <TimeChart bare title={`${p.title}: 4-week chart history`} data={p.history} height={140} />}
+</section>

@@ -1,7 +1,7 @@
 ---
 import "../styles/carbon.scss";
 import "../styles/global.css";
-import { formatDate } from "../lib/format.ts";
+import { formatDate, SITE_NAME } from "../lib/format.ts";
 import { lastUpdated } from "../lib/queries.ts";
 
 interface Props {
@@ -24,13 +24,13 @@ const nav = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title === "NTS Charts" ? title : `${title} · NTS Charts`}</title>
+    <title>{title === SITE_NAME ? title : `${title} · ${SITE_NAME}`}</title>
     <meta name="description" content={description} />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='4' y='14' width='6' height='14' rx='2' fill='%232a78d6'/><rect x='13' y='6' width='6' height='22' rx='2' fill='%232a78d6'/><rect x='22' y='10' width='6' height='18' rx='2' fill='%232a78d6'/></svg>" />
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
   </head>
   <body>
-    <header class="cds--header site-header" aria-label="NTS Charts">
-      <a class="cds--header__name" href="/">NTS&nbsp;Charts</a>
+    <header class="cds--header site-header" aria-label={SITE_NAME}>
+      <a class="cds--header__name site-logo" href="/"><img src="/logo.svg" alt={SITE_NAME} width="53" height="40" /></a>
       <nav class="cds--header__nav" aria-label="Main">
         <ul class="cds--header__menu-bar">
           {nav.map((n) => (

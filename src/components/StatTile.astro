@@ -1,0 +1,17 @@
+---
+// A headline number with an optional caption and change vs the previous period (arrow + text).
+import type { Stat } from "../lib/overview.ts";
+interface Props { stat: Stat }
+const { stat } = Astro.props;
+const arrow = { up: "▲", down: "▼", same: "–" };
+---
+<div class="stat">
+  <div class="label">{stat.label}</div>
+  <div class="value">{stat.value}</div>
+  {stat.caption && <div class="caption">{stat.caption}</div>}
+  {stat.change && (
+    <div class={`delta ${stat.change.dir}`} title={stat.change.label}>
+      <span aria-hidden="true">{arrow[stat.change.dir]} </span>{stat.change.text}<span class="muted"> vs previous 4 weeks</span>
+    </div>
+  )}
+</div>

@@ -1,3 +1,6 @@
+/** The site's public name (the repo, URL and Cloudflare project stay "nts-charts"). */
+export const SITE_NAME = "Top of the NTS";
+
 export type PeriodType = "week" | "rolling" | "month" | "year" | "all";
 export type DatedPeriod = Exclude<PeriodType, "all">;
 export const DATED_PERIODS: DatedPeriod[] = ["week", "rolling", "month", "year"];
@@ -70,6 +73,48 @@ export function periodHeading(type: PeriodType, key: string): { title: string; s
   const end = isoWeekStart(key);
   end.setUTCDate(end.getUTCDate() + 6);
   return { title: `4 weeks to ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]}`, sub: `4-week chart · ${dates}`, dates };
+}
+
+const DAY = 86_400_000;
+
+export interface Window { from: string; to: string } // ISO timestamps, [from, to)
+
+/**
+ * The 4-week window ending in ISO week `key`, cut off at `asOf` while it's in progress, and the
+ * same number of days at the start of the previous 4 weeks, for like-for-like comparisons.
+ */
+export function compareWindows(key: string, asOf: Date): { current: Window; previous: Window; previousFull: Window; days: number } {
+  const start = isoWeekStart(rollingStartKey(key));
+  const end = new Date(isoWeekStart(key).getTime() + 7 * DAY);
+  const cut = new Date(Math.min(end.getTime(), Math.max(asOf.getTime(), start.getTime() + DAY)));
+  const days = Math.ceil((cut.getTime() - start.getTime()) / DAY);
+  const prevStart = new Date(start.getTime() - 28 * DAY);
+  return {
+    current: { from: start.toISOString(), to: cut.toISOString() },
+    previous: { from: prevStart.toISOString(), to: new Date(prevStart.getTime() + days * DAY).toISOString() },
+    previousFull: { from: prevStart.toISOString(), to: start.toISOString() },
+    days,
+  };
+}
+
+export interface Change { text: string; dir: "up" | "down" | "same"; label: string }
+
+/** "+12%" for counts, "+1.5 pts" for percentages; null when there's nothing to compare with. */
+export function formatChange(current: number, previous: number, unit: "pct" | "pts"): Change | null {
+  if (unit === "pct" && previous <= 0) return null;
+  const delta = unit === "pct" ? ((current - previous) / previous) * 100 : current - previous;
+  const rounded = Math.round(delta * 10) / 10;
+  const dir = rounded > 0 ? "up" : rounded < 0 ? "down" : "same";
+  const abs = Math.abs(unit === "pct" ? Math.round(delta) : rounded);
+  const text = dir === "same" ? "No change" : `${dir === "up" ? "+" : "−"}${abs.toLocaleString("en-GB")}${unit === "pct" ? "%" : " pts"}`;
+  return { text, dir, label: `${text} vs the previous 4 weeks` };
+}
+
+/** The same ISO week number `years` years earlier (week 53 falls back to 52 in 52-week years). */
+export function weekYearsAgo(key: string, years: number): string {
+  const [y, w] = key.split("-W").map(Number);
+  const candidate = `${y - years}-W${String(w).padStart(2, "0")}`;
+  return isoWeekKey(isoWeekStart(candidate)) === candidate ? candidate : `${y - years}-W52`;
 }
 
 /** The first ISO week of a 4-week chart ending in `key`. */

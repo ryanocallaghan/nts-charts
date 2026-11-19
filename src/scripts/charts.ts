@@ -4,16 +4,19 @@ import * as echarts from "echarts/core";
 import { BarChart, LineChart } from "echarts/charts";
 import { DataZoomComponent, GridComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
+import { formatViz } from "../lib/series.ts";
 
 echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, DataZoomComponent, SVGRenderer]);
 
 export interface VizData {
-  kind: "bars" | "rank";
+  // bars: vertical counts over time · rank: chart position over time (inverted)
+  // hbar: horizontal % bars by category · share: % line over time (small multiples share `max`)
+  kind: "bars" | "rank" | "hbar" | "share";
   name: string;            // series name, e.g. "Episodes"
-  x: string[];             // short axis labels
+  x: string[];             // short axis labels (categories for hbar)
   tip: string[];           // long labels for the tooltip
   y: (number | null)[];
-  max?: number;            // rank charts: chart size
+  max?: number;            // rank: chart size · share: shared y maximum (%)
 }
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -26,9 +29,32 @@ function option(d: VizData): echarts.EChartsCoreOption {
     ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), grid: css("--grid"), axis: css("--axis"),
     surface: css("--surface"), series: css("--series-1"), wash: css("--series-1-wash"), font: css("--font"),
   };
-  const zoom = d.x.length > ZOOM_AFTER;
+  const horizontal = d.kind === "hbar";
+  const pct = d.kind === "hbar" || d.kind === "share";
+  const zoom = !horizontal && d.x.length > ZOOM_AFTER;
   const start = zoom ? Math.max(0, 100 - (ZOOM_WINDOW / d.x.length) * 100) : 0;
   const axisLabel = { color: t.muted, fontSize: 12 };
+  const categoryAxis = {
+    type: "category" as const,
+    data: d.x,
+    boundaryGap: d.kind === "bars" || horizontal,
+    axisLine: { lineStyle: { color: t.axis } },
+    axisTick: { show: false },
+    axisLabel: { ...axisLabel, hideOverlap: !horizontal, color: horizontal ? t.ink2 : t.muted },
+  };
+  const valueAxis =
+    d.kind === "rank"
+      ? {
+          type: "value" as const, inverse: true, min: 1, max: d.max ?? 50,
+          splitLine: { lineStyle: { color: t.grid } },
+          axisLabel: { ...axisLabel, formatter: (v: number) => `#${v}` },
+        }
+      : {
+          type: "value" as const, min: 0, max: d.kind === "share" ? d.max : undefined, minInterval: pct ? undefined : 1,
+          interval: d.kind === "share" ? ((d.max ?? 10) <= 30 ? 10 : 20) : undefined,
+          splitLine: { lineStyle: { color: t.grid } },
+          axisLabel: { ...axisLabel, formatter: pct ? (v: number) => `${v}%` : undefined },
+        };
 
   return {
     animationDuration: 300,
@@ -43,34 +69,19 @@ function option(d: VizData): echarts.EChartsCoreOption {
       padding: [8, 10],
       textStyle: { color: t.ink, fontSize: 13 },
       axisPointer:
-        d.kind === "bars"
+        d.kind === "bars" || horizontal
           ? { type: "shadow", shadowStyle: { color: t.wash } }
           : { type: "line", lineStyle: { color: t.axis, width: 1 } },
       formatter: (params: unknown) => {
         const i = (params as { dataIndex: number }[])[0].dataIndex;
-        const v = d.y[i];
-        const value = v == null ? "Not charted" : d.kind === "rank" ? `#${v}` : v.toLocaleString("en-GB");
+        const value = formatViz(d.kind, d.y[i]);
         // Value leads; series keyed by a short line, not a box.
         return `<div style="font-weight:600;font-size:15px">${esc(value)}</div>
           <div style="color:${t.ink2}"><span style="display:inline-block;width:12px;height:2px;background:${t.series};vertical-align:middle;margin-right:6px"></span>${esc(d.name)} · ${esc(d.tip[i])}</div>`;
       },
     },
-    xAxis: {
-      type: "category",
-      data: d.x,
-      boundaryGap: d.kind === "bars",
-      axisLine: { lineStyle: { color: t.axis } },
-      axisTick: { show: false },
-      axisLabel: { ...axisLabel, hideOverlap: true },
-    },
-    yAxis:
-      d.kind === "rank"
-        ? {
-            type: "value", inverse: true, min: 1, max: d.max ?? 50,
-            splitLine: { lineStyle: { color: t.grid } },
-            axisLabel: { ...axisLabel, formatter: (v: number) => `#${v}` },
-          }
-        : { type: "value", minInterval: 1, splitLine: { lineStyle: { color: t.grid } }, axisLabel },
+    xAxis: horizontal ? valueAxis : categoryAxis,
+    yAxis: horizontal ? { ...categoryAxis, inverse: true } : valueAxis,
     dataZoom: zoom
       ? [
           { type: "inside", start, end: 100 },
@@ -86,10 +97,11 @@ function option(d: VizData): echarts.EChartsCoreOption {
         ]
       : [],
     series: [
-      d.kind === "bars"
+      d.kind === "bars" || horizontal
         ? {
-            type: "bar", name: d.name, data: d.y, barMaxWidth: 24,
-            itemStyle: { color: t.series, borderRadius: [4, 4, 0, 0] },
+            type: "bar", name: d.name, data: d.y, barMaxWidth: horizontal ? 18 : 24,
+            // Rounded data end, square at the baseline.
+            itemStyle: { color: t.series, borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0] },
             emphasis: { itemStyle: { opacity: 0.85 } },
           }
         : {

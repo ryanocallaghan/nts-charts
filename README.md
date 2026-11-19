@@ -1,8 +1,8 @@
-# NTS Charts
+# Top of the NTS
 
 Charts of the tracks and artists played on [NTS Radio](https://www.nts.live), built from the public episode tracklists.
 
-This is an unofficial fan project. It isn't affiliated with or endorsed by NTS.
+A personal project, not affiliated with NTS.
 
 ## How it works
 

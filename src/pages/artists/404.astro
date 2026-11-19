@@ -14,7 +14,7 @@ import Base from "../../layouts/Base.astro";
 <script>
   import { observeViz } from "../../scripts/charts.ts";
   import { artistShard } from "../../lib/shard.ts";
-  import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
+  import { formatDate, ntsEpisodeUrl, plural, SITE_NAME } from "../../lib/format.ts";
   import { monthlyBars } from "../../lib/series.ts";
   import type { ArtistShard, LongtailArtist } from "../../lib/longtail-types.ts";
 
@@ -23,7 +23,7 @@ import Base from "../../layouts/Base.astro";
   const n = (v: number) => v.toLocaleString("en-GB");
 
   function notFound() {
-    document.title = "Not found · NTS Charts";
+    document.title = `Not found · ${SITE_NAME}`;
     root.innerHTML = `<h1>Artist not found</h1><p class="lede">We couldn't find that artist. Try <a href="/search/">search</a>.</p>`;
     root.removeAttribute("aria-busy");
   }
@@ -44,7 +44,7 @@ import Base from "../../layouts/Base.astro";
   }
 
   function render(a: LongtailArtist, shard: ArtistShard) {
-    document.title = `${a.n} · NTS Charts`;
+    document.title = `${a.n} · ${SITE_NAME}`;
     const ep = (i: number) => {
       const [show, date, name, alias] = shard.ep[i];
       const [showName, showHref] = shard.sh[show] ?? [show, `/shows/${show}/`];
