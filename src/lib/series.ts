@@ -59,17 +59,6 @@ export function genreBars(rows: { genre: string; share: number; prevShare: numbe
   };
 }
 
-/** One genre's monthly share (%) for a small multiple; `max` is shared across the set. */
-export function shareLine(months: string[], shares: (number | null)[], max: number): VizData {
-  return {
-    kind: "share",
-    name: "Share of episodes",
-    max,
-    x: months.map((m) => { const [y, mo] = m.split("-").map(Number); return `${MON[mo - 1]} ${yy(y)}`; }),
-    tip: months.map((m) => periodLabel("month", m)),
-    y: shares,
-  };
-}
 
 /**
  * SVG path for a small rank sparkline: rank 1 at the top, `max` at the bottom, a break wherever the
@@ -90,4 +79,16 @@ export function sparklinePath(ranks: (number | null)[], width: number, height: n
     last = { x: px, y: py };
   });
   return { d, last: last as { x: number; y: number } | null };
+}
+
+/** One genre's weekly share (%) for a small multiple; `max` is shared across the set. */
+export function weekShareLine(weeks: string[], shares: (number | null)[], max: number): VizData {
+  return {
+    kind: "share",
+    name: "Share of episodes",
+    max,
+    x: weeks.map((w) => { const d = isoWeekStart(w); return `${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; }),
+    tip: weeks.map((w) => periodLabel("week", w)),
+    y: shares,
+  };
 }

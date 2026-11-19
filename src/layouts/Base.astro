@@ -91,6 +91,8 @@ const nav = [
             // Show the wordmark once the page's logo has scrolled up under the header (one cheap measurement).
             header.classList.toggle("show-logo", !logo || logo.getBoundingClientRect().bottom < header.offsetHeight);
           }
+          // Only animate after the first paint, so the wordmark doesn't fade out on page load.
+          requestAnimationFrame(function () { requestAnimationFrame(function () { header.classList.add("logo-anim"); }); });
           addEventListener("scroll", update, { passive: true });
           addEventListener("resize", update);
           document.addEventListener("DOMContentLoaded", update);

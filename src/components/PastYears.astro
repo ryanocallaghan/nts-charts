@@ -1,0 +1,23 @@
+---
+// "This week in past years": the weekly #1s from the same ISO week 1, 5 and 10 years earlier.
+import { periodLabel } from "../lib/format.ts";
+import { onThisDay } from "../lib/overview.ts";
+interface Props { week: string }
+const pastYears = onThisDay(Astro.props.week);
+---
+{pastYears.length > 0 && (
+  <section class="section">
+    <h2>This week in past years</h2>
+    <p class="section-meta">The weekly #1s from this week in earlier years</p>
+    <div class="multiples">
+      {pastYears.map((h) => (
+        <div class="card">
+          <h3><a href={`/charts/week/${h.key}/`}>{h.years === 1 ? "1 year ago" : `${h.years} years ago`}</a></h3>
+          <p class="muted small">{periodLabel("week", h.key)}</p>
+          {h.track && <p class="otd"><span class="spot-label">#1 track</span><br />{h.track.title} <span class="muted">— {h.track.artistDisplay}</span></p>}
+          {h.artist && <p class="otd"><span class="spot-label">#1 artist</span><br />{h.artist.slug ? <a href={`/artists/${h.artist.slug}/`}>{h.artist.name}</a> : h.artist.name}</p>}
+        </div>
+      ))}
+    </div>
+  </section>
+)}

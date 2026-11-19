@@ -2,18 +2,18 @@
 // Home: an overview of the latest 4-week window, with the full tables a click away.
 import Base from "../layouts/Base.astro";
 import HeroLogo from "../components/HeroLogo.astro";
+import PastYears from "../components/PastYears.astro";
 import RankedList from "../components/RankedList.astro";
 import Spotlight from "../components/Spotlight.astro";
 import StatTile from "../components/StatTile.astro";
 import TimeChart from "../components/TimeChart.astro";
-import { formatDate, periodDates, periodLabel, SITE_NAME } from "../lib/format.ts";
-import { archiveComplete, asOf, genreMix, genreTrends, headlineStats, movers, onThisDay, spotlight, type Item } from "../lib/overview.ts";
-import { artistChart, periodKeys, siteStats, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
-import { genreBars, shareLine } from "../lib/series.ts";
+import { periodDates, SITE_NAME } from "../lib/format.ts";
+import { archiveComplete, asOf, genreMix, genreTrends, headlineStats, movers, spotlight, type Item } from "../lib/overview.ts";
+import { artistChart, periodKeys, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
+import { genreBars, weekShareLine } from "../lib/series.ts";
 
 const latest = periodKeys("rolling").at(-1);
 const latestWeek = periodKeys("week").at(-1);
-const stats = siteStats();
 const chartHref = latest ? `/charts/rolling/${latest}/` : "/charts/";
 // While the window is in progress, show the dates the numbers actually cover, not the whole window.
 // Same date label as the chart page: the dates covered so far while the window is still running.
@@ -34,9 +34,7 @@ const spot = latest ? spotlight(latest) : null;
 const top = latest ? { tracks: trackChart("rolling", latest, 5).map(trackItem), artists: artistChart("rolling", latest, 5).map(artistItem) } : null;
 const moves = latest ? movers(latest) : null;
 const mix = latest ? genreMix(latest) : [];
-const trends = genreTrends();
-const history = latestWeek ? onThisDay(latestWeek) : [];
-const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: artistChart("all", "all", 5).map(artistItem) };
+const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
 ---
 <Base title={SITE_NAME} section="home" hideWordmark>
 <div class="home">
@@ -132,56 +130,22 @@ const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: a
   {trends.series.length > 0 && (
     <section class="section">
       <h2>Genre trends</h2>
-      <p class="muted">Share of each month's episodes, over the last 12 months. All charts use the same scale.</p>
+      <p class="section-meta">Last 4 weeks, week by week: share of each week's episodes. All charts use the same scale.</p>
       <div class="multiples">
-        {trends.series.map((s) => <TimeChart title={s.genre} data={shareLine(s.months, s.shares, trends.max)} height={140} />)}
+        {trends.series.map((t) => <TimeChart title={t.genre} data={weekShareLine(t.weeks, t.shares, trends.max)} height={140} />)}
       </div>
     </section>
   )}
 
-  {history.length > 0 && (
-    <section class="section">
-      <h2>This week, years ago</h2>
-      <div class="multiples">
-        {history.map((h) => (
-          <div class="card">
-            <h3><a href={`/charts/week/${h.key}/`}>{h.years === 1 ? "1 year ago" : `${h.years} years ago`}</a></h3>
-            <p class="muted small">{periodLabel("week", h.key)}</p>
-            {h.track && <p class="otd"><span class="spot-label">#1 track</span><br />{h.track.title} <span class="muted">— {h.track.artistDisplay}</span></p>}
-            {h.artist && <p class="otd"><span class="spot-label">#1 artist</span><br />{h.artist.slug ? <a href={`/artists/${h.artist.slug}/`}>{h.artist.name}</a> : h.artist.name}</p>}
-          </div>
-        ))}
-      </div>
-    </section>
-  )}
+  {latestWeek && <PastYears week={latestWeek} />}
 
-  {allTime.tracks.length > 0 && (
-    <section class="section">
-      <h2>Most played of all time</h2>
-      <div class="grid-2">
-        <div class="card">
-          <h3>Tracks</h3>
-          <RankedList items={allTime.tracks} />
-          <p class="more"><a href="/charts/all/">Top 100 tracks →</a></p>
-        </div>
-        <div class="card">
-          <h3>Artists</h3>
-          <RankedList items={allTime.artists} />
-          <p class="more"><a href="/charts/all/#artists">Top 100 artists →</a></p>
-        </div>
-      </div>
-    </section>
-  )}
-
-  <section class="section">
-    <h2>The archive</h2>
-    <div class="stats" aria-label="Archive size">
-      <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{stats.episodes.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">Plays</div><div class="value">{stats.plays.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">Tracks</div><div class="value">{stats.tracks.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">Artists</div><div class="value">{stats.artists.toLocaleString("en-GB")}</div></div>
+  <section class="section more-links">
+    <h2>More charts</h2>
+    <div class="hero-actions">
+      <a class="cds--btn cds--btn--primary cds--btn--md" href={chartHref}>See the full 4-week chart</a>
+      <a class="cds--btn cds--btn--tertiary cds--btn--md" href="/charts/all/">All-time chart</a>
+      <a class="cds--btn cds--btn--tertiary cds--btn--md" href="/charts/">Browse the archive</a>
     </div>
-    <p class="muted small" style="margin-top:0.75rem">Since {stats.first ? formatDate(stats.first) : "the start"}. <a href="/charts/">Browse every chart</a>.</p>
   </section>
 </div>
 </Base>

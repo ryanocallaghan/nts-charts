@@ -1,7 +1,9 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { periodLabel } from "../../lib/format.ts";
-import { periodKeys } from "../../lib/queries.ts";
+import { formatDate, periodLabel } from "../../lib/format.ts";
+import { periodKeys, siteStats } from "../../lib/queries.ts";
+
+const stats = siteStats();
 
 const years = periodKeys("year").reverse();
 const months = periodKeys("month");
@@ -17,6 +19,14 @@ const byYear = years.map((y) => ({
 <Base title="Chart archive" section="archive">
   <h1>Chart archive</h1>
   <p class="lede">Every weekly, monthly, quarterly and yearly chart, newest first. Each week also has a 4-week chart (switch on any weekly chart). Or see the <a href="/charts/all/">all-time chart</a>.</p>
+  <div class="stats" aria-label="Archive size">
+    <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{stats.episodes.toLocaleString("en-GB")}</div></div>
+    <div class="stat"><div class="label">Plays</div><div class="value">{stats.plays.toLocaleString("en-GB")}</div></div>
+    <div class="stat"><div class="label">Tracks</div><div class="value">{stats.tracks.toLocaleString("en-GB")}</div></div>
+    <div class="stat"><div class="label">Artists</div><div class="value">{stats.artists.toLocaleString("en-GB")}</div></div>
+  </div>
+  <p class="muted small" style="margin-top:0.75rem">Since {stats.first ? formatDate(stats.first) : "the start"}.</p>
+
 
   {byYear.map(({ year, months, quarters, weeks }) => (
     <section class="card section">

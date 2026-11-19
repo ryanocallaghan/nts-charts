@@ -1,6 +1,6 @@
 // Build-time data for the home page overview. Everything is about the latest 4-week chart window.
 import { all, get } from "./db.ts";
-import { compareWindows, formatChange, isoWeekKey, isoWeekStart, weekYearsAgo, type Change, type Window } from "./format.ts";
+import { compareWindows, formatChange, isoWeekKey, isoWeekStart, rollingStartKey, weekYearsAgo, type Change, type Window } from "./format.ts";
 import { artistChart, artistsForTracks, periodKeys, trackChart, type ArtistRef } from "./queries.ts";
 import { rankLine } from "./series.ts";
 
@@ -177,37 +177,37 @@ export function genreMix(key: string, limit = 10) {
     .map(([genre, n]) => ({ genre, share: pct(n, cur.total), prevShare: pct(prev.byGenre.get(genre) ?? 0, prev.total) }));
 }
 
-/** Monthly share of episodes for the top genres over the last 12 complete months. */
-export function genreTrends(genres = 6) {
-  const now = asOf();
-  const months: string[] = [];
-  for (let i = 12; i >= 1; i--) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    months.push(d.toISOString().slice(0, 7));
-  }
-  const from = `${months[0]}-01`;
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const totals = new Map(all<{ m: string; n: number }>(
-    `SELECT substr(e.broadcast_at, 1, 7) m, count(*) n FROM episodes e
-     WHERE ${IN} AND e.genres_json IS NOT NULL AND e.genres_json != '[]' GROUP BY m`, from, to,
-  ).map((r) => [r.m, r.n]));
-  const rows = all<{ m: string; g: string; n: number }>(
-    `SELECT substr(e.broadcast_at, 1, 7) m, j.value g, count(DISTINCT e.alias) n
-     FROM episodes e, json_each(e.genres_json) j WHERE ${IN} GROUP BY m, g`, from, to,
+/**
+ * Week-by-week share of episodes for the top genres across the 4-week window ending in `key`
+ * (the same window as the rest of the home page). The current week counts its episodes so far.
+ */
+export function genreTrends(key: string, genres = 6) {
+  const weeks: string[] = [];
+  for (let d = isoWeekStart(rollingStartKey(key)); weeks.length < 4; d = new Date(d.getTime() + 7 * 86_400_000)) weeks.push(isoWeekKey(d));
+  const from = isoWeekStart(weeks[0]).toISOString();
+  const to = new Date(isoWeekStart(key).getTime() + 7 * 86_400_000).toISOString();
+  const WEEK = "strftime('%G-W%V', e.broadcast_at)";
+  const totals = new Map(all<{ w: string; n: number }>(
+    `SELECT ${WEEK} w, count(*) n FROM episodes e
+     WHERE ${IN} AND e.genres_json IS NOT NULL AND e.genres_json != '[]' GROUP BY w`, from, to,
+  ).map((r) => [r.w, r.n]));
+  const rows = all<{ w: string; g: string; n: number }>(
+    `SELECT ${WEEK} w, j.value g, count(DISTINCT e.alias) n
+     FROM episodes e, json_each(e.genres_json) j WHERE ${IN} GROUP BY w, g`, from, to,
   );
   const sums = new Map<string, number>();
   for (const r of rows) sums.set(r.g, (sums.get(r.g) ?? 0) + r.n);
   const top = [...sums].sort((a, b) => b[1] - a[1]).slice(0, genres).map(([g]) => g);
   const series = top.map((g) => ({
     genre: g,
-    months,
-    shares: months.map((m) => {
-      const n = rows.find((r) => r.m === m && r.g === g)?.n ?? 0;
-      const t = totals.get(m) ?? 0;
+    weeks,
+    shares: weeks.map((w) => {
+      const n = rows.find((r) => r.w === w && r.g === g)?.n ?? 0;
+      const t = totals.get(w) ?? 0;
       return t ? Math.round((1000 * n) / t) / 10 : null;
     }),
   }));
-  const peak = Math.max(0, ...series.flatMap((s) => s.shares.filter((v): v is number => v != null)));
+  const peak = Math.max(0, ...series.flatMap((x) => x.shares.filter((v): v is number => v != null)));
   // A shared scale in whole tens, so the small multiples compare directly.
   return { series, max: Math.max(10, Math.ceil(peak / 10) * 10) };
 }

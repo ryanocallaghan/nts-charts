@@ -3,6 +3,7 @@ import Base from "../../../layouts/Base.astro";
 import ChartView from "../../../components/ChartView.astro";
 import { DATED_PERIODS, isoWeekKey, isoWeekStart, periodBounds, periodDates, periodHeading, periodLabel, quarterKey, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
 import { asOf } from "../../../lib/overview.ts";
+import PastYears from "../../../components/PastYears.astro";
 import { periodKeys } from "../../../lib/queries.ts";
 
 export function getStaticPaths() {
@@ -64,4 +65,6 @@ const switchHref = (t: DatedPeriod) => {
   </div>
 
   <ChartView type={type} periodKey={key} />
+
+  {type === "week" && <PastYears week={key} />}
 </Base>
