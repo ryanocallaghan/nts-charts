@@ -37,17 +37,38 @@ npm run build && npm start   # production server on HOST/PORT (default localhost
 npm run smoke -- http://localhost:4321
 ```
 
-## Running in Docker
+## On the server
 
-`Dockerfile` builds the server; ingest runs in the same container. `docker-compose.yml` is for the production server: the database lives in the `nts-data` volume, and Caddy reaches the site on the shared `web` network.
+The site runs at https://nts.ryanocallaghan.com on a VPS it shares with [MY BIN.DAY](https://mybin.day), as its own Docker Compose project in `~/nts-charts`. It's capped at 768 MB of memory and one CPU, so it can't slow the other site down. That project's Caddy serves it over the shared `web` network, behind Cloudflare.
 
 ```sh
-docker network create web    # once
+# set up (once)
+docker network create web
+git clone https://github.com/ryanocallaghan/nts-charts.git ~/nts-charts && cd ~/nts-charts
 docker compose up -d --build
-docker compose exec -T web node ingest/incremental.ts
-docker compose exec -T web node ingest/aggregate.ts
+sh scripts/seed-db.sh             # the database from the db-latest release, then charts and search
+
+# update the code
+git pull && docker compose up -d --build
+npm run smoke -- https://nts.ryanocallaghan.com   # from a computer with the repo
 ```
+
+Cron on the server, in UK time, kept clear of MY BIN.DAY's jobs (2pm, 6pm and early Sunday). Every database writer takes the same `flock`, so they never overlap:
+
+```
+15 10,22 * * * cd ~/nts-charts && flock -n /tmp/nts-db.lock sh -c 'docker compose exec -T web node ingest/incremental.ts && docker compose exec -T web node ingest/aggregate.ts' > /tmp/nts-update.log 2>&1
+0 23 * * * cd ~/nts-charts && flock -n /tmp/nts-db.lock docker compose exec -T web node ingest/enrich.ts --max-minutes 90 > /tmp/nts-enrich.log 2>&1
+0 11 * * 1 cd ~/nts-charts && sh scripts/backup-db.sh > /tmp/nts-backup.log 2>&1
+```
+
+The weekly backup keeps the last four copies in `~/backups` and uploads one to the `db-latest` release. It needs the GitHub CLI (`sudo apt install gh`), signed in once with `gh auth login --with-token` using a fine-grained token for this repository with **Contents: read and write**.
+
+To crawl the whole archive again (rarely needed), run `docker compose exec -T web node ingest/backfill.ts --max-minutes 120` by hand, in the daytime and never across 5:30–6:30pm.
+
+## Running in Docker
+
+`Dockerfile` builds the server; ingest runs in the same container. `docker-compose.yml` is the production setup above: the database lives in the `nts-data` volume, and Caddy reaches the site on the shared `web` network.
 
 ## Data
 
-The latest database is attached to the [`db-latest` release](../../releases/tag/db-latest) as `nts.sqlite.gz`. The **Backfill archive** workflow builds it in resumable chunks on GitHub Actions.
+A weekly copy of the database is attached to the [`db-latest` release](../../releases/tag/db-latest) as `nts.sqlite.gz`, uploaded by the server. `scripts/download-db.sh` fetches it into `data/` for local work. The server is the only thing that writes the database: GitHub Actions only runs the tests.

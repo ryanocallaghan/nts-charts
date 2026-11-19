@@ -4,6 +4,7 @@
 #   download-db.sh --init     # create the release and start empty if (and only if) it doesn't exist yet
 # Retries ride out the moment while another job replaces the asset (--clobber deletes then uploads).
 set -euo pipefail
+DB_RELEASE="${DB_RELEASE:-db-latest}"
 mkdir -p data
 rm -f data/nts.sqlite data/nts.sqlite.gz
 
