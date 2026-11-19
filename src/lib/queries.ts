@@ -1,7 +1,7 @@
-import { all, get, memo } from "./db.ts";
-import { GUEST_PAGES_SQL, GUESTS_SHOW, SHOW_KEY } from "./shared-sql.ts";
+import { all, cached, get, memo } from "./db.ts";
+import { CHART_MIN_SCORE, CHART_SIZE, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql, SHOW_KEY } from "./shared-sql.ts";
 import { DATED } from "./dates.ts";
-import { ntsEpisodeUrl, rollingStartKey, type PeriodType } from "./format.ts";
+import { ntsEpisodeUrl, periodBounds, rollingStartKey, type DatedPeriod, type PeriodType } from "./format.ts";
 import { searchHref, searchMeta, searchNorm, type SearchKind, type SearchResult } from "./search.ts";
 
 // NTS files one-off guest mixes under one catch-all show. Each guest counts as its own "show"
@@ -373,12 +373,17 @@ function periodFilter(type: PeriodType, key: string): { sql: string; params: str
  */
 export function episodesForTracks(
   trackIds: number[],
-  period?: { type: PeriodType; key: string },
+  period?: { type: PeriodType; key: string; filter?: ChartFilter },
   limit = 25,
 ): Map<number, { total: number; episodes: EpisodePlay[] }> {
   const out = new Map<number, { total: number; episodes: EpisodePlay[] }>();
   if (!trackIds.length) return out;
   const filter = period ? periodFilter(period.type, period.key) : { sql: "", params: [] };
+  if (period?.filter) {
+    const f = filterWhere(period.filter, "e.");
+    filter.sql += ` AND ${f.sql}`;
+    filter.params = [...filter.params, ...f.params];
+  }
   // In a chart, leave out theme-tune plays, which don't count towards the chart (see theme_tunes).
   const where = filter.sql + (period
     ? ` AND NOT EXISTS (SELECT 1 FROM theme_tunes tt WHERE tt.show_key = ${SHOW_KEY} AND tt.track_id = p.track_id)`
@@ -429,4 +434,182 @@ export function search(query: string, limit = 50): { short: boolean; total: numb
     total: rows[0]?.total ?? 0,
     results: rows.map((r) => ({ name: r.name, href: searchHref(r.kind, r.key), meta: searchMeta(r.kind, r.episodes) })),
   };
+}
+
+// ---------- genres and places ----------
+
+export interface GenreRow { slug: string; name: string; episodes: number }
+
+/** Every genre, biggest first. */
+export function allGenres(): readonly GenreRow[] {
+  return memo("genres", () => Object.freeze(all<GenreRow>("SELECT slug, name, episodes FROM genres ORDER BY episodes DESC, name")));
+}
+
+export function genreBySlug(slug: string): GenreRow | undefined {
+  return memo("genresBySlug", () => new Map(allGenres().map((g) => [g.slug, g]))).get(slug);
+}
+
+// Charts can be narrowed to genres and places with enough episodes to make a chart worth reading.
+const FILTER_MIN_EPISODES = 200;
+
+/** Genres offered as chart filters, by name. */
+export function filterGenres(): readonly GenreRow[] {
+  return memo("filterGenres", () => Object.freeze(
+    allGenres().filter((g) => g.episodes >= FILTER_MIN_EPISODES).sort((a, b) => a.name.localeCompare(b.name, "en-GB")),
+  ));
+}
+
+export interface PlaceRow { name: string; episodes: number }
+
+/** Places that episodes are broadcast from, offered as chart filters, busiest first. */
+export function filterPlaces(): readonly PlaceRow[] {
+  return memo("filterPlaces", () => Object.freeze(all<PlaceRow>(
+    `SELECT location name, count(*) episodes FROM episodes e
+     WHERE track_count > 0 AND ${DATED} AND location IS NOT NULL AND location != ''
+     GROUP BY location HAVING episodes >= ? ORDER BY episodes DESC, name`,
+    FILTER_MIN_EPISODES,
+  )));
+}
+
+/** A chart narrowed to episodes tagged with a genre and/or broadcast from a place. */
+export interface ChartFilter { genre?: GenreRow; place?: string }
+
+export function filterLabel(f: ChartFilter): string {
+  return [f.genre?.name, f.place && `from ${f.place}`].filter(Boolean).join(", ");
+}
+
+/** SQL condition on episodes for a filter; `prefix` qualifies the columns (e.g. "e."). */
+function filterWhere(f: ChartFilter, prefix = ""): { sql: string; params: string[] } {
+  const parts: string[] = [];
+  const params: string[] = [];
+  if (f.genre) { parts.push(`${prefix}alias IN (SELECT episode_alias FROM episode_genres WHERE genre_slug = ?)`); params.push(f.genre.slug); }
+  if (f.place) { parts.push(`${prefix}location = ?`); params.push(f.place); }
+  return { sql: parts.join(" AND ") || "1", params };
+}
+
+const filterKey = (f: ChartFilter) => `${f.genre?.slug ?? ""}|${f.place ?? ""}`;
+
+type RankRow = { entityId: number; rank: number; score: number; shows: number };
+
+/** One period's filtered ranking, cached. Ranked exactly like the main charts (rankSql). */
+function rankFiltered(type: PeriodType, key: string, entity: "track" | "artist", filter: ChartFilter, range: { start: Date; end: Date }): RankRow[] {
+  return cached(`rank:${type}:${key}:${entity}:${filterKey(filter)}:${range.start.toISOString()}:${range.end.toISOString()}`, () => {
+    const w = filterWhere(filter);
+    return all<RankRow>(
+      rankSql(type, entity, { where: w.sql, range: true, onePeriod: true }),
+      range.start.toISOString(), range.end.toISOString(), ...w.params, key, CHART_MIN_SCORE, CHART_SIZE,
+    );
+  });
+}
+
+function withPrevious(rows: RankRow[], prev: RankRow[] | null): Movement[] {
+  const before = new Map((prev ?? []).map((r) => [r.entityId, r.rank]));
+  return rows.map((r) => {
+    const prevRank = before.get(r.entityId) ?? null;
+    const status = prevRank == null ? "new" : prevRank > r.rank ? "up" : prevRank < r.rank ? "down" : "same";
+    return { rank: r.rank, prevRank, status, periodsOnChart: 0, score: r.score, shows: r.shows };
+  });
+}
+
+function resolveTracks(rows: RankRow[], moves: Movement[]): TrackEntry[] {
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.entityId);
+  const info = new Map(all<{ id: number; title: string; artistDisplay: string }>(
+    `SELECT id, title_display title, artist_display artistDisplay FROM tracks WHERE id IN (${ids.map(() => "?").join(",")})`, ...ids,
+  ).map((t) => [t.id, t]));
+  const credits = artistsForTracks(ids);
+  return rows.map((r, i) => ({ ...moves[i], ...info.get(r.entityId)!, artists: credits.get(r.entityId) ?? [] }));
+}
+
+function resolveArtists(rows: RankRow[], moves: Movement[]): ArtistEntry[] {
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.entityId);
+  const info = new Map(all<{ id: number; name: string; slug: string }>(
+    `SELECT id, name, slug FROM artists WHERE id IN (${ids.map(() => "?").join(",")})`, ...ids,
+  ).map((a) => [a.id, a]));
+  return rows.map((r, i) => ({ ...moves[i], ...info.get(r.entityId)! }));
+}
+
+/**
+ * A chart period narrowed to a genre and/or place: tracks and artists, with movement against the
+ * same filter's previous period (no re-entries or weeks-on-chart: those need the whole history).
+ */
+export function filteredChart(type: DatedPeriod, key: string, filter: ChartFilter) {
+  const keys = periodKeys(type);
+  const prevKey = keys[keys.indexOf(key) - 1];
+  const result = (entity: "track" | "artist") => {
+    const rows = rankFiltered(type, key, entity, filter, periodBounds(type, key));
+    const prev = prevKey ? rankFiltered(type, prevKey, entity, filter, periodBounds(type, prevKey)) : null;
+    return { rows, moves: withPrevious(rows, prev) };
+  };
+  const t = result("track");
+  const a = result("artist");
+  return { tracks: resolveTracks(t.rows, t.moves), artists: resolveArtists(a.rows, a.moves) };
+}
+
+/** Top tracks and artists for a filter over any date range (e.g. the last 12 months), without movement. */
+export function windowChart(filter: ChartFilter, start: Date, end: Date, limit = 20) {
+  const pick = (entity: "track" | "artist") => rankFiltered("all", "all", entity, filter, { start, end }).slice(0, limit);
+  const t = pick("track");
+  const a = pick("artist");
+  return { tracks: resolveTracks(t, withPrevious(t, null)), artists: resolveArtists(a, withPrevious(a, null)) };
+}
+
+/** Episodes with at least one genre tag, per year (the base for every genre's yearly share). */
+function taggedEpisodesByYear(): Map<string, number> {
+  return memo("taggedEpisodesByYear", () => new Map(all<{ year: string; n: number }>(
+    `SELECT strftime('%Y', e.broadcast_at) year, count(*) n FROM episodes e
+     WHERE track_count > 0 AND ${DATED} AND genres_json IS NOT NULL AND genres_json != '[]' GROUP BY year ORDER BY year`,
+  ).map((r) => [r.year, r.n])));
+}
+
+/** A genre's page: totals, its share of tagged episodes each year, the shows that tag it most, and its neighbours. */
+export function genreDetail(slug: string) {
+  return cached(`genre:${slug}`, () => {
+    const stats = get<{ episodes: number; shows: number; first: string | null; last: string | null }>(
+      `SELECT count(*) episodes, count(DISTINCT ${SHOW_KEY}) shows, min(e.broadcast_at) first, max(e.broadcast_at) last
+       FROM episode_genres eg JOIN episodes e ON e.alias = eg.episode_alias WHERE eg.genre_slug = ?`,
+      slug,
+    )!;
+    const tagged = new Map(all<{ year: string; n: number }>(
+      `SELECT strftime('%Y', e.broadcast_at) year, count(*) n FROM episode_genres eg JOIN episodes e ON e.alias = eg.episode_alias
+       WHERE eg.genre_slug = ? GROUP BY year`,
+      slug,
+    ).map((r) => [r.year, r.n]));
+    const years = [...taggedEpisodesByYear()].map(([year, total]) => ({ year, tagged: tagged.get(year) ?? 0, total }));
+    const shows = all<{ show: string; guest: string | null; showName: string; guestName: string | null; anyEpisode: string; episodes: number; of: number }>(
+      `SELECT e.show_alias show, e.guest_slug guest, coalesce(s.name, e.show_alias) showName, max(e.name) guestName,
+              max(e.alias) anyEpisode, count(*) episodes
+       FROM episode_genres eg JOIN episodes e ON e.alias = eg.episode_alias LEFT JOIN shows s ON s.alias = e.show_alias
+       WHERE eg.genre_slug = ? GROUP BY ${SHOW_KEY} ORDER BY episodes DESC, showName LIMIT 20`,
+      slug,
+    ).map((r) => ({ ...showLink(r), episodes: r.episodes }));
+    // Genres most often tagged alongside this one.
+    const neighbours = all<GenreRow & { together: number }>(
+      `SELECT g.slug, g.name, g.episodes, count(*) together
+       FROM episode_genres a JOIN episode_genres b ON b.episode_alias = a.episode_alias AND b.genre_slug != a.genre_slug
+       JOIN genres g ON g.slug = b.genre_slug
+       WHERE a.genre_slug = ? GROUP BY g.slug ORDER BY together DESC, g.name LIMIT 12`,
+      slug,
+    );
+    return { stats, years, shows, neighbours };
+  });
+}
+
+/** Each quarter's genre tags since 2011: the top `n` genres' shares of all tags (the rest is every other genre). */
+export function genreRiver(n = 7) {
+  return memo(`genreRiver:${n}`, () => {
+    const rows = all<{ q: string; slug: string; tags: number }>("SELECT quarter q, genre_slug slug, tags FROM genre_quarters");
+    const top = allGenres().slice(0, n);
+    const quarters = [...new Set(rows.map((r) => r.q))].sort();
+    const totals = new Map<string, number>();
+    const by = new Map<string, number>();
+    for (const r of rows) {
+      totals.set(r.q, (totals.get(r.q) ?? 0) + r.tags);
+      by.set(`${r.q}|${r.slug}`, r.tags);
+    }
+    const share = (q: string, tags: number) => Math.round((1000 * tags) / (totals.get(q) || 1)) / 10;
+    const series = top.map((g) => ({ name: g.name, slug: g.slug, values: quarters.map((q) => share(q, by.get(`${q}|${g.slug}`) ?? 0)) }));
+    return { quarters, series, others: allGenres().length - top.length };
+  });
 }

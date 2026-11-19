@@ -92,3 +92,31 @@ export function weekShareLine(weeks: string[], shares: (number | null)[], max: n
     y: shares,
   };
 }
+
+/** A genre's share (%) of tagged episodes, year by year. */
+export function yearShareLine(rows: { year: string; tagged: number; total: number }[]): VizData {
+  const shares = rows.map((r) => (r.total ? Math.round((1000 * r.tagged) / r.total) / 10 : null));
+  const peak = Math.max(0, ...shares.filter((v): v is number => v != null));
+  return {
+    kind: "share",
+    name: "Share of tagged episodes",
+    max: Math.max(5, Math.ceil(peak / 5) * 5),
+    x: rows.map((r) => r.year),
+    tip: rows.map((r) => `${r.year} · ${r.tagged.toLocaleString("en-GB")} of ${r.total.toLocaleString("en-GB")} episodes`),
+    y: shares,
+  };
+}
+
+/** The top genres' shares stacked per quarter (biggest at the bottom); x labels show the year at each Q1. */
+export function genreStack(river: { quarters: string[]; series: { name: string; values: number[] }[] }): VizData {
+  const peak = Math.max(0, ...river.quarters.map((_, i) => river.series.reduce((sum, s) => sum + s.values[i], 0)));
+  return {
+    kind: "stack",
+    name: "Share of genre tags",
+    x: river.quarters.map((q) => (q.endsWith("-Q1") ? q.slice(0, 4) : "")),
+    tip: river.quarters.map((q) => `${q.slice(5)} ${q.slice(0, 4)}`),
+    y: [],
+    max: Math.ceil(peak / 10) * 10,
+    series: river.series.map((s, i) => ({ name: s.name, y: s.values, color: `--cat-${i + 1}` })),
+  };
+}

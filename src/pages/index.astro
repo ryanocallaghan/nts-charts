@@ -9,7 +9,8 @@ import StatTile from "../components/StatTile.astro";
 import TimeChart from "../components/TimeChart.astro";
 import { periodDates, SITE_NAME } from "../lib/format.ts";
 import { archiveComplete, asOf, genreMix, genreTrends, headlineStats, movers, spotlight, type Item } from "../lib/overview.ts";
-import { artistChart, periodKeys, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
+import { artistChart, genreBySlug, periodKeys, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
+import { slugify } from "../../ingest/normalize.ts";
 import { genreBars, weekShareLine } from "../lib/series.ts";
 import { trackHref } from "../lib/search.ts";
 
@@ -35,6 +36,7 @@ const spot = latest ? spotlight(latest) : null;
 const top = latest ? { tracks: trackChart("rolling", latest, 5).map(trackItem), artists: artistChart("rolling", latest, 5).map(artistItem) } : null;
 const moves = latest ? movers(latest) : null;
 const mix = latest ? genreMix(latest) : [];
+const genreHref = (name: string) => { const g = genreBySlug(slugify(name.trim())); return g ? `/genres/${g.slug}/` : undefined; };
 const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
 ---
 <Base title={SITE_NAME} section="home" hideWordmark>
@@ -124,6 +126,7 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
   {mix.length > 0 && (
     <section class="section">
       <h2>Genre mix</h2>
+      <p class="section-meta"><a href="/genres/">All genres, and how they've shifted since 2011</a></p>
       <TimeChart title="Top genres" caption="Share of episodes tagged with each genre, last 4 weeks. Hover for the change vs the previous 4 weeks." data={genreBars(mix)} height={Math.max(220, mix.length * 30)} />
     </section>
   )}
@@ -133,7 +136,7 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
       <h2>Genre trends</h2>
       <p class="section-meta">Last 4 weeks, week by week: share of each week's episodes. All charts use the same scale.</p>
       <div class="multiples">
-        {trends.series.map((t) => <TimeChart title={t.genre} data={weekShareLine(t.weeks, t.shares, trends.max)} height={140} />)}
+        {trends.series.map((t) => <TimeChart title={t.genre} href={genreHref(t.genre)} data={weekShareLine(t.weeks, t.shares, trends.max)} height={140} />)}
       </div>
     </section>
   )}

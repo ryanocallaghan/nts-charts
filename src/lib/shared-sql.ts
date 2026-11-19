@@ -1,5 +1,7 @@
 // SQL shared by the site (src/lib/queries.ts) and ingest (ingest/aggregate.ts, ingest/enrich.ts),
 // so both always work on the same sets. No DB access here.
+import { PERIOD_KEY_SQL, type PeriodType } from "../../ingest/charts.ts";
+import { FIRST_VALID_DATE } from "./dates.ts";
 
 /** A show, or for NTS's catch-all guests show, the individual guest (episodes alias e). */
 export const SHOW_KEY = "coalesce('guests/' || e.guest_slug, e.show_alias)";
@@ -36,3 +38,56 @@ export const ENRICH_ARTISTS_SQL = `
   ORDER BY episodes DESC, shows DESC, a.id
   LIMIT ?`;
 export const ENRICH_ARTISTS_PARAMS = [ENRICH_MIN_EPISODES, ENRICH_MIN_SHOWS, ENRICH_LIMIT] as const;
+
+// ---------- charts ----------
+
+export const CHART_SIZE = Number(process.env.CHART_SIZE ?? 50);
+export const ALL_TIME_CHART_SIZE = Number(process.env.ALL_TIME_CHART_SIZE ?? 100);
+/** An item needs plays in this many distinct episodes to chart (filters one-off plays). */
+export const CHART_MIN_SCORE = Number(process.env.CHART_MIN_SCORE ?? 2);
+
+export interface RankOptions {
+  /** Extra condition on episodes (columns of `episodes`, unqualified), e.g. a genre or a place. */
+  where?: string;
+  /** Only episodes broadcast in [start, end): bind the two ISO dates first. */
+  range?: boolean;
+  /** Only the period whose key is bound after any `where` parameters. */
+  onePeriod?: boolean;
+}
+
+/**
+ * Rank tracks or artists by the distinct episodes that played them in each chart period. Ties: more
+ * shows, then the most recent play. A show's theme tune doesn't count for that show. Rows:
+ * (periodKey, entityId, rank, score, shows).
+ * Bind, in order: [range start, range end], ...where params, [period key], CHART_MIN_SCORE, size.
+ * aggregate.ts ranks every period at once; the site ranks one period of a filtered chart.
+ */
+export function rankSql(periodType: PeriodType, entity: "track" | "artist", opts: RankOptions = {}): string {
+  const join = entity === "track" ? "" : "JOIN track_artists ta ON ta.track_id = p.track_id";
+  const id = entity === "track" ? "p.track_id" : "ta.artist_id";
+  const rolling = periodType === "rolling";
+  return `
+    WITH ep AS (
+      SELECT alias, coalesce('guests/' || guest_slug, show_alias) AS show_key, broadcast_at, ${PERIOD_KEY_SQL[periodType]} AS pk
+      FROM episodes ${rolling ? ", (SELECT 0 k UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3)" : ""}
+      WHERE broadcast_at >= '${FIRST_VALID_DATE}'
+        ${opts.range ? "AND broadcast_at >= ? AND broadcast_at < ?" : ""}
+        ${opts.where ? `AND (${opts.where})` : ""}
+        ${rolling && !opts.onePeriod ? "AND pk <= (SELECT max(strftime('%G-W%V', broadcast_at)) FROM episodes WHERE track_count > 0)" : ""}
+    ),
+    agg AS (
+      SELECT ep.pk, ${id} AS eid,
+             count(DISTINCT p.episode_alias) AS score,
+             count(DISTINCT ep.show_key) AS shows,
+             max(ep.broadcast_at) AS last_play
+      FROM plays p JOIN ep ON ep.alias = p.episode_alias ${join}
+      WHERE ${opts.onePeriod ? "ep.pk = ? AND " : ""}NOT EXISTS (SELECT 1 FROM theme_tunes tt WHERE tt.show_key = ep.show_key AND tt.track_id = p.track_id)
+      GROUP BY ep.pk, ${id}
+      HAVING score >= ?
+    ),
+    ranked AS (
+      SELECT *, row_number() OVER (PARTITION BY pk ORDER BY score DESC, shows DESC, last_play DESC, eid) AS rk
+      FROM agg
+    )
+    SELECT pk AS periodKey, eid AS entityId, rk AS rank, score, shows FROM ranked WHERE rk <= ?`;
+}

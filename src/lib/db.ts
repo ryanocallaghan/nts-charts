@@ -27,13 +27,39 @@ export function get<T>(sql: string, ...params: Param[]): T | undefined {
 let version: string | null | undefined;
 const memos = new Map<string, unknown>();
 
-/** fn's result, cached until the charts are next rebuilt (meta.aggregated_at changes). Only for bounded keys. */
-export function memo<T>(key: string, fn: () => T): T {
+const recent = new Map<string, unknown>();
+const RECENT_MAX = 300;
+
+function checkVersion() {
   const v = get<{ value: string }>("SELECT value FROM meta WHERE key = 'aggregated_at'")?.value ?? null;
   if (v !== version) {
     memos.clear();
+    recent.clear();
     version = v;
   }
+}
+
+/** fn's result, cached until the charts are next rebuilt (meta.aggregated_at changes). Only for bounded keys. */
+export function memo<T>(key: string, fn: () => T): T {
+  checkVersion();
   if (!memos.has(key)) memos.set(key, fn());
   return memos.get(key) as T;
+}
+
+/**
+ * Like memo(), for keys that come from requests (filters, genres): keeps the RECENT_MAX most recently
+ * used results, so memory stays bounded whatever people ask for.
+ */
+export function cached<T>(key: string, fn: () => T): T {
+  checkVersion();
+  if (recent.has(key)) {
+    const v = recent.get(key) as T;
+    recent.delete(key); // move to the newest end
+    recent.set(key, v);
+    return v;
+  }
+  const v = fn();
+  recent.set(key, v);
+  if (recent.size > RECENT_MAX) recent.delete(recent.keys().next().value!);
+  return v;
 }

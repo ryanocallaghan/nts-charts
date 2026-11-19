@@ -61,6 +61,20 @@ await check("/charts/", { status: 200, cached: true });
 await check("/charts/all/", { status: 200 });
 await check("/shows/", { status: 200 });
 await check("/shows/guests/", { status: 200, contains: "Repeat guests" });
+// Genres and filtered charts.
+const genres = await check("/genres/", { status: 200, contains: "The biggest genres over time", cached: true });
+const genre = genres.match(/href="\/genres\/([^"/]+)\/"/)?.[1];
+if (genre) {
+  await check(`/genres/${genre}/`, { status: 200, contains: "Shows that tag it most" });
+  const charts = await fetch(`${base}/charts/`).then((r) => r.text());
+  const rolling = charts.match(/\/charts\/rolling\/(\d{4}-W\d\d)\//)?.[1] ?? home.match(/\/charts\/rolling\/(\d{4}-W\d\d)\//)?.[1];
+  if (rolling) {
+    await check(`/charts/rolling/${rolling}/?genre=${genre}`, { status: 200, contains: "only episodes tagged" });
+    await check(`/charts/rolling/${rolling}/?genre=no-such-genre-zz9`, { status: 404 });
+  }
+}
+await check("/genres/no-such-genre-zz9/", { status: 404 });
+
 await check("/search/?q=aphex+twin", { status: 200, contains: 'href="/artists/aphex-twin/"' });
 await check("/search?q=aphex", { status: 301, location: "/search/?q=aphex" });
 

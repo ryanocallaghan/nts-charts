@@ -1,0 +1,46 @@
+---
+// Narrow a chart to a genre and/or the place episodes were broadcast from. A GET form, so it works
+// without JavaScript (with the Apply button); with JavaScript it applies as soon as a choice changes.
+import { filterGenres, filterPlaces, type ChartFilter } from "../lib/queries.ts";
+interface Props { action: string; filter: ChartFilter }
+const { action, filter } = Astro.props;
+const genres = filterGenres();
+const places = filterPlaces();
+const active = !!(filter.genre || filter.place);
+---
+<form class="chart-filters" action={action} method="get" data-autosubmit>
+  <div class="cds--select">
+    <label class="cds--label" for="filter-genre">Genre</label>
+    <div class="cds--select-input__wrapper">
+      <select class="cds--select-input" id="filter-genre" name="genre">
+        <option value="">All genres</option>
+        {genres.map((g) => <option value={g.slug} selected={filter.genre?.slug === g.slug}>{g.name}</option>)}
+      </select>
+      <svg class="cds--select__arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z"></path></svg>
+    </div>
+  </div>
+  <div class="cds--select">
+    <label class="cds--label" for="filter-place">Broadcast from</label>
+    <div class="cds--select-input__wrapper">
+      <select class="cds--select-input" id="filter-place" name="place">
+        <option value="">Anywhere</option>
+        {places.map((p) => <option value={p.name} selected={filter.place === p.name}>{p.name}</option>)}
+      </select>
+      <svg class="cds--select__arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z"></path></svg>
+    </div>
+  </div>
+  <button type="submit" class="cds--btn cds--btn--tertiary cds--btn--sm filter-apply">Apply</button>
+  {active && <a class="cds--link filter-clear" href={action}>Clear filters</a>}
+</form>
+
+<script>
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosubmit]")) {
+    form.querySelector<HTMLElement>(".filter-apply")!.hidden = true;
+    form.addEventListener("change", () => {
+      // Leave empty choices out of the URL.
+      const params = new URLSearchParams();
+      for (const s of form.querySelectorAll("select")) if (s.value) params.set(s.name, s.value);
+      location.href = form.action + (params.size ? `?${params}` : "");
+    });
+  }
+</script>

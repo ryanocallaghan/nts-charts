@@ -5,8 +5,8 @@ import ArtistLinks from "./ArtistLinks.astro";
 import Movement from "./Movement.astro";
 import RankSpark from "./RankSpark.astro";
 import { trackHref } from "../lib/search.ts";
-interface Props { movement?: boolean; rows: TrackEntry[]; periodNoun: string; plays?: Map<number, { total: number; episodes: EpisodePlay[] }>; runs?: Map<number, (number | null)[]>; runCount?: number }
-const { rows, periodNoun, movement = true, plays, runs, runCount = 8 } = Astro.props;
+interface Props { movement?: boolean; periods?: boolean; rows: TrackEntry[]; periodNoun: string; plays?: Map<number, { total: number; episodes: EpisodePlay[] }>; runs?: Map<number, (number | null)[]>; runCount?: number }
+const { rows, periodNoun, movement = true, periods = movement, plays, runs, runCount = 8 } = Astro.props;
 ---
 {rows.length === 0 ? <p class="muted">No tracks charted in this period yet.</p> : (
   <div class="cds--data-table-container chart-table">
@@ -19,7 +19,7 @@ const { rows, periodNoun, movement = true, plays, runs, runCount = 8 } = Astro.p
         <th class="num" title="Distinct episodes that played it"><span class="h-lg">Episodes</span><span class="h-sm">Eps</span></th>
         <th class="num hide-sm" title="Distinct shows that played it">Shows</th>
         {runs && <th class="spark hide-sm" title={`Rank in each of the last ${runCount} charts`}>Last {runCount}</th>}
-        {movement && <th class="num hide-sm" title={`${periodNoun}s on chart`}>{periodNoun}s</th>}
+        {periods && <th class="num hide-sm" title={`${periodNoun}s on chart`}>{periodNoun}s</th>}
       </tr>
     </thead>
     <tbody>
@@ -35,7 +35,7 @@ const { rows, periodNoun, movement = true, plays, runs, runCount = 8 } = Astro.p
           <td class="num">{r.score}</td>
           <td class="num hide-sm">{r.shows}</td>
           {runs && <td class="spark hide-sm"><RankSpark ranks={runs.get(r.id)} /></td>}
-          {movement && <td class="num hide-sm">{r.periodsOnChart}</td>}
+          {periods && <td class="num hide-sm">{r.periodsOnChart}</td>}
         </tr>
       ))}
     </tbody>

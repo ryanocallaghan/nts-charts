@@ -4,7 +4,8 @@ import ShowBody from "../../components/ShowBody.astro";
 import SearchField from "../../components/SearchField.astro";
 import { memo } from "../../lib/db.ts";
 import { ntsShowUrl, plural } from "../../lib/format.ts";
-import { GUESTS_SHOW, guestPages, showByAlias, showDetail } from "../../lib/queries.ts";
+import { genreBySlug, GUESTS_SHOW, guestPages, showByAlias, showDetail } from "../../lib/queries.ts";
+import { slugify } from "../../../ingest/normalize.ts";
 
 const show = showByAlias(Astro.params.alias ?? "");
 if (!show) return new Response(null, { status: 404 });
@@ -18,7 +19,12 @@ const repeatGuests = isGuests ? [...guestPages().values()] : [];
     <p class="eyebrow">Show{show.location && ` · ${show.location}`}</p>
     <h1>{show.name}</h1>
     {isGuests && <p class="lede">NTS files one-off guest mixes under this show. Each guest counts as their own show in charts and on artist pages.</p>}
-    {show.genres.length > 0 && <p class="muted">{show.genres.join(" · ")}</p>}
+    {show.genres.length > 0 && (
+      <p class="muted">{show.genres.map((name, i) => {
+        const g = genreBySlug(slugify(name.trim()));
+        return <>{i > 0 && " · "}{g ? <a class="quiet" href={`/genres/${g.slug}/`}>{name.trim()}</a> : name.trim()}</>;
+      })}</p>
+    )}
     <p><a href={ntsShowUrl(show.alias)}>Listen on nts.live →</a></p>
 
     {isGuests && repeatGuests.length > 0 && (

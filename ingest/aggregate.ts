@@ -1,17 +1,13 @@
 // Rebuild chart_entries from plays. Cheap enough to recompute fully on every run.
 //   node ingest/aggregate.ts
-import { findThemeTunes, PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type PeriodType, type Ranked } from "./charts.ts";
+import { findThemeTunes, PERIOD_TYPES, withMovement, type PeriodType, type Ranked } from "./charts.ts";
 import { openDb, setMeta, tx } from "./db.ts";
 import { isPlaceholder, slugify } from "./normalize.ts";
 import { FIRST_VALID_DATE } from "../src/lib/dates.ts";
 import { searchNorm, trackKey } from "../src/lib/search.ts";
 // NTS files one-off guest mixes under one catch-all show; each guest (from the episode name) counts as its own show.
-import { GUEST_PAGES_SQL, GUESTS_SHOW } from "../src/lib/shared-sql.ts";
+import { ALL_TIME_CHART_SIZE, CHART_MIN_SCORE, CHART_SIZE, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql } from "../src/lib/shared-sql.ts";
 
-const TOP_N = Number(process.env.CHART_SIZE ?? 50);
-const TOP_N_ALL_TIME = Number(process.env.ALL_TIME_CHART_SIZE ?? 100);
-// An item needs plays in this many distinct episodes to chart (filters one-off plays).
-const MIN_SCORE = Number(process.env.CHART_MIN_SCORE ?? 2);
 
 const db = openDb();
 const started = Date.now();
@@ -59,33 +55,9 @@ tx(db, () => {
   console.log(`  ${themes.length} theme tunes`);
 });
 
-// Distinct episodes / shows per (period, entity). Ties: more shows, then most recent play.
+// Every period's chart for each type (see rankSql in src/lib/shared-sql.ts).
 function ranked(periodType: PeriodType, entity: "track" | "artist"): Ranked[] {
-  const join = entity === "track" ? "" : "JOIN track_artists ta ON ta.track_id = p.track_id";
-  const id = entity === "track" ? "p.track_id" : "ta.artist_id";
-  const sql = `
-    WITH ep AS (
-      SELECT alias, coalesce('guests/' || guest_slug, show_alias) AS show_key, broadcast_at, ${PERIOD_KEY_SQL[periodType]} AS pk
-      FROM episodes ${periodType === "rolling" ? ", (SELECT 0 k UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3)" : ""}
-      WHERE broadcast_at >= '${FIRST_VALID_DATE}'
-        ${periodType === "rolling" ? `AND pk <= (SELECT max(strftime('%G-W%V', broadcast_at)) FROM episodes WHERE track_count > 0)` : ""}
-    ),
-    agg AS (
-      SELECT ep.pk, ${id} AS eid,
-             count(DISTINCT p.episode_alias) AS score,
-             count(DISTINCT ep.show_key) AS shows,
-             max(ep.broadcast_at) AS last_play
-      FROM plays p JOIN ep ON ep.alias = p.episode_alias ${join}
-      WHERE NOT EXISTS (SELECT 1 FROM theme_tunes tt WHERE tt.show_key = ep.show_key AND tt.track_id = p.track_id)
-      GROUP BY ep.pk, ${id}
-      HAVING score >= ?
-    ),
-    ranked AS (
-      SELECT *, row_number() OVER (PARTITION BY pk ORDER BY score DESC, shows DESC, last_play DESC, eid) AS rk
-      FROM agg
-    )
-    SELECT pk AS periodKey, eid AS entityId, rk AS rank, score, shows FROM ranked WHERE rk <= ?`;
-  return db.prepare(sql).all(MIN_SCORE, periodType === "all" ? TOP_N_ALL_TIME : TOP_N) as unknown as Ranked[];
+  return db.prepare(rankSql(periodType, entity)).all(CHART_MIN_SCORE, periodType === "all" ? ALL_TIME_CHART_SIZE : CHART_SIZE) as unknown as Ranked[];
 }
 
 const ins = db.prepare(
@@ -106,6 +78,35 @@ tx(db, () => {
     }
   }
 });
+// Genres: NTS's tags on dated, tracklisted episodes, keyed by slug (tags vary in case and spacing,
+// e.g. "Industrial " and "Industrial"). Each genre takes its most common spelling as its name.
+tx(db, () => {
+  db.exec("DELETE FROM episode_genres; DELETE FROM genres;");
+  const tag = db.prepare("INSERT OR IGNORE INTO episode_genres(genre_slug, episode_alias) VALUES (?, ?)");
+  const spellings = new Map<string, Map<string, number>>();
+  for (const r of db.prepare(
+    `SELECT alias, genres_json g FROM episodes
+     WHERE track_count > 0 AND broadcast_at >= '${FIRST_VALID_DATE}' AND genres_json IS NOT NULL AND genres_json != '[]'`,
+  ).iterate() as IterableIterator<{ alias: string; g: string }>) {
+    for (const raw of JSON.parse(r.g) as string[]) {
+      const name = String(raw).trim().replace(/\s+/g, " ");
+      const slug = slugify(name);
+      if (!slug) continue;
+      tag.run(slug, r.alias);
+      const counts = spellings.get(slug) ?? new Map<string, number>();
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+      spellings.set(slug, counts);
+    }
+  }
+  const add = db.prepare("INSERT INTO genres(slug, name, episodes) VALUES (?, ?, (SELECT count(*) FROM episode_genres WHERE genre_slug = ?))");
+  for (const [slug, counts] of spellings) add.run(slug, [...counts].sort((a, b) => b[1] - a[1])[0][0], slug);
+  db.exec(`DELETE FROM genre_quarters;
+    INSERT INTO genre_quarters(quarter, genre_slug, tags)
+    SELECT strftime('%Y', e.broadcast_at) || '-Q' || ((CAST(strftime('%m', e.broadcast_at) AS INTEGER) + 2) / 3), eg.genre_slug, count(*)
+    FROM episode_genres eg JOIN episodes e ON e.alias = eg.episode_alias GROUP BY 1, 2`);
+  console.log(`  ${spellings.size} genres`);
+});
+
 // Per-artist totals.
 tx(db, () => {
   db.exec("DELETE FROM artist_stats");

@@ -126,3 +126,26 @@ CREATE TABLE IF NOT EXISTS artist_stats (
   first_at  TEXT
 );
 CREATE INDEX IF NOT EXISTS artist_stats_first ON artist_stats(first_at);
+
+-- NTS's genre tags on episodes, tidied (rebuilt by aggregate.ts): one row per genre with its most
+-- common spelling, and which dated, tracklisted episodes carry it. For genre pages and chart filters.
+CREATE TABLE IF NOT EXISTS genres (
+  slug     TEXT PRIMARY KEY,
+  name     TEXT NOT NULL,
+  episodes INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS episode_genres (
+  genre_slug    TEXT NOT NULL,
+  episode_alias TEXT NOT NULL,
+  PRIMARY KEY (genre_slug, episode_alias)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS episode_genres_episode ON episode_genres(episode_alias);
+-- Genre tags per quarter ("2026-Q4"), for the genres-over-time chart.
+CREATE TABLE IF NOT EXISTS genre_quarters (
+  quarter    TEXT NOT NULL,
+  genre_slug TEXT NOT NULL,
+  tags       INTEGER NOT NULL,
+  PRIMARY KEY (quarter, genre_slug)
+) WITHOUT ROWID;
+-- Charts filtered by where an episode was broadcast from.
+CREATE INDEX IF NOT EXISTS episodes_location ON episodes(location, broadcast_at) WHERE location IS NOT NULL;

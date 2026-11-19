@@ -11,12 +11,14 @@ echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, DataZoomCompo
 export interface VizData {
   // bars: vertical counts over time · rank: chart position over time (inverted)
   // hbar: horizontal % bars by category · share: % line over time (small multiples share `max`)
-  kind: "bars" | "rank" | "hbar" | "share";
+  // stack: several % series stacked over time (`series`, bottom first; `y` unused; `max` the axis top)
+  kind: "bars" | "rank" | "hbar" | "share" | "stack";
   name: string;            // series name, e.g. "Episodes"
   x: string[];             // short axis labels (categories for hbar)
   tip: string[];           // long labels for the tooltip
   y: (number | null)[];
   max?: number;            // rank: chart size · share: shared y maximum (%)
+  series?: { name: string; y: (number | null)[]; color: string }[]; // stack: color is a CSS variable, e.g. "--cat-1"
 }
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -24,11 +26,50 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 const ZOOM_AFTER = 60;    // points before a zoom slider appears
 const ZOOM_WINDOW = 36;   // points visible by default when zoomable
 
+/** Stacked shares over time: filled bands split by a thin surface-coloured gap, a crosshair tooltip
+ *  listing every band (top band first), and a % axis. The legend is HTML beside the chart. */
+function stackOption(d: VizData, t: Record<string, string>): echarts.EChartsCoreOption {
+  const series = d.series ?? [];
+  const axisLabel = { color: t.muted, fontSize: 12 };
+  return {
+    animationDuration: 300,
+    textStyle: { fontFamily: t.font },
+    grid: { left: 4, right: 12, top: 12, bottom: 4, containLabel: true },
+    tooltip: {
+      trigger: "axis", confine: true, backgroundColor: t.surface, borderColor: t.grid, borderWidth: 1, padding: [8, 10],
+      textStyle: { color: t.ink, fontSize: 13 },
+      axisPointer: { type: "line", lineStyle: { color: t.axis, width: 1 } },
+      formatter: (params: unknown) => {
+        const i = (params as { dataIndex: number }[])[0].dataIndex;
+        const rows = [...series].reverse().map((s) =>
+          `<div style="display:flex;gap:12px;justify-content:space-between"><span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${css(s.color)};vertical-align:-1px;margin-right:6px"></span>${esc(s.name)}</span><span style="font-weight:600">${esc(formatViz("share", s.y[i]))}</span></div>`,
+        ).join("");
+        return `<div style="color:${t.ink2};margin-bottom:4px">${esc(d.tip[i])}</div>${rows}`;
+      },
+    },
+    xAxis: {
+      type: "category", data: d.x, boundaryGap: false,
+      axisLine: { lineStyle: { color: t.axis } }, axisTick: { show: false }, axisLabel: { ...axisLabel, hideOverlap: true },
+    },
+    yAxis: {
+      type: "value", min: 0, max: d.max ?? 100,
+      splitLine: { show: false }, axisLabel: { ...axisLabel, formatter: (v: number) => `${v}%` },
+    },
+    series: series.map((s) => ({
+      type: "line", name: s.name, data: s.y, stack: "all", symbol: "none", smooth: false,
+      lineStyle: { width: 1.5, color: t.surface },
+      areaStyle: { color: css(s.color), opacity: 1 },
+      emphasis: { focus: "series" },
+    })),
+  };
+}
+
 function option(d: VizData): echarts.EChartsCoreOption {
   const t = {
     ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), grid: css("--grid"), axis: css("--axis"),
     surface: css("--surface"), series: css("--series-1"), wash: css("--series-1-wash"), font: css("--font"),
   };
+  if (d.kind === "stack") return stackOption(d, t);
   const horizontal = d.kind === "hbar";
   const pct = d.kind === "hbar" || d.kind === "share";
   const zoom = !horizontal && d.x.length > ZOOM_AFTER;
