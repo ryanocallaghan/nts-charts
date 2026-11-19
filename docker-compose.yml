@@ -13,6 +13,8 @@ services:
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
     volumes:
       - nts-data:/data
+      # Every recent build's hashed scripts and styles (see scripts/start.sh)
+      - nts-assets:/app/dist/client/_astro
     # So nts-charts can never take memory or CPU from bin day lookups. Ingest runs inside this
     # container, so the caps cover it too. Measured on the full archive: the server idles at about
     # 55 MB and aggregate.ts takes about 270 MB at its peak; the rest of the cap holds cached
@@ -29,6 +31,7 @@ services:
 
 volumes:
   nts-data:
+  nts-assets:
 
 networks:
   web:
