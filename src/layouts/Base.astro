@@ -8,7 +8,9 @@ interface Props {
   title: string;
   description?: string;
   section?: "home" | "charts" | "all" | "archive" | "shows" | "search";
-  hideWordmark?: boolean; // the home page's ASCII logo is the brand there; avoid two logos on one screen
+  // The home page's ASCII logo is the brand there: the header keeps the wordmark's space (so the menu
+  // never moves) but only shows it once that logo has scrolled out of view.
+  hideWordmark?: boolean;
 }
 const { title, description = "Charts of the tracks and artists played on NTS Radio.", section, hideWordmark = false } = Astro.props;
 const updated = lastUpdated();
@@ -32,14 +34,12 @@ const nav = [
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
-    <header class="cds--header site-header" aria-label={SITE_NAME}>
+    <header class="cds--header site-header" aria-label={SITE_NAME} data-defer-logo={hideWordmark ? "" : undefined}>
       <div class="header-inner">
-      {!hideWordmark && (
         <a class="cds--header__name site-logo" href="/">
           <span class="visually-hidden">{SITE_NAME}</span>
           <span class="wordmark" aria-hidden="true">¡ [ TOP ] [ of | the ] [ NTS ] !</span>
         </a>
-      )}
       <nav class="cds--header__nav" aria-label="Main">
         <ul class="cds--header__menu-bar">
           {nav.map((n) => (
@@ -53,6 +53,26 @@ const nav = [
       </nav>
       </div>
     </header>
+    {hideWordmark && (
+      <script is:inline>
+        // Hide the header wordmark (keeping its space) while the page's own logo is on screen.
+        // Runs before the page paints; without JavaScript the wordmark simply stays visible.
+        (function () {
+          var header = document.querySelector("[data-defer-logo]");
+          if (!header) return;
+          header.classList.add("defer-logo");
+          var logo;
+          function update() {
+            logo = logo || document.querySelector(".hero-logo");
+            // Show the wordmark once the page's logo has scrolled up under the header (one cheap measurement).
+            header.classList.toggle("show-logo", !logo || logo.getBoundingClientRect().bottom < header.offsetHeight);
+          }
+          addEventListener("scroll", update, { passive: true });
+          addEventListener("resize", update);
+          document.addEventListener("DOMContentLoaded", update);
+        })();
+      </script>
+    )}
     <main class="wrap">
       <slot />
     </main>

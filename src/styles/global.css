@@ -51,8 +51,12 @@ p { margin: 0 0 1rem; }
 /* Header contents sit on the same 1080px column as the page content. */
 .site-header .header-inner { display: flex; align-items: stretch; width: 100%; max-width: 1080px; height: 100%; margin: 0 auto; padding: 0 16px; }
 .site-header .cds--header__nav { padding-left: 0; }
-/* With no wordmark (home), pull the nav left so its first label's text sits on the content edge. */
-.site-header .header-inner > nav:first-child { margin-left: -1rem; }
+/* Home: the wordmark keeps its space but stays hidden until the ASCII logo scrolls away. */
+.site-header.defer-logo .site-logo { visibility: hidden; opacity: 0; transition: opacity 200ms ease, visibility 0s linear 200ms; }
+.site-header.defer-logo.show-logo .site-logo { visibility: visible; opacity: 1; transition: opacity 200ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .site-header.defer-logo .site-logo, .site-header.defer-logo.show-logo .site-logo { transition: none; }
+}
 .site-header .cds--header__nav { display: block; overflow-x: auto; scrollbar-width: none; }
 .site-header .cds--header__nav::before { display: none; }
 .site-header .cds--header__menu-item { white-space: nowrap; }
