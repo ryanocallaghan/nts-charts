@@ -43,7 +43,7 @@ const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: a
     <HeroLogo />
     <div class="hero-text">
       <h2 class="hero-headline">The most-played tracks and artists on NTS Radio</h2>
-      <p class="lede">Built from the tracklists of every episode. A track scores once per episode that plays it, so one show repeating a record can't top the chart.</p>
+      <p class="lede">Built from the tracklists of every episode.</p>
       {covered && (
         <p class="hero-meta">Last 4 weeks · {dateRange(new Date(covered.from), new Date(new Date(covered.to).getTime() - 1))}</p>
       )}
