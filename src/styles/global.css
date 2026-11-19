@@ -162,7 +162,8 @@ ul.plain li[hidden] { display: none; }
 
 .theme { display: block; font-size: 0.8rem; color: var(--muted); }
 .theme a { color: inherit; text-decoration: underline; text-decoration-color: var(--axis); }
-.badge-tag { vertical-align: middle; position: relative; top: -0.2em; }
+.page-sub { color: var(--cds-text-secondary); font-size: 1rem; margin: -0.25rem 0 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.page-sub .cds--tag { margin: 0; }
 /* Size the period switcher to its labels instead of Carbon's equal-width, truncating buttons. */
 nav.period-switcher.cds--content-switcher { display: inline-flex; inline-size: auto; }
 nav.period-switcher.cds--content-switcher a.cds--content-switcher-btn { flex: 0 0 auto; inline-size: auto; padding-inline: 1rem; }

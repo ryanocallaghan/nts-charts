@@ -55,6 +55,23 @@ export function periodLabel(type: PeriodType, key: string): string {
   return `Week ${Number(key.split("-W")[1])} · ${range} ${end.getUTCFullYear()}`;
 }
 
+/**
+ * A chart page's heading: the chart's name, plus a smaller line with its type and dates.
+ *   week    -> "Week 47"            / "Weekly chart · 16–22 Nov 2026"
+ *   rolling -> "4 weeks to 22 Nov"  / "4-week chart · 26 Oct – 22 Nov 2026"
+ *   month   -> "November 2026"      / "Monthly chart"
+ */
+export function periodHeading(type: PeriodType, key: string): { title: string; sub: string; dates: string } {
+  if (type === "all") return { title: "All time", sub: "", dates: "" };
+  if (type === "year") return { title: key, sub: "Yearly chart", dates: "" };
+  if (type === "month") return { title: periodLabel(type, key), sub: "Monthly chart", dates: "" };
+  const [name, dates] = periodLabel(type, key).split(" · ");
+  if (type === "week") return { title: name, sub: `Weekly chart · ${dates}`, dates };
+  const end = isoWeekStart(key);
+  end.setUTCDate(end.getUTCDate() + 6);
+  return { title: `4 weeks to ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]}`, sub: `4-week chart · ${dates}`, dates };
+}
+
 /** The first ISO week of a 4-week chart ending in `key`. */
 export function rollingStartKey(key: string): string {
   const d = isoWeekStart(key);

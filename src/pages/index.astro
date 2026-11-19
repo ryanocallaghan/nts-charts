@@ -2,7 +2,7 @@
 import Base from "../layouts/Base.astro";
 import ArtistLinks from "../components/ArtistLinks.astro";
 import ChartView from "../components/ChartView.astro";
-import { currentPeriodKey, formatDate, periodLabel } from "../lib/format.ts";
+import { currentPeriodKey, formatDate, periodHeading } from "../lib/format.ts";
 import { artistChart, periodKeys, siteStats, trackChart } from "../lib/queries.ts";
 
 // Lead with the 4-week chart: NTS rarely repeats a track within a single week.
@@ -14,8 +14,8 @@ const topTracks = trackChart("all", "all", 10);
 const topArtists = artistChart("all", "all", 10);
 ---
 <Base title="NTS Charts" section="charts">
-  <p class="eyebrow">Last 4 weeks</p>
-  <h1>{latest ? periodLabel("rolling", latest).split(" · ")[1] : "No charts yet"} {inProgress && <span class="cds--tag cds--tag--md cds--tag--blue badge-tag">In progress</span>}</h1>
+  <h1>{latest ? "Last 4 weeks" : "No charts yet"}</h1>
+  {latest && <p class="page-sub">{periodHeading("rolling", latest).dates}{inProgress && <> <span class="cds--tag cds--tag--sm cds--tag--blue">In progress</span></>}</p>}
   <p class="lede">
     The tracks and artists played on the most NTS Radio episodes over the last four weeks. A track scores once per
     episode that plays it, so one show repeating a record doesn't top the chart.

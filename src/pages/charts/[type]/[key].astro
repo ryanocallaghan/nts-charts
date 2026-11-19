@@ -1,7 +1,7 @@
 ---
 import Base from "../../../layouts/Base.astro";
 import ChartView from "../../../components/ChartView.astro";
-import { currentPeriodKey, DATED_PERIODS, isoWeekKey, isoWeekStart, periodLabel, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
+import { currentPeriodKey, DATED_PERIODS, isoWeekKey, isoWeekStart, periodHeading, periodLabel, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
 import { periodKeys } from "../../../lib/queries.ts";
 
 export function getStaticPaths() {
@@ -25,7 +25,7 @@ const near: Record<DatedPeriod, string> = {
   month: start.toISOString().slice(0, 7),
   year: String(start.getUTCFullYear()),
 };
-const eyebrow = type === "rolling" ? "4-week chart" : `${typeLabel[type]} chart`;
+const heading = periodHeading(type, key);
 // Short labels for previous/next: "Week 46", "October 2026", "2025", or "To 15 Nov" for 4-week charts.
 const stepLabel = (k: string) => {
   if (type !== "rolling") return periodLabel(type, k).split(" · ")[0];
@@ -39,9 +39,9 @@ const switchHref = (t: DatedPeriod) => {
   return target ? `/charts/${t}/${target}/` : "/charts/";
 };
 ---
-<Base title={`${eyebrow}: ${periodLabel(type, key)}`} section="archive">
-  <p class="eyebrow">{eyebrow}</p>
-  <h1>{periodLabel(type, key)} {inProgress && <span class="cds--tag cds--tag--md cds--tag--blue badge-tag">In progress</span>}</h1>
+<Base title={`${heading.title} · ${heading.sub}`} section="archive">
+  <h1>{heading.title}</h1>
+  <p class="page-sub">{heading.sub}{inProgress && <> <span class="cds--tag cds--tag--sm cds--tag--blue">In progress</span></>}</p>
 
   <div class="period-nav">
     <nav class="cds--content-switcher cds--content-switcher--md period-switcher" aria-label="Chart period">
