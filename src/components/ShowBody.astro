@@ -4,10 +4,13 @@ import ArtistLinks from "./ArtistLinks.astro";
 import ThemeLabel from "./ThemeLabel.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../lib/format.ts";
 import { trackHref } from "../lib/search.ts";
-import { guestPages, themeTunesFor, type showDetail } from "../lib/queries.ts";
+import { guestPages, showEarlyPlays, similarShows, themeTunesFor, type showDetail } from "../lib/queries.ts";
 
-interface Props { show: string; detail: ReturnType<typeof showDetail>; episodesLabel?: string; moreHref: string }
-const { show, detail: d, episodesLabel = "Recent episodes", moreHref } = Astro.props;
+// `showKey`: the show alias, or 'guests/<slug>' for a repeat guest (for similar shows and early plays).
+interface Props { show: string; showKey: string; detail: ReturnType<typeof showDetail>; episodesLabel?: string; moreHref: string }
+const { show, showKey, detail: d, episodesLabel = "Recent episodes", moreHref } = Astro.props;
+const similar = similarShows(showKey);
+const early = showEarlyPlays(showKey);
 const guests = guestPages();
 const themes = themeTunesFor(d.topTracks.map((t) => t.id));
 ---
@@ -57,3 +60,28 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
   ))}
   {d.stats.episodes > d.episodes.length && <p class="muted" style="margin-top:0.75rem">Showing the latest {d.episodes.length} of {d.stats.episodes} episodes. <a href={moreHref}>All episodes on nts.live</a></p>}
 </section>
+
+{(similar.length > 0 || early.tracks > 0) && (
+  <div class="grid-2 section">
+    {similar.length > 0 && (
+      <section class="card">
+        <h2>Similar shows</h2>
+        <p class="caption muted">Shows that play many of the same artists</p>
+        <ul class="plain">
+          {similar.map((s) => <li><a href={s.href}>{s.name}</a><span class="count">{Math.round(s.score * 100)}% alike</span></li>)}
+        </ul>
+      </section>
+    )}
+    {early.tracks > 0 && (
+      <section class="card">
+        <h2>Ahead of the charts</h2>
+        <p class="caption muted">Played {plural(early.tracks, "track")} in the 12 weeks before they first made the weekly chart, on average {early.weeksEarly} weeks early. <a href="/tastemakers/">Tastemakers</a></p>
+        <ul class="plain">
+          {early.recent.map((t) => (
+            <li><span><a href={trackHref(t)}>{t.title}</a> <span class="muted">— {t.artistDisplay}</span></span><span class="count">{plural(t.weeksEarly, "week")} early</span></li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </div>
+)}

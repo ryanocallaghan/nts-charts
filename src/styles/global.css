@@ -358,3 +358,8 @@ h1 .filter-heading { display: block; font-size: 1.25rem; color: var(--ink-2); ma
 .genre-tag:hover { background: var(--hover); }
 .chart-filters .filter-apply[hidden] { display: none; }
 @media (max-width: 40rem) { .chart-filters .cds--select { flex: 1 1 100%; } .chart-filters .cds--select-input__wrapper, .chart-filters .cds--select-input { width: 100%; } }
+
+/* Connections graph key: dots in the caption matching the node colours */
+.key { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 50%; vertical-align: 0; }
+.key-show { background: var(--cat-2); }
+.key-artist { background: var(--cat-1); }

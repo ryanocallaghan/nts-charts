@@ -1,0 +1,82 @@
+---
+// A year on NTS: totals, the year's charts, artists new to NTS, the biggest climbers, genres on the
+// rise and in decline, and the busiest shows.
+import Base from "../../layouts/Base.astro";
+import RankedList from "../../components/RankedList.astro";
+import { plural } from "../../lib/format.ts";
+import type { Item } from "../../lib/overview.ts";
+import { artistChart, periodKeys, trackChart, yearReview } from "../../lib/queries.ts";
+import { trackHref } from "../../lib/search.ts";
+
+const year = Astro.params.year ?? "";
+const years = periodKeys("year");
+const i = years.indexOf(year);
+if (i < 0) return new Response(null, { status: 404 });
+const [prev, next] = [years[i - 1], years[i + 1]];
+const r = yearReview(year);
+const tracks: Item[] = trackChart("year", year, 10).map((t) => ({ rank: t.rank, title: t.title, href: trackHref(t), artists: t.artists, credit: t.artistDisplay, kind: "track", count: plural(t.score, "ep") }));
+const artists: Item[] = artistChart("year", year, 10).map((a) => ({ rank: a.rank, title: a.name, href: `/artists/${a.slug}/`, kind: "artist", count: plural(a.score, "ep") }));
+const n = (v: number) => v.toLocaleString("en-GB");
+const pts = (v: number) => `${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(1)} pts`;
+---
+<Base title={`${year} on NTS`} description={`${year} on NTS Radio: the most-played tracks and artists, artists new to NTS, the biggest climbers, and how genres shifted.`} section="archive">
+  <p class="eyebrow"><a href="/charts/">Archive</a></p>
+  <h1>{year} on NTS</h1>
+  <nav class="stepper" aria-label="Other years">
+    {prev ? <a class="cds--link" href={`/years/${prev}/`} rel="prev">← {prev}</a> : <span class="cds--link cds--link--disabled">← Earlier</span>}
+    <span class="muted">·</span>
+    {next ? <a class="cds--link" href={`/years/${next}/`} rel="next">{next} →</a> : <span class="cds--link cds--link--disabled">Later →</span>}
+  </nav>
+
+  <div class="stats section">
+    <div class="stat"><div class="label">Episodes</div><div class="value">{n(r.stats.episodes)}</div></div>
+    <div class="stat"><div class="label">Plays</div><div class="value">{n(r.stats.plays)}</div></div>
+    <div class="stat"><div class="label">Different tracks</div><div class="value">{n(r.stats.tracks)}</div></div>
+    <div class="stat"><div class="label">Artists new to NTS</div><div class="value">{n(r.stats.newArtists)}</div></div>
+  </div>
+
+  <section class="section">
+    <h2>The year's chart</h2>
+    <p class="section-meta">Most-played by episodes · <a href={`/charts/year/${year}/`}>full chart</a></p>
+    <div class="grid-2">
+      <section class="card"><h3>Tracks</h3><RankedList items={tracks} /></section>
+      <section class="card"><h3>Artists</h3><RankedList items={artists} /></section>
+    </div>
+  </section>
+
+  <div class="grid-2 section">
+    <section class="card">
+      <h2>New to NTS</h2>
+      <p class="caption muted">First played in {year}, by episodes that year</p>
+      <ul class="plain">{r.newcomers.map((a) => <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{plural(a.cur, "episode")}</span></li>)}</ul>
+    </section>
+    {r.climbers.length > 0 && (
+      <section class="card">
+        <h2>Biggest climbers</h2>
+        <p class="caption muted">Most extra episodes compared with {Number(year) - 1}</p>
+        <ul class="plain">{r.climbers.map((a) => <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{a.prev} → {a.cur} episodes</span></li>)}</ul>
+      </section>
+    )}
+  </div>
+
+  {r.hasPrevious && (r.rising.length > 0 || r.falling.length > 0) && (
+    <div class="grid-2 section">
+      <section class="card">
+        <h2>Genres on the rise</h2>
+        <p class="caption muted">Biggest gains in share of genre tags since {Number(year) - 1}</p>
+        <ul class="plain">{r.rising.map((g) => <li><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count"><span class="move up" aria-hidden="true">▲</span> {pts(g.change)} · {g.cur.toFixed(1)}%</span></li>)}</ul>
+      </section>
+      <section class="card">
+        <h2>Genres in decline</h2>
+        <p class="caption muted">Biggest falls in share of genre tags since {Number(year) - 1}</p>
+        <ul class="plain">{r.falling.map((g) => <li><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count"><span class="move down" aria-hidden="true">▼</span> {pts(g.change)} · {g.cur.toFixed(1)}%</span></li>)}</ul>
+      </section>
+    </div>
+  )}
+
+  <section class="card section">
+    <h2>Busiest shows</h2>
+    <p class="caption muted">Episodes with tracklists in {year}</p>
+    <ul class="plain columns">{r.busiest.map((s) => <li><a href={s.href}>{s.name}</a><span class="count">{plural(s.episodes, "episode")}</span></li>)}</ul>
+  </section>
+</Base>

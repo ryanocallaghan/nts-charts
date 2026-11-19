@@ -13,6 +13,6 @@ const d = showDetail(GUESTS_SHOW, guest.slug);
   <article>
     <p class="eyebrow"><a href="/shows/guests/">Guest</a> · {plural(guest.mixes, "mix", "mixes")}</p>
     <h1>{guest.name}</h1>
-    <ShowBody show={GUESTS_SHOW} detail={d} moreHref={ntsShowUrl(GUESTS_SHOW)} episodesLabel="Guest mixes" />
+    <ShowBody show={GUESTS_SHOW} showKey={`guests/${guest.slug}`} detail={d} moreHref={ntsShowUrl(GUESTS_SHOW)} episodesLabel="Guest mixes" />
   </article>
 </Base>

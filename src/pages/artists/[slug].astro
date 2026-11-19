@@ -5,8 +5,8 @@ import EpisodePlays from "../../components/EpisodePlays.astro";
 import ThemeLabel from "../../components/ThemeLabel.astro";
 import TimeChart from "../../components/TimeChart.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
-import { artistBySlug, artistDetail, artistInfo, episodesForTracks, themeTunesFor } from "../../lib/queries.ts";
-import { monthlyBars, rankLine } from "../../lib/series.ts";
+import { artistBySlug, artistDetail, artistFirstPlay, artistInfo, artistShowLinks, episodesForTracks, relatedArtists, themeTunesFor } from "../../lib/queries.ts";
+import { connectionsGraph, monthlyBars, rankLine } from "../../lib/series.ts";
 import { trackHref } from "../../lib/search.ts";
 
 const artist = artistBySlug(Astro.params.slug ?? "");
@@ -15,6 +15,14 @@ const d = artistDetail(artist.id);
 const info = artistInfo(artist.id);
 const plays = episodesForTracks(d.topTracks.map((t) => t.id));
 const themes = themeTunesFor(d.topTracks.map((t) => t.id));
+const first = artistFirstPlay(artist.id);
+const related = relatedArtists(artist.id);
+const GRAPH_EACH = 8;
+const graphShows = d.shows.slice(0, GRAPH_EACH);
+const graphArtists = related.slice(0, GRAPH_EACH);
+const graph = related.length
+  ? connectionsGraph(artist, graphShows, graphArtists, artistShowLinks(graphArtists.map((a) => a.id), graphShows.map((s) => s.key)))
+  : null;
 const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.rank)) : null;
 ---
 <Base title={artist.name} description={`${artist.name} on NTS Radio: most-played tracks, the shows that play them, and chart history.`}>
@@ -29,9 +37,11 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
       <div class="stat"><div class="label">Tracks played</div><div class="value">{d.stats.tracks.toLocaleString("en-GB")}</div></div>
       <div class="stat"><div class="label">Peak weekly rank</div><div class="value">{peak ? `#${peak}` : "—"}</div></div>
     </div>
-    {d.stats.first && (
-      <p class="muted section" style="margin-top:0.75rem">
-        {d.stats.first.slice(0, 10) === d.stats.last?.slice(0, 10) ? `Played ${formatDate(d.stats.first)}` : `First played ${formatDate(d.stats.first)} · most recently ${formatDate(d.stats.last!)}`}
+    {first && (
+      <p class="section first-play">
+        First played on NTS by <a href={first.by.href}>{first.by.name}</a>, {formatDate(first.episode.broadcast)}{" "}
+        <span class="muted">(<a class="quiet" href={first.episode.href}>{first.episode.name}</a>)</span>
+        {d.stats.last && d.stats.last.slice(0, 10) !== first.episode.broadcast.slice(0, 10) && <span class="muted"> · most recently {formatDate(d.stats.last)}</span>}
       </p>
     )}
 
@@ -67,6 +77,23 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
         </ul>
       </section>
     </div>
+
+    {graph && (
+      <div class="grid-2 section">
+        <section class="card viz-card">
+          <h2>Connections</h2>
+          <p class="caption">Their top shows <span class="key key-show"></span> and the artists most often played alongside them <span class="key key-artist"></span>, linked where they share episodes. Click to explore.</p>
+          <div class="viz" style="height:380px" data-viz={JSON.stringify(graph)} role="img" aria-label={`Connections between ${artist.name}, their top shows and related artists. Listed alongside.`}></div>
+        </section>
+        <section class="card">
+          <h2>Often played alongside</h2>
+          <p class="caption muted">Artists played in the same episodes, relative to how much each is played</p>
+          <ul class="plain">
+            {related.map((r) => <li><a href={`/artists/${r.slug}/`}>{r.name}</a><span class="count">{r.shared.toLocaleString("en-GB")} shared episodes</span></li>)}
+          </ul>
+        </section>
+      </div>
+    )}
 
     <section class="card section">
       <h2>Recent plays</h2>

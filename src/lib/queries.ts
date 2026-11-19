@@ -171,7 +171,7 @@ export function artistDetail(id: number) {
      FROM ${ARTIST_PLAYS} LEFT JOIN shows s ON s.alias = e.show_alias
      WHERE ta.artist_id = ? GROUP BY ${SHOW_KEY} ORDER BY episodes DESC, showName LIMIT 25`,
     id,
-  ).map((r) => ({ ...showLink(r), episodes: r.episodes }));
+  ).map((r) => ({ ...showLink(r), key: r.guest ? `guests/${r.guest}` : r.show, episodes: r.episodes }));
   const monthly = all<{ month: string; episodes: number }>(
     `SELECT strftime('%Y-%m', e.broadcast_at) month, count(DISTINCT p.episode_alias) episodes
      FROM ${ARTIST_PLAYS} WHERE ta.artist_id = ? AND ${DATED} GROUP BY month ORDER BY month`,
@@ -611,5 +611,152 @@ export function genreRiver(n = 7) {
     const share = (q: string, tags: number) => Math.round((1000 * tags) / (totals.get(q) || 1)) / 10;
     const series = top.map((g) => ({ name: g.name, slug: g.slug, values: quarters.map((q) => share(q, by.get(`${q}|${g.slug}`) ?? 0)) }));
     return { quarters, series, others: allGenres().length - top.length };
+  });
+}
+
+// ---------- related artists, similar shows, firsts ----------
+
+export interface RelatedArtist { id: number; name: string; slug: string; shared: number; score: number }
+
+/**
+ * Artists most often played in the same episodes, scored shared / sqrt(episodes × theirs) so the
+ * biggest names don't top every list. At least 3 shared episodes.
+ */
+export function relatedArtists(id: number, limit = 12): RelatedArtist[] {
+  return all<RelatedArtist>(
+    `SELECT a.id, a.name, a.slug, s.n shared,
+            s.n / sqrt(st.episodes * (SELECT episodes FROM artist_stats WHERE artist_id = ?)) score
+     FROM (SELECT o.artist_id id, count(*) n FROM episode_artists m JOIN episode_artists o ON o.episode_id = m.episode_id
+           WHERE m.artist_id = ? AND o.artist_id != ? GROUP BY o.artist_id HAVING n >= 3) s
+     JOIN artist_stats st ON st.artist_id = s.id JOIN artists a ON a.id = s.id
+     ORDER BY score DESC, s.n DESC LIMIT ?`,
+    id, id, id, limit,
+  );
+}
+
+/** The first (dated) episode that played an artist, and who it was by. */
+export function artistFirstPlay(id: number) {
+  const r = get<{ show: string; guest: string | null; showName: string; guestName: string | null; anyEpisode: string; name: string; broadcast: string }>(
+    `SELECT e.show_alias show, e.guest_slug guest, coalesce(s.name, e.show_alias) showName, e.name guestName, e.alias anyEpisode,
+            trim(coalesce(e.name, e.alias)) name, e.broadcast_at broadcast
+     FROM episode_artists ea JOIN episodes e ON e.rowid = ea.episode_id LEFT JOIN shows s ON s.alias = e.show_alias
+     WHERE ea.artist_id = ? ORDER BY e.broadcast_at, e.alias LIMIT 1`,
+    id,
+  );
+  return r && { by: showLink(r), episode: { name: r.name, href: ntsEpisodeUrl(r.show, r.anyEpisode), broadcast: r.broadcast } };
+}
+
+export interface ShowRef { key: string; name: string; href: string }
+
+/** Name and link for a show key (a show alias, or 'guests/<slug>' for a repeat guest). */
+function showRef(key: string): ShowRef | undefined {
+  if (key.startsWith("guests/")) {
+    const g = guestPages().get(key.slice(7));
+    return g && { key, name: g.name, href: `/shows/guests/${g.slug}/` };
+  }
+  const s = showByAlias(key);
+  return s && { key, name: s.name, href: `/shows/${s.alias}/` };
+}
+
+/** The shows (and repeat guests) that play the most similar artists. */
+export function similarShows(key: string): (ShowRef & { score: number })[] {
+  return all<{ other: string; score: number }>("SELECT other_key other, score FROM show_similar WHERE show_key = ? ORDER BY score DESC", key)
+    .flatMap((r) => { const s = showRef(r.other); return s ? [{ ...s, score: r.score }] : []; });
+}
+
+/**
+ * For the connections graph: which of the related artists were also played on which of the shows
+ * (episodes in common), so the graph shows a web rather than a star.
+ */
+export function artistShowLinks(artistIds: number[], showKeys: string[]): { artist: number; show: string; episodes: number }[] {
+  if (!artistIds.length || !showKeys.length) return [];
+  return all<{ artist: number; show: string; episodes: number }>(
+    `SELECT ea.artist_id artist, ${SHOW_KEY} show, count(*) episodes
+     FROM episode_artists ea JOIN episodes e ON e.rowid = ea.episode_id
+     WHERE ea.artist_id IN (${artistIds.map(() => "?").join(",")}) AND ${SHOW_KEY} IN (${showKeys.map(() => "?").join(",")})
+     GROUP BY artist, show`,
+    ...artistIds, ...showKeys,
+  );
+}
+
+// ---------- tastemakers ----------
+
+export interface Tastemaker extends ShowRef { tracks: number; weeksEarly: number }
+
+/**
+ * Shows that play tracks before they chart: tracks played in the 12 weeks before their first week on
+ * the weekly chart, since `sinceWeek` (a week key) or all time. Ranked by tracks, then how early.
+ */
+export function tastemakers(sinceWeek: string | null, limit = 25): Tastemaker[] {
+  return memo(`tastemakers:${sinceWeek}:${limit}`, () =>
+    all<{ key: string; tracks: number; weeksEarly: number }>(
+      `SELECT show_key key, count(*) tracks, round(avg(weeks_early), 1) weeksEarly FROM early_plays
+       WHERE chart_week >= ? GROUP BY show_key ORDER BY tracks DESC, weeksEarly DESC LIMIT ?`,
+      sinceWeek ?? "", limit * 2,
+    ).flatMap((r) => { const s = showRef(r.key); return s ? [{ ...s, tracks: r.tracks, weeksEarly: r.weeksEarly }] : []; }).slice(0, limit),
+  );
+}
+
+/** A show's early plays: how many tracks it played before they charted, and the latest few. */
+export function showEarlyPlays(key: string, limit = 10) {
+  const total = get<{ n: number; w: number | null }>("SELECT count(*) n, round(avg(weeks_early), 1) w FROM early_plays WHERE show_key = ?", key)!;
+  const recent = all<{ id: number; title: string; artistDisplay: string; week: string; weeksEarly: number }>(
+    `SELECT t.id, t.title_display title, t.artist_display artistDisplay, ep.chart_week week, ep.weeks_early weeksEarly
+     FROM early_plays ep JOIN tracks t ON t.id = ep.track_id WHERE ep.show_key = ? ORDER BY ep.chart_week DESC LIMIT ?`,
+    key, limit,
+  );
+  return { tracks: total.n, weeksEarly: total.w, recent };
+}
+
+// ---------- year in review ----------
+
+/** A year's review: totals, artists new to NTS, the biggest climbers, genre shifts and the busiest shows. */
+export function yearReview(year: string) {
+  return cached(`year:${year}`, () => {
+    const from = `${year}-01-01`, to = `${Number(year) + 1}-01-01`;
+    const prevFrom = `${Number(year) - 1}-01-01`;
+    const stats = get<{ episodes: number; plays: number; tracks: number; artists: number; newArtists: number }>(
+      `SELECT (SELECT count(*) FROM episodes WHERE track_count > 0 AND broadcast_at >= ? AND broadcast_at < ?) episodes,
+              (SELECT count(*) FROM plays p JOIN episodes e ON e.alias = p.episode_alias WHERE e.broadcast_at >= ? AND e.broadcast_at < ?) plays,
+              (SELECT count(DISTINCT p.track_id) FROM plays p JOIN episodes e ON e.alias = p.episode_alias WHERE e.broadcast_at >= ? AND e.broadcast_at < ?) tracks,
+              (SELECT count(DISTINCT ea.artist_id) FROM episode_artists ea JOIN episodes e ON e.rowid = ea.episode_id WHERE e.broadcast_at >= ? AND e.broadcast_at < ?) artists,
+              (SELECT count(*) FROM artist_stats WHERE first_at >= ? AND first_at < ?) newArtists`,
+      from, to, from, to, from, to, from, to, from, to,
+    )!;
+    // Episodes per artist this year and last, for new arrivals and climbers.
+    const counts = all<{ id: number; name: string; slug: string; cur: number; prev: number; first: string }>(
+      `SELECT a.id, a.name, a.slug, c.cur, c.prev, st.first_at first FROM (
+         SELECT ea.artist_id id, sum(e.broadcast_at >= ?) cur, sum(e.broadcast_at < ?) prev
+         FROM episode_artists ea JOIN episodes e ON e.rowid = ea.episode_id
+         WHERE e.broadcast_at >= ? AND e.broadcast_at < ? GROUP BY ea.artist_id HAVING cur >= 3) c
+       JOIN artists a ON a.id = c.id JOIN artist_stats st ON st.artist_id = c.id`,
+      from, from, prevFrom, to,
+    );
+    const newcomers = counts.filter((c) => c.first >= from && c.first < to).sort((a, b) => b.cur - a.cur || a.name.localeCompare(b.name)).slice(0, 15);
+    const climbers = counts.filter((c) => c.prev > 0).map((c) => ({ ...c, gain: c.cur - c.prev }))
+      .filter((c) => c.gain > 0).sort((a, b) => b.gain - a.gain || b.cur - a.cur).slice(0, 15);
+    // Genres' share of tags this year vs last.
+    const tagRows = all<{ y: string; slug: string; name: string; tags: number }>(
+      `SELECT substr(gq.quarter, 1, 4) y, gq.genre_slug slug, g.name, sum(gq.tags) tags FROM genre_quarters gq JOIN genres g ON g.slug = gq.genre_slug
+       WHERE substr(gq.quarter, 1, 4) IN (?, ?) GROUP BY y, slug`,
+      year, String(Number(year) - 1),
+    );
+    const total = (y: string) => tagRows.filter((r) => r.y === y).reduce((s, r) => s + r.tags, 0) || 1;
+    const [tCur, tPrev] = [total(year), total(String(Number(year) - 1))];
+    const shares = new Map<string, { slug: string; name: string; cur: number; prev: number }>();
+    for (const r of tagRows) {
+      const g = shares.get(r.slug) ?? { slug: r.slug, name: r.name, cur: 0, prev: 0 };
+      if (r.y === year) g.cur = (100 * r.tags) / tCur; else g.prev = (100 * r.tags) / tPrev;
+      shares.set(r.slug, g);
+    }
+    const genreShifts = [...shares.values()].filter((g) => g.cur >= 0.5 || g.prev >= 0.5).map((g) => ({ ...g, change: g.cur - g.prev }));
+    const rising = [...genreShifts].sort((a, b) => b.change - a.change).filter((g) => g.change > 0).slice(0, 6);
+    const falling = [...genreShifts].sort((a, b) => a.change - b.change).filter((g) => g.change < 0).slice(0, 6);
+    const busiest = all<{ key: string; episodes: number }>(
+      `SELECT ${SHOW_KEY} key, count(*) episodes FROM episodes e WHERE track_count > 0 AND broadcast_at >= ? AND broadcast_at < ?
+       GROUP BY key ORDER BY episodes DESC LIMIT 20`,
+      from, to,
+    ).flatMap((r) => { const s = showRef(r.key); return s ? [{ ...s, episodes: r.episodes }] : []; }).slice(0, 12);
+    return { stats, newcomers, climbers, rising, falling, busiest, hasPrevious: tPrev > 1 };
   });
 }

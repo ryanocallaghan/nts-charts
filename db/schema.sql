@@ -149,3 +149,31 @@ CREATE TABLE IF NOT EXISTS genre_quarters (
 ) WITHOUT ROWID;
 -- Charts filtered by where an episode was broadcast from.
 CREATE INDEX IF NOT EXISTS episodes_location ON episodes(location, broadcast_at) WHERE location IS NOT NULL;
+
+-- Which artists each dated episode played, as integers (episode_id is the episodes rowid, which VACUUM
+-- can renumber, so aggregate.ts rebuilds this every run). For related artists, similar shows and years.
+CREATE TABLE IF NOT EXISTS episode_artists (
+  artist_id  INTEGER NOT NULL,
+  episode_id INTEGER NOT NULL,
+  PRIMARY KEY (artist_id, episode_id)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS episode_artists_episode ON episode_artists(episode_id, artist_id);
+
+-- The 10 shows most like each show (or repeat guest), by the artists they play (rebuilt by aggregate.ts).
+CREATE TABLE IF NOT EXISTS show_similar (
+  show_key  TEXT NOT NULL,
+  other_key TEXT NOT NULL,
+  score     REAL NOT NULL, -- cosine similarity, 0–1
+  PRIMARY KEY (show_key, other_key)
+) WITHOUT ROWID;
+
+-- Shows that played a track in the 12 weeks before it first made the weekly chart (rebuilt by aggregate.ts).
+CREATE TABLE IF NOT EXISTS early_plays (
+  show_key    TEXT NOT NULL,
+  track_id    INTEGER NOT NULL,
+  chart_week  TEXT NOT NULL,    -- the track's first week on the chart
+  played_at   TEXT NOT NULL,    -- the show's first play in those 12 weeks
+  weeks_early INTEGER NOT NULL, -- 1–12
+  PRIMARY KEY (show_key, track_id)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS early_plays_week ON early_plays(chart_week);

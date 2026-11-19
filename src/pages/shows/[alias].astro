@@ -38,7 +38,7 @@ const repeatGuests = isGuests ? [...guestPages().values()] : [];
       </section>
     )}
 
-    <ShowBody show={show.alias} detail={d} moreHref={ntsShowUrl(show.alias)} episodesLabel={isGuests ? "Latest guest mixes" : "Recent episodes"} />
+    <ShowBody show={show.alias} showKey={show.alias} detail={d} moreHref={ntsShowUrl(show.alias)} episodesLabel={isGuests ? "Latest guest mixes" : "Recent episodes"} />
   </article>
 </Base>
 

@@ -88,4 +88,5 @@ const switchHref = (t: DatedPeriod) => {
   <ChartView type={type} periodKey={key} filter={filtered ? filter : undefined} />
 
   {type === "week" && <PastYears week={key} />}
+  {type === "year" && <p class="section"><a href={`/years/${key}/`}>{key} in review →</a> New artists, biggest climbers, genres and the busiest shows.</p>}
 </Base>

@@ -5,6 +5,7 @@ import { openDb, setMeta, tx } from "./db.ts";
 import { isPlaceholder, slugify } from "./normalize.ts";
 import { FIRST_VALID_DATE } from "../src/lib/dates.ts";
 import { searchNorm, trackKey } from "../src/lib/search.ts";
+import { isoWeekStart } from "../src/lib/format.ts";
 // NTS files one-off guest mixes under one catch-all show; each guest (from the episode name) counts as its own show.
 import { ALL_TIME_CHART_SIZE, CHART_MIN_SCORE, CHART_SIZE, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql } from "../src/lib/shared-sql.ts";
 
@@ -107,13 +108,94 @@ tx(db, () => {
   console.log(`  ${spellings.size} genres`);
 });
 
-// Per-artist totals.
+// Which artists each dated episode played, then per-artist totals from that.
 tx(db, () => {
-  db.exec("DELETE FROM artist_stats");
-  db.exec(`INSERT INTO artist_stats(artist_id, episodes, first_at)
-    SELECT ta.artist_id, count(DISTINCT p.episode_alias), min(CASE WHEN e.broadcast_at >= '${FIRST_VALID_DATE}' THEN e.broadcast_at END)
-    FROM track_artists ta JOIN plays p ON p.track_id = ta.track_id JOIN episodes e ON e.alias = p.episode_alias
-    WHERE e.broadcast_at IS NOT NULL GROUP BY ta.artist_id`);
+  db.exec(`DELETE FROM episode_artists; DELETE FROM artist_stats;
+    INSERT OR IGNORE INTO episode_artists(artist_id, episode_id)
+    SELECT ta.artist_id, e.rowid FROM plays p JOIN track_artists ta ON ta.track_id = p.track_id JOIN episodes e ON e.alias = p.episode_alias
+    WHERE e.broadcast_at >= '${FIRST_VALID_DATE}';
+    INSERT INTO artist_stats(artist_id, episodes, first_at)
+    SELECT ea.artist_id, count(*), min(e.broadcast_at) FROM episode_artists ea JOIN episodes e ON e.rowid = ea.episode_id GROUP BY ea.artist_id`);
+});
+
+// Similar shows: cosine similarity between shows' artists (episodes per artist, log-damped), with
+// artists that many shows play weighted down (IDF) and the most common skipped, like stopwords.
+// Shows with pages only: real shows and repeat guests.
+tx(db, () => {
+  db.exec("DELETE FROM show_similar");
+  const keys: string[] = [];
+  for (const r of db.prepare("SELECT DISTINCT show_alias k FROM episodes WHERE track_count > 0 AND show_alias != ?").all(GUESTS_SHOW) as { k: string }[]) keys.push(r.k);
+  for (const r of db.prepare(GUEST_PAGES_SQL).all() as { slug: string }[]) keys.push(`guests/${r.slug}`);
+  const index = new Map(keys.map((k, i) => [k, i]));
+  const S = keys.length;
+  const MAX_SHOWS = Math.max(50, Math.round(S / 10)); // an artist played by more shows says little
+  const norm = new Float64Array(S);
+  const dot = new Float32Array(S * S);
+  // Rows come grouped by artist: add each artist's shows to the sums, one artist at a time.
+  const addArtist = (list: [number, number][]) => {
+    if (!list.length || list.length > MAX_SHOWS) return;
+    const idf = Math.log(S / list.length);
+    const w = list.map(([i, n]) => [i, (1 + Math.log(n)) * idf] as const);
+    for (const [i, x] of w) norm[i] += x * x;
+    if (w.length < 2) return;
+    for (let a = 0; a < w.length; a++) for (let b = a + 1; b < w.length; b++) {
+      const [i, x] = w[a], [j, y] = w[b];
+      dot[i < j ? i * S + j : j * S + i] += x * y;
+    }
+  };
+  let artist = -1;
+  let list: [number, number][] = [];
+  for (const r of db.prepare(
+    `SELECT ea.artist_id a, coalesce('guests/' || e.guest_slug, e.show_alias) k, count(*) n
+     FROM episode_artists ea JOIN episodes e ON e.rowid = ea.episode_id GROUP BY a, k ORDER BY a`,
+  ).iterate() as IterableIterator<{ a: number; k: string; n: number }>) {
+    if (r.a !== artist) { addArtist(list); artist = r.a; list = []; }
+    const i = index.get(r.k);
+    if (i != null) list.push([i, r.n]);
+  }
+  addArtist(list);
+  const ins = db.prepare("INSERT INTO show_similar(show_key, other_key, score) VALUES (?, ?, ?)");
+  let n = 0;
+  for (let i = 0; i < S; i++) {
+    if (!norm[i]) continue;
+    const scores: [number, number][] = [];
+    for (let j = 0; j < S; j++) {
+      if (j === i || !norm[j]) continue;
+      const d = dot[i < j ? i * S + j : j * S + i];
+      if (d > 0) scores.push([j, d / Math.sqrt(norm[i] * norm[j])]);
+    }
+    for (const [j, s] of scores.sort((a, b) => b[1] - a[1]).slice(0, 10)) {
+      if (s < 0.03) break;
+      ins.run(keys[i], keys[j], Math.round(s * 1000) / 1000);
+      n++;
+    }
+  }
+  console.log(`  similar shows: ${n} pairs across ${S} shows`);
+});
+
+// Early plays: for every track that made the weekly chart, the shows that played it in the 12 weeks
+// before its first week on the chart.
+tx(db, () => {
+  db.exec("DELETE FROM early_plays");
+  const WEEK = 7 * 86_400_000;
+  const firsts = db.prepare(
+    "SELECT entity_id track, min(period_key) week FROM chart_entries WHERE period_type = 'week' AND entity_type = 'track' GROUP BY entity_id",
+  ).all() as { track: number; week: string }[];
+  const before = db.prepare(
+    `SELECT coalesce('guests/' || e.guest_slug, e.show_alias) k, min(e.broadcast_at) at
+     FROM plays p JOIN episodes e ON e.alias = p.episode_alias
+     WHERE p.track_id = ? AND e.broadcast_at >= ? AND e.broadcast_at < ? GROUP BY k`,
+  );
+  const ins = db.prepare("INSERT INTO early_plays(show_key, track_id, chart_week, played_at, weeks_early) VALUES (?, ?, ?, ?, ?)");
+  let n = 0;
+  for (const f of firsts) {
+    const start = isoWeekStart(f.week).getTime();
+    for (const r of before.all(f.track, new Date(start - 12 * WEEK).toISOString(), new Date(start).toISOString()) as { k: string; at: string }[]) {
+      ins.run(r.k, f.track, f.week, r.at, Math.min(12, Math.ceil((start - Date.parse(r.at)) / WEEK)));
+      n++;
+    }
+  }
+  console.log(`  early plays: ${n} (${firsts.length} charting tracks)`);
 });
 
 // Search: every artist, show and repeat guest, and tracks played in two or more episodes, weighted by

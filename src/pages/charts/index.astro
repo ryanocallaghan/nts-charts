@@ -25,12 +25,13 @@ const byYear = years.map((y) => ({
     <div class="stat"><div class="label">Tracks</div><div class="value">{stats.tracks.toLocaleString("en-GB")}</div></div>
     <div class="stat"><div class="label">Artists</div><div class="value">{stats.artists.toLocaleString("en-GB")}</div></div>
   </div>
-  <p class="muted small" style="margin-top:0.75rem">Since {stats.first ? formatDate(stats.first) : "the start"}.</p>
+  <p class="muted small" style="margin-top:0.75rem">Since {stats.first ? formatDate(stats.first) : "the start"}. See also the <a href="/tastemakers/">tastemakers</a>: the shows that play tracks before they chart.</p>
 
 
   {byYear.map(({ year, months, quarters, weeks }) => (
     <section class="card section">
       <h2><a href={`/charts/year/${year}/`}>{year}</a></h2>
+      <p><a href={`/years/${year}/`}>{year} in review →</a></p>
       {quarters.length > 0 && (
         <p><span class="muted">Quarters:</span> {quarters.map((q, i) => <>{i > 0 && " · "}<a href={`/charts/quarter/${q}/`}>{q.split("-")[1]}</a></>)}</p>
       )}

@@ -1,24 +1,27 @@
 // Interactive charts. Only the ECharts pieces we use are bundled; each chart initialises
 // when it scrolls into view and re-themes when the OS colour scheme changes.
 import * as echarts from "echarts/core";
-import { BarChart, LineChart } from "echarts/charts";
+import { BarChart, GraphChart, LineChart } from "echarts/charts";
 import { DataZoomComponent, GridComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import { formatViz } from "../lib/series.ts";
 
-echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, DataZoomComponent, SVGRenderer]);
+echarts.use([BarChart, GraphChart, LineChart, GridComponent, TooltipComponent, DataZoomComponent, SVGRenderer]);
 
 export interface VizData {
   // bars: vertical counts over time · rank: chart position over time (inverted)
   // hbar: horizontal % bars by category · share: % line over time (small multiples share `max`)
   // stack: several % series stacked over time (`series`, bottom first; `y` unused; `max` the axis top)
-  kind: "bars" | "rank" | "hbar" | "share" | "stack";
+  // graph: a network (`nodes`, `links`); x, tip and y unused
+  kind: "bars" | "rank" | "hbar" | "share" | "stack" | "graph";
   name: string;            // series name, e.g. "Episodes"
   x: string[];             // short axis labels (categories for hbar)
   tip: string[];           // long labels for the tooltip
   y: (number | null)[];
   max?: number;            // rank: chart size · share: shared y maximum (%)
   series?: { name: string; y: (number | null)[]; color: string }[]; // stack: color is a CSS variable, e.g. "--cat-1"
+  nodes?: { id: string; name: string; href: string; kind: "self" | "artist" | "show"; weight: number; detail: string }[];
+  links?: { source: string; target: string; weight: number }[];
 }
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -64,12 +67,48 @@ function stackOption(d: VizData, t: Record<string, string>): echarts.EChartsCore
   };
 }
 
+/** An artist's connections: shows (orange) and related artists (blue) around them, sized by weight,
+ *  linked where they share episodes. Hover for details; click to open the page. */
+function graphOption(d: VizData, t: Record<string, string>): echarts.EChartsCoreOption {
+  const color = { self: css("--series-1"), artist: css("--cat-1"), show: css("--cat-2") };
+  const max = Math.max(1, ...(d.nodes ?? []).filter((n) => n.kind !== "self").map((n) => n.weight));
+  return {
+    animationDuration: 300,
+    textStyle: { fontFamily: t.font },
+    tooltip: {
+      confine: true, backgroundColor: t.surface, borderColor: t.grid, borderWidth: 1, padding: [8, 10],
+      textStyle: { color: t.ink, fontSize: 13 },
+      formatter: (p: unknown) => {
+        const n = (p as { dataType: string; data: { name: string; detail?: string } });
+        return n.dataType === "node" ? `<div style="font-weight:600">${esc(n.data.name)}</div><div style="color:${t.ink2}">${esc(n.data.detail ?? "")}</div>` : "";
+      },
+    },
+    series: [{
+      type: "graph", layout: "force", roam: false, draggable: true,
+      left: 16, right: 130, top: 16, bottom: 16, // room for labels, which sit to the right of each node
+      force: { repulsion: 600, edgeLength: [90, 170], gravity: 0.05, layoutAnimation: false },
+      labelLayout: { hideOverlap: true },
+      label: { show: true, position: "right", color: t.ink2, fontSize: 12, width: 140, overflow: "truncate" },
+      emphasis: { focus: "adjacency", label: { color: t.ink } },
+      lineStyle: { color: t.axis, opacity: 0.6, curveness: 0.1 },
+      data: (d.nodes ?? []).map((n) => ({
+        id: n.id, name: n.name, href: n.href, detail: n.detail,
+        symbolSize: n.kind === "self" ? 26 : 10 + 14 * Math.sqrt(n.weight / max),
+        itemStyle: { color: color[n.kind], borderColor: t.surface, borderWidth: 2 },
+        label: n.kind === "self" ? { fontWeight: 600, color: t.ink, fontSize: 13 } : undefined,
+      })),
+      links: (d.links ?? []).map((l) => ({ source: l.source, target: l.target, lineStyle: { width: 1 + Math.min(3, l.weight / 10) } })),
+    }],
+  };
+}
+
 function option(d: VizData): echarts.EChartsCoreOption {
   const t = {
     ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), grid: css("--grid"), axis: css("--axis"),
     surface: css("--surface"), series: css("--series-1"), wash: css("--series-1-wash"), font: css("--font"),
   };
   if (d.kind === "stack") return stackOption(d, t);
+  if (d.kind === "graph") return graphOption(d, t);
   const horizontal = d.kind === "hbar";
   const pct = d.kind === "hbar" || d.kind === "share";
   const zoom = !horizontal && d.x.length > ZOOM_AFTER;
@@ -169,6 +208,7 @@ function mount(el: HTMLElement) {
   const data = JSON.parse(el.dataset.viz!) as VizData;
   const chart = echarts.init(el, undefined, { renderer: "svg" });
   chart.setOption(option(data));
+  if (data.kind === "graph") chart.on("click", (p) => { const href = (p.data as { href?: string })?.href; if (href) location.href = href; });
   new ResizeObserver(() => chart.resize()).observe(el);
   mounted.push({ chart, data });
 }

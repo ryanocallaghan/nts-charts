@@ -75,6 +75,15 @@ if (genre) {
 }
 await check("/genres/no-such-genre-zz9/", { status: 404 });
 
+// Tastemakers and years.
+await check("/tastemakers/", { status: 200, contains: "Last 12 months", cached: true });
+const archive = await fetch(`${base}/charts/`).then((r) => r.text());
+const year = archive.match(/href="\/years\/(\d{4})\/"/)?.[1];
+if (year) await check(`/years/${year}/`, { status: 200, contains: "New to NTS" });
+else { console.log("FAIL no year review link on the archive page"); failed++; }
+await check("/years/1999/", { status: 404 });
+if (top) await check(top, { status: 200, contains: "First played on NTS by" });
+
 await check("/search/?q=aphex+twin", { status: 200, contains: 'href="/artists/aphex-twin/"' });
 await check("/search?q=aphex", { status: 301, location: "/search/?q=aphex" });
 

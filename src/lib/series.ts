@@ -120,3 +120,31 @@ export function genreStack(river: { quarters: string[]; series: { name: string; 
     series: river.series.map((s, i) => ({ name: s.name, y: s.values, color: `--cat-${i + 1}` })),
   };
 }
+
+/**
+ * An artist's connections graph: the artist, their top shows and their most related artists, linked
+ * to the artist and to each other wherever a related artist was played on one of those shows.
+ */
+export function connectionsGraph(
+  self: { name: string },
+  shows: { key: string; name: string; href: string; episodes: number }[],
+  related: { id: number; name: string; slug: string; shared: number }[],
+  links: { artist: number; show: string; episodes: number }[],
+): VizData {
+  const ep = (n: number) => `${n.toLocaleString("en-GB")} episode${n === 1 ? "" : "s"}`;
+  const showIds = new Set(shows.map((s) => s.key));
+  const artistIds = new Set(related.map((a) => a.id));
+  return {
+    kind: "graph", name: "Connections", x: [], tip: [], y: [],
+    nodes: [
+      { id: "self", name: self.name, href: "", kind: "self", weight: 0, detail: "" },
+      ...shows.map((s) => ({ id: `s:${s.key}`, name: s.name, href: s.href, kind: "show" as const, weight: s.episodes, detail: `Show · played ${self.name} on ${ep(s.episodes)}` })),
+      ...related.map((a) => ({ id: `a:${a.id}`, name: a.name, href: `/artists/${a.slug}/`, kind: "artist" as const, weight: a.shared, detail: `Artist · in ${ep(a.shared)} with ${self.name}` })),
+    ],
+    links: [
+      ...shows.map((s) => ({ source: "self", target: `s:${s.key}`, weight: s.episodes })),
+      ...related.map((a) => ({ source: "self", target: `a:${a.id}`, weight: a.shared })),
+      ...links.filter((l) => artistIds.has(l.artist) && showIds.has(l.show)).map((l) => ({ source: `a:${l.artist}`, target: `s:${l.show}`, weight: l.episodes })),
+    ],
+  };
+}
