@@ -11,6 +11,7 @@ import { periodDates, SITE_NAME } from "../lib/format.ts";
 import { archiveComplete, asOf, genreMix, genreTrends, headlineStats, movers, spotlight, type Item } from "../lib/overview.ts";
 import { artistChart, periodKeys, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
 import { genreBars, weekShareLine } from "../lib/series.ts";
+import { trackHref } from "../lib/search.ts";
 
 const latest = periodKeys("rolling").at(-1);
 const latestWeek = periodKeys("week").at(-1);
@@ -20,7 +21,7 @@ const chartHref = latest ? `/charts/rolling/${latest}/` : "/charts/";
 const covered = latest ? periodDates("rolling", latest, asOf()).text : "";
 
 const trackItem = (t: TrackEntry): Item => ({
-  rank: t.rank, title: t.title, artists: t.artists, credit: t.artistDisplay, kind: "track",
+  rank: t.rank, title: t.title, href: trackHref(t), artists: t.artists, credit: t.artistDisplay, kind: "track",
   status: t.status, prevRank: t.prevRank, count: `${t.score} eps`,
 });
 const artistItem = (a: ArtistEntry): Item => ({
@@ -59,7 +60,7 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
       <p class="section-meta">Last 4 weeks</p>
       <div class="grid-2">
         {spot.track && (
-          <Spotlight label="Track" title={spot.track.title} artists={spot.track.artists} credit={spot.track.artistDisplay}
+          <Spotlight label="Track" title={spot.track.title} href={trackHref(spot.track)} artists={spot.track.artists} credit={spot.track.artistDisplay}
             episodes={spot.track.score} shows={spot.track.shows} weeksAtOne={spot.track.weeksAtOne} status={spot.track.status} prevRank={spot.track.prevRank} history={spot.track.history} />
         )}
         {spot.artist && (

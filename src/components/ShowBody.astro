@@ -3,6 +3,7 @@
 import ArtistLinks from "./ArtistLinks.astro";
 import ThemeLabel from "./ThemeLabel.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../lib/format.ts";
+import { trackHref } from "../lib/search.ts";
 import { guestPages, themeTunesFor, type showDetail } from "../lib/queries.ts";
 
 interface Props { show: string; detail: ReturnType<typeof showDetail>; episodesLabel?: string; moreHref: string }
@@ -32,7 +33,7 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
       ? <p class="muted">No track has been played in more than one episode yet.</p>
       : <ul class="plain">
           {d.topTracks.map((t) => (
-            <li><span>{t.title} <span class="muted">— {t.artistDisplay}</span><ThemeLabel themes={themes.get(t.id)} /></span><span class="count">{plural(t.episodes, "episode")}</span></li>
+            <li><span><a href={trackHref(t)}>{t.title}</a> <span class="muted">— {t.artistDisplay}</span><ThemeLabel themes={themes.get(t.id)} /></span><span class="count">{plural(t.episodes, "episode")}</span></li>
           ))}
         </ul>}
   </section>
@@ -48,7 +49,7 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
       </summary>
       <ol>
         {(d.tracklists.get(e.alias) ?? []).map((t) => (
-          <li><strong>{t.title}</strong> — <ArtistLinks artists={t.artists} fallback={t.artistDisplay} /></li>
+          <li><strong><a class="quiet" href={trackHref(t)}>{t.title}</a></strong> — <ArtistLinks artists={t.artists} fallback={t.artistDisplay} /></li>
         ))}
       </ol>
       <a href={ntsEpisodeUrl(show, e.alias)}>Listen to this episode →</a>

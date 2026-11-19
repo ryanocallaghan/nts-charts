@@ -2,6 +2,7 @@
 // "This week in past years": the weekly #1s from the same ISO week 1, 5 and 10 years earlier.
 import { periodLabel } from "../lib/format.ts";
 import { onThisDay } from "../lib/overview.ts";
+import { trackHref } from "../lib/search.ts";
 interface Props { week: string }
 const pastYears = onThisDay(Astro.props.week);
 ---
@@ -14,7 +15,7 @@ const pastYears = onThisDay(Astro.props.week);
         <div class="card">
           <h3><a href={`/charts/week/${h.key}/`}>{h.years === 1 ? "1 year ago" : `${h.years} years ago`}</a></h3>
           <p class="muted small">{periodLabel("week", h.key)}</p>
-          {h.track && <p class="otd"><span class="spot-label">#1 track</span><br />{h.track.title} <span class="muted">— {h.track.artistDisplay}</span></p>}
+          {h.track && <p class="otd"><span class="spot-label">#1 track</span><br /><a href={trackHref(h.track)}>{h.track.title}</a> <span class="muted">— {h.track.artistDisplay}</span></p>}
           {h.artist && <p class="otd"><span class="spot-label">#1 artist</span><br /><a href={`/artists/${h.artist.slug}/`}>{h.artist.name}</a></p>}
         </div>
       ))}

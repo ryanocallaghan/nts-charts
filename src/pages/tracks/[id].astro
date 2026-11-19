@@ -1,0 +1,90 @@
+---
+// A track: who played it first, how often and where, and its weekly chart run. URL: /tracks/<id>-<slug>/.
+import Base from "../../layouts/Base.astro";
+import ArtistLinks from "../../components/ArtistLinks.astro";
+import ThemeLabel from "../../components/ThemeLabel.astro";
+import TimeChart from "../../components/TimeChart.astro";
+import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
+import { artistsForTracks, themeTunesFor, trackById, trackDetail, TRACK_EPISODES_PER_PAGE } from "../../lib/queries.ts";
+import { trackKey } from "../../lib/search.ts";
+import { monthlyBars, rankLine } from "../../lib/series.ts";
+
+const param = Astro.params.id ?? "";
+const id = /^\d+/.test(param) ? Number(param.match(/^\d+/)![0]) : NaN;
+const track = Number.isSafeInteger(id) ? trackById(id) : undefined;
+if (!track) return new Response(null, { status: 404 });
+
+// One address per track: fix a wrong or missing slug.
+const key = trackKey(track.id, track.artistDisplay, track.title);
+if (param !== key) return Astro.redirect(`/tracks/${key}/${Astro.url.search}`, 301);
+
+const page = Math.max(1, Math.floor(Number(Astro.url.searchParams.get("page")) || 1));
+const d = trackDetail(track.id, page);
+const pages = Math.max(1, Math.ceil(d.stats.episodes / TRACK_EPISODES_PER_PAGE));
+if (page > pages) return new Response(null, { status: 404 });
+const artists = artistsForTracks([track.id]).get(track.id) ?? [];
+const themes = themeTunesFor([track.id]).get(track.id);
+const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.rank)) : null;
+const pageHref = (n: number) => (n === 1 ? `/tracks/${key}/` : `/tracks/${key}/?page=${n}`);
+---
+<Base title={`${track.title} — ${track.artistDisplay}`} description={`${track.title} by ${track.artistDisplay} on NTS Radio: every episode that played it, who played it first, and its chart history.`}>
+  <article>
+    <p class="eyebrow">Track</p>
+    <h1>{track.title}</h1>
+    <p class="lede"><ArtistLinks artists={artists} fallback={track.artistDisplay} /><ThemeLabel themes={themes} /></p>
+
+    <div class="stats">
+      <div class="stat"><div class="label">Episodes</div><div class="value">{d.stats.episodes.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Shows</div><div class="value">{d.stats.shows.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Weeks in the Top 50</div><div class="value">{d.chartHistory.length.toLocaleString("en-GB")}</div></div>
+      <div class="stat"><div class="label">Peak weekly rank</div><div class="value">{peak ? `#${peak}` : "—"}</div></div>
+    </div>
+    {d.first && (
+      <p class="section first-play">
+        First played on NTS by <a href={d.first.by.href}>{d.first.by.name}</a>, {formatDate(d.first.episode.broadcast)}{" "}
+        <span class="muted">(<a class="quiet" href={d.first.episode.href}>{d.first.episode.name}</a>)</span>
+        {d.stats.last && d.stats.last.slice(0, 10) !== d.first.episode.broadcast.slice(0, 10) && <span class="muted"> · most recently {formatDate(d.stats.last)}</span>}
+      </p>
+    )}
+
+    <div class="grid-2 section">
+      <TimeChart title="Plays over time" caption="Episodes that played it, per month" data={monthlyBars(d.monthly)} />
+      {d.chartHistory.length > 0
+        ? <TimeChart title="Weekly chart history" caption={`${plural(d.chartHistory.length, "week")} in the Top 50 tracks`} data={rankLine(d.chartHistory)} />
+        : <section class="card"><h2>Weekly chart history</h2><p class="muted">Hasn't made the weekly Top 50.</p></section>}
+    </div>
+
+    <div class="grid-2 section">
+      <section class="card">
+        <h2>Shows that play it</h2>
+        <ul class="plain">
+          {d.shows.map((s) => (
+            <li><span><a href={s.href}>{s.name}</a>{s.guest && <span class="muted"> · guest</span>}</span><span class="count">{plural(s.episodes, "episode")}</span></li>
+          ))}
+        </ul>
+      </section>
+      <section class="card" id="episodes">
+        <h2>Every episode</h2>
+        {pages > 1 && <p class="caption muted">Newest first · {(page - 1) * TRACK_EPISODES_PER_PAGE + 1}–{Math.min(page * TRACK_EPISODES_PER_PAGE, d.stats.episodes)} of {d.stats.episodes.toLocaleString("en-GB")}</p>}
+        <ul class="plain">
+          {d.episodes.map((e) => (
+            <li>
+              <span>
+                <a href={ntsEpisodeUrl(e.show, e.episode)}>{e.name}</a>
+                {!e.name.toLowerCase().includes(e.showName.toLowerCase()) && <span class="muted"> · <a class="quiet" href={`/shows/${e.show}/`}>{e.showName}</a></span>}
+              </span>
+              <span class="count">{formatDate(e.broadcast)}</span>
+            </li>
+          ))}
+        </ul>
+        {pages > 1 && (
+          <nav class="stepper" aria-label="Episode pages">
+            {page > 1 ? <a class="cds--link" href={`${pageHref(page - 1)}#episodes`} rel="prev">← Newer</a> : <span class="cds--link cds--link--disabled">← Newer</span>}
+            <span class="muted">Page {page} of {pages}</span>
+            {page < pages ? <a class="cds--link" href={`${pageHref(page + 1)}#episodes`} rel="next">Older →</a> : <span class="cds--link cds--link--disabled">Older →</span>}
+          </nav>
+        )}
+      </section>
+    </div>
+  </article>
+</Base>

@@ -4,7 +4,7 @@ import { findThemeTunes, PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type Period
 import { openDb, setMeta, tx } from "./db.ts";
 import { isPlaceholder, slugify } from "./normalize.ts";
 import { FIRST_VALID_DATE } from "../src/lib/dates.ts";
-import { searchNorm } from "../src/lib/search.ts";
+import { searchNorm, trackKey } from "../src/lib/search.ts";
 // NTS files one-off guest mixes under one catch-all show; each guest (from the episode name) counts as its own show.
 import { GUEST_PAGES_SQL, GUESTS_SHOW } from "../src/lib/shared-sql.ts";
 
@@ -106,25 +106,33 @@ tx(db, () => {
     }
   }
 });
-// Search: every artist, show and repeat guest, weighted by the episodes (mixes for guests) they're in.
-// The same pass over artists stores each one's first dated play.
+// Per-artist totals.
 tx(db, () => {
-  db.exec("DELETE FROM search_index; DELETE FROM artist_firsts;");
+  db.exec("DELETE FROM artist_stats");
+  db.exec(`INSERT INTO artist_stats(artist_id, episodes, first_at)
+    SELECT ta.artist_id, count(DISTINCT p.episode_alias), min(CASE WHEN e.broadcast_at >= '${FIRST_VALID_DATE}' THEN e.broadcast_at END)
+    FROM track_artists ta JOIN plays p ON p.track_id = ta.track_id JOIN episodes e ON e.alias = p.episode_alias
+    WHERE e.broadcast_at IS NOT NULL GROUP BY ta.artist_id`);
+});
+
+// Search: every artist, show and repeat guest, and tracks played in two or more episodes, weighted by
+// the episodes (mixes for guests) they're in.
+tx(db, () => {
+  db.exec("DELETE FROM search_index");
   const add = db.prepare("INSERT INTO search_index(norm, name, kind, key, episodes) VALUES (?, ?, ?, ?, ?)");
-  const first = db.prepare("INSERT INTO artist_firsts(artist_id, first_at) VALUES (?, ?)");
   let n = 0;
-  const put = (name: string, kind: string, key: string, episodes: number) => {
-    const norm = searchNorm(name);
+  const put = (name: string, kind: string, key: string, episodes: number, norm = searchNorm(name)) => {
     if (norm) { add.run(norm, name, kind, key, episodes); n++; }
   };
-  for (const r of db.prepare(
-    `SELECT a.id, a.name, a.slug, count(DISTINCT p.episode_alias) n,
-            min(CASE WHEN e.broadcast_at >= '${FIRST_VALID_DATE}' THEN e.broadcast_at END) first
-     FROM artists a JOIN track_artists ta ON ta.artist_id = a.id JOIN plays p ON p.track_id = ta.track_id
-     JOIN episodes e ON e.alias = p.episode_alias WHERE e.broadcast_at IS NOT NULL GROUP BY a.id`,
-  ).iterate() as IterableIterator<{ id: number; name: string; slug: string; n: number; first: string | null }>) {
+  for (const r of db.prepare("SELECT a.name, a.slug, s.episodes n FROM artist_stats s JOIN artists a ON a.id = s.artist_id").iterate() as IterableIterator<{ name: string; slug: string; n: number }>) {
     put(r.name, "artist", r.slug, r.n);
-    if (r.first) first.run(r.id, r.first);
+  }
+  for (const r of db.prepare(
+    `SELECT t.id, t.title_display title, t.artist_display artist, c.n FROM (
+       SELECT p.track_id, count(DISTINCT p.episode_alias) n FROM plays p JOIN episodes e ON e.alias = p.episode_alias
+       WHERE e.broadcast_at IS NOT NULL GROUP BY p.track_id HAVING n >= 2) c JOIN tracks t ON t.id = c.track_id`,
+  ).iterate() as IterableIterator<{ id: number; title: string; artist: string; n: number }>) {
+    put(`${r.title} — ${r.artist}`, "track", trackKey(r.id, r.artist, r.title), r.n);
   }
   for (const r of db.prepare(
     `SELECT s.alias, coalesce(s.name, s.alias) name, count(e.alias) n

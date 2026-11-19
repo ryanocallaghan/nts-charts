@@ -27,6 +27,19 @@ if (top) {
   failed++;
 }
 
+const track = home.match(/href="(\/tracks\/(\d+)-[^"/]+\/)"/);
+if (track) {
+  await check(track[1], { status: 200, contains: "First played on NTS by", cached: true });
+  await check(`/tracks/${track[2]}/`, { status: 301, location: track[1] }); // the canonical slug
+  await check(`${track[1]}?page=9999`, { status: 404 });
+} else {
+  console.log("FAIL no track link on the home page");
+  failed++;
+}
+await check("/tracks/999999999-nothing/", { status: 404 });
+await check("/tracks/not-a-track/", { status: 404 });
+if (!home.includes('action="/search/"')) { console.log("FAIL no search box in the header"); failed++; }
+
 // An artist played on a single episode: one that used to be rendered in the browser.
 type Api = { status: string; results: { href: string; meta: string }[] };
 let rare: string | undefined;

@@ -117,9 +117,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
   tokenize = 'unicode61 remove_diacritics 2', prefix = '2 3'
 );
 
--- Each artist's first dated play (rebuilt by aggregate.ts), for the home page's "artists new to NTS".
-CREATE TABLE IF NOT EXISTS artist_firsts (
+-- Per-artist totals (rebuilt by aggregate.ts): episodes counts every dated episode; first_at ignores
+-- symbolic pre-2011 dates. For "artists new to NTS" and, later, related-artist scores.
+DROP TABLE IF EXISTS artist_firsts; -- replaced by artist_stats
+CREATE TABLE IF NOT EXISTS artist_stats (
   artist_id INTEGER PRIMARY KEY,
-  first_at  TEXT NOT NULL
+  episodes  INTEGER NOT NULL,
+  first_at  TEXT
 );
-CREATE INDEX IF NOT EXISTS artist_firsts_at ON artist_firsts(first_at);
+CREATE INDEX IF NOT EXISTS artist_stats_first ON artist_stats(first_at);

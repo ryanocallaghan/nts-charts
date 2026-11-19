@@ -7,6 +7,7 @@ import TimeChart from "../../components/TimeChart.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
 import { artistBySlug, artistDetail, artistInfo, episodesForTracks, themeTunesFor } from "../../lib/queries.ts";
 import { monthlyBars, rankLine } from "../../lib/series.ts";
+import { trackHref } from "../../lib/search.ts";
 
 const artist = artistBySlug(Astro.params.slug ?? "");
 if (!artist) return new Response(null, { status: 404 }); // Astro serves src/pages/404.astro
@@ -48,7 +49,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
           {d.topTracks.map((t) => (
             <li>
               <span>
-                {t.title}{t.artistDisplay !== artist.name && <span class="muted"> — {t.artistDisplay}</span>}
+                <a href={trackHref(t)}>{t.title}</a>{t.artistDisplay !== artist.name && <span class="muted"> — {t.artistDisplay}</span>}
                 <ThemeLabel themes={themes.get(t.id)} />
                 <EpisodePlays plays={plays.get(t.id)} label="Episodes" />
               </span>
@@ -72,7 +73,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
       <ul class="plain">
         {d.recent.map((r) => (
           <li>
-            <span>{r.title} <span class="muted">on</span> <a href={ntsEpisodeUrl(r.show, r.episode)}>{r.name}</a></span>
+            <span><a class="quiet" href={trackHref(r)}>{r.title}</a> <span class="muted">on</span> <a href={ntsEpisodeUrl(r.show, r.episode)}>{r.name}</a></span>
             <span class="count">{formatDate(r.broadcast)}</span>
           </li>
         ))}

@@ -177,9 +177,9 @@ export function artistDetail(id: number) {
      FROM ${ARTIST_PLAYS} WHERE ta.artist_id = ? AND ${DATED} GROUP BY month ORDER BY month`,
     id,
   );
-  const recent = all<{ episode: string; show: string; showName: string; name: string; broadcast: string; title: string }>(
+  const recent = all<{ episode: string; show: string; showName: string; name: string; broadcast: string; id: number; title: string; artistDisplay: string }>(
     `SELECT e.alias episode, e.show_alias show, coalesce(s.name, e.show_alias) showName, e.name, e.broadcast_at broadcast,
-            t.title_display title
+            t.id, t.title_display title, t.artist_display artistDisplay
      FROM ${ARTIST_PLAYS} JOIN tracks t ON t.id = ta.track_id LEFT JOIN shows s ON s.alias = e.show_alias
      WHERE ta.artist_id = ? ORDER BY e.broadcast_at DESC, p.position LIMIT 20`,
     id,
@@ -255,7 +255,7 @@ export function showDetail(alias: string, guest?: string) {
      ORDER BY broadcast_at DESC LIMIT 30`,
     key,
   );
-  const tracklists = new Map<string, { title: string; artists: ArtistRef[]; artistDisplay: string }[]>();
+  const tracklists = new Map<string, { id: number; title: string; artists: ArtistRef[]; artistDisplay: string }[]>();
   if (episodes.length) {
     const rows = all<{ ep: string; trackId: number; title: string; artistDisplay: string }>(
       `SELECT p.episode_alias ep, t.id trackId, t.title_display title, t.artist_display artistDisplay
@@ -266,11 +266,90 @@ export function showDetail(alias: string, guest?: string) {
     const artists = artistsForTracks([...new Set(rows.map((r) => r.trackId))]);
     for (const r of rows) {
       const list = tracklists.get(r.ep) ?? [];
-      list.push({ title: r.title, artistDisplay: r.artistDisplay, artists: artists.get(r.trackId) ?? [] });
+      list.push({ id: r.trackId, title: r.title, artistDisplay: r.artistDisplay, artists: artists.get(r.trackId) ?? [] });
       tracklists.set(r.ep, list);
     }
   }
   return { stats, topArtists, topTracks, episodes, tracklists };
+}
+
+// ---------- tracks ----------
+
+export interface TrackRow { id: number; title: string; artistDisplay: string; deezerId: number | null }
+
+export function trackById(id: number): TrackRow | undefined {
+  return get<TrackRow>("SELECT id, title_display title, artist_display artistDisplay, deezer_id deezerId FROM tracks WHERE id = ?", id);
+}
+
+const TRACK_PLAYS = "plays p JOIN episodes e ON e.alias = p.episode_alias";
+export const TRACK_EPISODES_PER_PAGE = 50;
+
+/** A track's page: totals, who played it first, plays per month, weekly chart run, shows, and a page of episodes. */
+export function trackDetail(id: number, page = 1) {
+  const stats = get<{ episodes: number; shows: number; first: string | null; last: string | null }>(
+    `SELECT count(DISTINCT p.episode_alias) episodes, count(DISTINCT ${SHOW_KEY}) shows,
+            min(CASE WHEN ${DATED} THEN e.broadcast_at END) first, max(CASE WHEN ${DATED} THEN e.broadcast_at END) last
+     FROM ${TRACK_PLAYS} WHERE p.track_id = ? AND e.broadcast_at IS NOT NULL`,
+    id,
+  )!;
+  const firstRow = get<{ show: string; guest: string | null; showName: string; guestName: string | null; anyEpisode: string; name: string; broadcast: string }>(
+    `SELECT e.show_alias show, e.guest_slug guest, coalesce(s.name, e.show_alias) showName, e.name guestName, e.alias anyEpisode,
+            trim(coalesce(e.name, e.alias)) name, e.broadcast_at broadcast
+     FROM ${TRACK_PLAYS} LEFT JOIN shows s ON s.alias = e.show_alias
+     WHERE p.track_id = ? AND ${DATED} ORDER BY e.broadcast_at, e.alias LIMIT 1`,
+    id,
+  );
+  const first = firstRow && {
+    by: showLink(firstRow),
+    episode: { name: firstRow.name, href: ntsEpisodeUrl(firstRow.show, firstRow.anyEpisode), broadcast: firstRow.broadcast },
+  };
+  const monthly = all<{ month: string; episodes: number }>(
+    `SELECT strftime('%Y-%m', e.broadcast_at) month, count(DISTINCT p.episode_alias) episodes
+     FROM ${TRACK_PLAYS} WHERE p.track_id = ? AND ${DATED} GROUP BY month ORDER BY month`,
+    id,
+  );
+  const chartHistory = all<{ week: string; rank: number }>(
+    `SELECT period_key week, rank FROM chart_entries
+     WHERE entity_type = 'track' AND entity_id = ? AND period_type = 'week' ORDER BY period_key`,
+    id,
+  );
+  const shows = all<{ show: string; guest: string | null; showName: string; guestName: string | null; anyEpisode: string; episodes: number }>(
+    `SELECT e.show_alias show, e.guest_slug guest, coalesce(s.name, e.show_alias) showName, max(e.name) guestName,
+            max(e.alias) anyEpisode, count(DISTINCT p.episode_alias) episodes
+     FROM ${TRACK_PLAYS} LEFT JOIN shows s ON s.alias = e.show_alias
+     WHERE p.track_id = ? GROUP BY ${SHOW_KEY} ORDER BY episodes DESC, showName LIMIT 25`,
+    id,
+  ).map((r) => ({ ...showLink(r), episodes: r.episodes }));
+  const episodes = all<EpisodePlay>(
+    `SELECT DISTINCT e.alias episode, e.show_alias show, coalesce(s.name, e.show_alias) showName,
+            trim(coalesce(e.name, e.alias)) name, e.broadcast_at broadcast
+     FROM ${TRACK_PLAYS} LEFT JOIN shows s ON s.alias = e.show_alias
+     WHERE p.track_id = ? AND e.broadcast_at IS NOT NULL ORDER BY e.broadcast_at DESC, e.alias LIMIT ? OFFSET ?`,
+    id, TRACK_EPISODES_PER_PAGE, (page - 1) * TRACK_EPISODES_PER_PAGE,
+  );
+  return { stats, first, monthly: fillMonths(monthly), chartHistory, shows, episodes };
+}
+
+/**
+ * Each entity's rank in the `n` charts of this type up to and including `key` (null where it wasn't on
+ * the chart), oldest first: for sparklines in chart tables.
+ */
+export function rankHistories(type: PeriodType, key: string, entity: "track" | "artist", ids: number[], n = 8): Map<number, (number | null)[]> {
+  const out = new Map<number, (number | null)[]>();
+  const keys = periodKeys(type);
+  const end = keys.indexOf(key);
+  if (end < 0 || !ids.length) return out;
+  const window = keys.slice(Math.max(0, end - n + 1), end + 1);
+  for (const id of ids) out.set(id, window.map(() => null));
+  const rows = all<{ id: number; k: string; rank: number }>(
+    `SELECT entity_id id, period_key k, rank FROM chart_entries
+     WHERE period_type = ? AND entity_type = ? AND period_key IN (${window.map(() => "?").join(",")})
+       AND entity_id IN (${ids.map(() => "?").join(",")})`,
+    type, entity, ...window, ...ids,
+  );
+  const at = new Map(window.map((k, i) => [k, i]));
+  for (const r of rows) out.get(r.id)![at.get(r.k)!] = r.rank;
+  return out;
 }
 
 // ---------- episodes that played a track ----------

@@ -1,7 +1,7 @@
 ---
 // One period's track + artist charts with a tab switch.
 import type { PeriodType } from "../lib/format.ts";
-import { artistChart, episodesForTracks, trackChart } from "../lib/queries.ts";
+import { artistChart, episodesForTracks, rankHistories, trackChart } from "../lib/queries.ts";
 import ArtistTable from "./ArtistTable.astro";
 import Tabs from "./Tabs.astro";
 import TrackTable from "./TrackTable.astro";
@@ -14,19 +14,23 @@ const movement = type !== "all";
 const tracks = trackChart(type, periodKey, limit);
 const artists = artistChart(type, periodKey, limit);
 const plays = episodesForTracks(tracks.map((t) => t.id), { type, key: periodKey });
+// Rank trends over the last 8 charts of this type (not for all time, which is a single chart).
+const SPARK = 8;
+const trackRuns = movement ? rankHistories(type, periodKey, "track", tracks.map((t) => t.id), SPARK) : undefined;
+const artistRuns = movement ? rankHistories(type, periodKey, "artist", artists.map((a) => a.id), SPARK) : undefined;
 const id = `chart-${type}-${periodKey}`;
 ---
 <Tabs id={id} tabs={[{ key: "tracks", label: "Tracks" }, { key: "artists", label: "Artists" }]} />
 <div class="chart-panels">
   <div class="tabpanel" id={`${id}-tracks`} role="tabpanel" aria-labelledby={`${id}-tab-tracks`}>
     <div data-collapsible={initial && tracks.length > initial ? "" : undefined}>
-      <TrackTable rows={tracks} periodNoun={noun} movement={movement} plays={plays} />
+      <TrackTable rows={tracks} periodNoun={noun} movement={movement} plays={plays} runs={trackRuns} runCount={SPARK} />
       {initial && tracks.length > initial && <button type="button" class="cds--btn cds--btn--ghost cds--btn--md show-all" hidden data-step={initial} data-less={`Show top ${initial}`}></button>}
     </div>
   </div>
   <div class="tabpanel" id={`${id}-artists`} role="tabpanel" aria-labelledby={`${id}-tab-artists`}>
     <div data-collapsible={initial && artists.length > initial ? "" : undefined}>
-      <ArtistTable rows={artists} periodNoun={noun} movement={movement} />
+      <ArtistTable rows={artists} periodNoun={noun} movement={movement} runs={artistRuns} runCount={SPARK} />
       {initial && artists.length > initial && <button type="button" class="cds--btn cds--btn--ghost cds--btn--md show-all" hidden data-step={initial} data-less={`Show top ${initial}`}></button>}
     </div>
   </div>

@@ -1,0 +1,16 @@
+---
+// A tiny rank trend for a chart table row: rank 1 at the top, gaps where it was off the chart.
+// Decorative (the movement and weeks-on-chart columns carry the meaning).
+import { sparklinePath } from "../lib/series.ts";
+interface Props { ranks?: (number | null)[]; max?: number }
+const { ranks, max = 50 } = Astro.props;
+const W = 72, H = 24;
+const spark = ranks && ranks.filter((r) => r != null).length > 0 ? sparklinePath(ranks, W, H, max, 3) : null;
+---
+{spark && (
+  <svg class="sparkline sparkline-sm" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
+    <line x1="0" x2={W} y1="3" y2="3" class="spark-top" />
+    <path d={spark.d} class="spark-line" />
+    {spark.last && <circle cx={spark.last.x} cy={spark.last.y} r="2.5" class="spark-dot" />}
+  </svg>
+)}

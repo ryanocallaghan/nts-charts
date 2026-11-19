@@ -3,6 +3,7 @@ import "../styles/carbon.scss";
 import "../styles/global.css";
 import { formatDate, SITE_NAME } from "../lib/format.ts";
 import { lastUpdated, periodKeys } from "../lib/queries.ts";
+import HeaderSearch from "../components/HeaderSearch.astro";
 
 interface Props {
   title: string;
@@ -43,7 +44,7 @@ const nav = [
       <nav class="cds--header__nav" aria-label="Main">
         <ul class="cds--header__menu-bar">
           {nav.map((n) => (
-            <li>
+            <li class:list={{ "nav-search": n.key === "search" }}>
               <a class:list={["cds--header__menu-item", { "cds--header__menu-item--current": section === n.key }]} href={n.href} aria-current={section === n.key ? "page" : undefined}>
                 <span class="cds--text-truncate--end">{n.label}</span>
               </a>
@@ -51,6 +52,7 @@ const nav = [
           ))}
         </ul>
       </nav>
+      {section !== "search" && <HeaderSearch id="site-search" class="header-search-wide" />}
       {/* Phones: the inline menu doesn't fit, so a Menu button opens the full list. Works without JS. */}
       <details class="mobile-menu">
         <summary class="mobile-menu-button">
@@ -58,6 +60,7 @@ const nav = [
           <span>Menu</span>
         </summary>
         <nav class="mobile-menu-panel" aria-label="Main">
+          {section !== "search" && <HeaderSearch id="menu-search" class="header-search-menu" />}
           <ul>
             {nav.map((n) => (
               <li><a href={n.href} aria-current={section === n.key ? "page" : undefined}>{n.label}</a></li>
@@ -72,7 +75,7 @@ const nav = [
       (function () {
         var menu = document.querySelector(".mobile-menu");
         if (!menu) return;
-        document.addEventListener("keydown", function (e) { if (e.key === "Escape" && menu.open) { menu.open = false; menu.querySelector("summary").focus(); } });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape" && menu.open && !e.defaultPrevented) { menu.open = false; menu.querySelector("summary").focus(); } });
         document.addEventListener("click", function (e) { if (menu.open && !menu.contains(e.target)) menu.open = false; });
         menu.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) menu.open = false; });
       })();
@@ -99,6 +102,9 @@ const nav = [
         })();
       </script>
     )}
+    <script>
+      import "../scripts/suggest.ts";
+    </script>
     <main class="wrap">
       <slot />
     </main>

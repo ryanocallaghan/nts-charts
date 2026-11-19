@@ -3,6 +3,7 @@ import { all, get } from "./db.ts";
 import { compareWindows, formatChange, isoWeekKey, isoWeekStart, rollingStartKey, weekYearsAgo, type Change, type Window } from "./format.ts";
 import { artistChart, artistsForTracks, periodKeys, trackChart, type ArtistRef } from "./queries.ts";
 import { rankLine } from "./series.ts";
+import { trackHref } from "./search.ts";
 
 const IN = "e.track_count > 0 AND e.broadcast_at >= ? AND e.broadcast_at < ?";
 
@@ -52,8 +53,8 @@ export function headlineStats(key: string, complete: boolean): Stat[] {
   if (complete) {
     // First-ever plays are only meaningful once the whole archive is in.
     const r = get<{ cur: number; prev: number }>(
-      `SELECT (SELECT count(*) FROM artist_firsts WHERE first_at >= ? AND first_at < ?) cur,
-              (SELECT count(*) FROM artist_firsts WHERE first_at >= ? AND first_at < ?) prev`,
+      `SELECT (SELECT count(*) FROM artist_stats WHERE first_at >= ? AND first_at < ?) cur,
+              (SELECT count(*) FROM artist_stats WHERE first_at >= ? AND first_at < ?) prev`,
       w.current.from, w.current.to, w.previous.from, w.previous.to,
     )!;
     stats.push({ label: "Artists new to NTS", value: n(r.cur ?? 0), caption: "played for the first time ever", change: formatChange(r.cur ?? 0, r.prev ?? 0, "pct") });
@@ -120,7 +121,7 @@ function resolve(rows: { kind: "track" | "artist"; id: number; rank: number; pre
     const base = { rank: r.rank, kind: r.kind, status: r.status, prevRank: r.prevRank, count: `${r.score} eps` };
     if (r.kind === "track") {
       const t = tracks.get(r.id)!;
-      return { ...base, title: t.title, artists: credits.get(r.id) ?? [], credit: t.credit };
+      return { ...base, title: t.title, href: trackHref({ id: r.id, title: t.title, artistDisplay: t.credit }), artists: credits.get(r.id) ?? [], credit: t.credit };
     }
     const a = artists.get(r.id)!;
     return { ...base, title: a.name, href: `/artists/${a.slug}/` };

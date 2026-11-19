@@ -32,7 +32,10 @@ function option(d: VizData): echarts.EChartsCoreOption {
   const horizontal = d.kind === "hbar";
   const pct = d.kind === "hbar" || d.kind === "share";
   const zoom = !horizontal && d.x.length > ZOOM_AFTER;
-  const start = zoom ? Math.max(0, 100 - (ZOOM_WINDOW / d.x.length) * 100) : 0;
+  // Open on the latest points, unless it's a rank history with only a few weeks on the chart, spread
+  // out: then the whole run fits better than a window that may hold one point.
+  const sparse = d.kind === "rank" && d.y.filter((v) => v != null).length <= 20;
+  const start = zoom && !sparse ? Math.max(0, 100 - (ZOOM_WINDOW / d.x.length) * 100) : 0;
   const axisLabel = { color: t.muted, fontSize: 12 };
   const categoryAxis = {
     type: "category" as const,
@@ -106,7 +109,11 @@ function option(d: VizData): echarts.EChartsCoreOption {
           }
         : {
             type: "line", name: d.name, data: d.y, connectNulls: false,
-            symbol: "circle", symbolSize: 9, showSymbol: d.x.length <= ZOOM_AFTER,
+            // Long series hide their dots, except a point with gaps on both sides, which would
+            // otherwise draw nothing (e.g. a single week on the chart).
+            symbol: "circle", showSymbol: true, showAllSymbol: true,
+            symbolSize: (_: unknown, p: { dataIndex: number }) =>
+              d.x.length <= ZOOM_AFTER || (d.y[p.dataIndex - 1] == null && d.y[p.dataIndex + 1] == null) ? 9 : 0,
             lineStyle: { width: 2, color: t.series, cap: "round", join: "round" },
             itemStyle: { color: t.series, borderColor: t.surface, borderWidth: 2 },
             areaStyle: undefined,
