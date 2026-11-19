@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS theme_tunes (
   PRIMARY KEY (show_key, track_id)
 );
 
--- MusicBrainz (+ Wikipedia) info for artists with pre-built pages (filled by ingest/enrich.ts).
+-- MusicBrainz (+ Wikipedia) info for the most-played artists (filled by ingest/enrich.ts).
 -- mbid NULL means "checked, no confident match" (retried after a while).
 CREATE TABLE IF NOT EXISTS artist_info (
   artist_id       INTEGER PRIMARY KEY,
@@ -109,3 +109,17 @@ CREATE TABLE IF NOT EXISTS artist_info (
   bio_url         TEXT,
   links_json      TEXT         -- {"bandcamp": url, "instagram": url, "discogs": url}
 );
+
+-- Site search over artists, shows and repeat guests (rebuilt by aggregate.ts). norm is searchNorm(name)
+-- from src/lib/search.ts; queries match each word as a prefix. kind: artist | show | guest.
+CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+  norm, name UNINDEXED, kind UNINDEXED, key UNINDEXED, episodes UNINDEXED,
+  tokenize = 'unicode61 remove_diacritics 2', prefix = '2 3'
+);
+
+-- Each artist's first dated play (rebuilt by aggregate.ts), for the home page's "artists new to NTS".
+CREATE TABLE IF NOT EXISTS artist_firsts (
+  artist_id INTEGER PRIMARY KEY,
+  first_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS artist_firsts_at ON artist_firsts(first_at);

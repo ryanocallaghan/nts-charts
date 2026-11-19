@@ -24,7 +24,7 @@ const trackItem = (t: TrackEntry): Item => ({
   status: t.status, prevRank: t.prevRank, count: `${t.score} eps`,
 });
 const artistItem = (a: ArtistEntry): Item => ({
-  rank: a.rank, title: a.name, href: a.slug ? `/artists/${a.slug}/` : undefined, kind: "artist",
+  rank: a.rank, title: a.name, href: `/artists/${a.slug}/`, kind: "artist",
   status: a.status, prevRank: a.prevRank, count: `${a.score} eps`,
 });
 
@@ -63,7 +63,7 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
             episodes={spot.track.score} shows={spot.track.shows} weeksAtOne={spot.track.weeksAtOne} status={spot.track.status} prevRank={spot.track.prevRank} history={spot.track.history} />
         )}
         {spot.artist && (
-          <Spotlight label="Artist" title={spot.artist.name} href={spot.artist.slug ? `/artists/${spot.artist.slug}/` : undefined}
+          <Spotlight label="Artist" title={spot.artist.name} href={`/artists/${spot.artist.slug}/`}
             episodes={spot.artist.score} shows={spot.artist.shows} weeksAtOne={spot.artist.weeksAtOne} status={spot.artist.status} prevRank={spot.artist.prevRank} history={spot.artist.history} />
         )}
       </div>

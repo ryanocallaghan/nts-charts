@@ -10,11 +10,14 @@
     "incremental": "node ingest/incremental.ts",
     "aggregate": "node ingest/aggregate.ts",
     "dev": "astro dev",
-    "build": "astro build && node scripts/build-data.ts",
+    "build": "astro build",
+    "start": "node dist/server/entry.mjs",
     "preview": "astro preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke": "node scripts/smoke.ts"
   },
   "dependencies": {
+    "@astrojs/node": "11.1.12",
     "astro": "7.4.13",
     "echarts": "6.1.0"
   },

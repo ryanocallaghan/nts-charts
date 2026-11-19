@@ -1,4 +1,4 @@
-// Match artists with pre-built pages to MusicBrainz, and store facts, links and a Wikipedia intro.
+// Match the most-played artists (ENRICH_ARTISTS_SQL) to MusicBrainz, and store facts, links and a Wikipedia intro.
 //   node ingest/enrich.ts                     # everything due (new, or older than the refresh age)
 //   node ingest/enrich.ts --limit 30          # try a few
 //   node ingest/enrich.ts --max-minutes 300   # stop cleanly before a CI job limit
@@ -6,7 +6,7 @@
 // https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting
 import { appendFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { PAGE_ARTISTS_PARAMS, PAGE_ARTISTS_SQL } from "../src/lib/artist-pages.ts";
+import { ENRICH_ARTISTS_PARAMS, ENRICH_ARTISTS_SQL } from "../src/lib/shared-sql.ts";
 import { pool } from "./client.ts";
 import { openDb } from "./db.ts";
 import { acceptSearch, cleanAnnotation, facts, matchCredit, pickLinks, trimBio, type MbArtist, type MbRecording, type MbSearchArtist } from "./musicbrainz.ts";
@@ -64,12 +64,12 @@ const db = openDb();
 const now = new Date();
 const ago = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString();
 
-const paged = db.prepare(PAGE_ARTISTS_SQL).all(...PAGE_ARTISTS_PARAMS) as { id: number }[];
+const candidates = db.prepare(ENRICH_ARTISTS_SQL).all(...ENRICH_ARTISTS_PARAMS) as { id: number }[];
 const info = new Map(
   (db.prepare("SELECT artist_id, mbid, checked_at FROM artist_info").all() as { artist_id: number; mbid: string | null; checked_at: string }[])
     .map((r) => [r.artist_id, r]),
 );
-const due = paged
+const due = candidates
   .map((p) => p.id)
   .filter((id) => {
     const r = info.get(id);
@@ -77,7 +77,7 @@ const due = paged
     return r.checked_at < ago(r.mbid ? MATCHED_REFRESH_DAYS : UNMATCHED_RETRY_DAYS);
   });
 const todo = args.limit ? due.slice(0, Number(args.limit)) : due;
-console.log(`${paged.length} artists with pages; ${due.length} due; doing ${todo.length}`);
+console.log(`${candidates.length} artists to enrich; ${due.length} due; doing ${todo.length}`);
 
 const nameOf = db.prepare("SELECT name FROM artists WHERE id = ?");
 const isrcsOf = db.prepare(`

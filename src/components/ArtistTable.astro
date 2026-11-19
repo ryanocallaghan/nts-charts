@@ -22,7 +22,7 @@ const { rows, periodNoun, movement = true } = Astro.props;
         <tr>
           <td class="rank">{r.rank}{movement && <span class="rank-move"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></span>}</td>
           {movement && <td class="mv"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></td>}
-          <td class="title">{r.slug ? <a href={`/artists/${r.slug}/`}>{r.name}</a> : r.name}</td>
+          <td class="title"><a href={`/artists/${r.slug}/`}>{r.name}</a></td>
           <td class="num">{r.score}</td>
           <td class="num hide-sm">{r.shows}</td>
           {movement && <td class="num hide-sm">{r.periodsOnChart}</td>}

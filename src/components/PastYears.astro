@@ -15,7 +15,7 @@ const pastYears = onThisDay(Astro.props.week);
           <h3><a href={`/charts/week/${h.key}/`}>{h.years === 1 ? "1 year ago" : `${h.years} years ago`}</a></h3>
           <p class="muted small">{periodLabel("week", h.key)}</p>
           {h.track && <p class="otd"><span class="spot-label">#1 track</span><br />{h.track.title} <span class="muted">— {h.track.artistDisplay}</span></p>}
-          {h.artist && <p class="otd"><span class="spot-label">#1 artist</span><br />{h.artist.slug ? <a href={`/artists/${h.artist.slug}/`}>{h.artist.name}</a> : h.artist.name}</p>}
+          {h.artist && <p class="otd"><span class="spot-label">#1 artist</span><br /><a href={`/artists/${h.artist.slug}/`}>{h.artist.name}</a></p>}
         </div>
       ))}
     </div>

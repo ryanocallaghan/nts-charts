@@ -1,11 +1,11 @@
 ---
 import type { ArtistRef } from "../lib/queries.ts";
-// Credited artists, linked where they have a page. Falls back to the raw credit string.
+// Credited artists, each linked to their page. Falls back to the raw credit string.
 interface Props { artists: ArtistRef[]; fallback: string }
 const { artists, fallback } = Astro.props;
 ---
 {artists.length === 0
   ? <span>{fallback}</span>
   : artists.map((a, i) => (
-      <>{i > 0 && ", "}{a.slug ? <a href={`/artists/${a.slug}/`}>{a.name}</a> : <span>{a.name}</span>}</>
+      <>{i > 0 && ", "}<a href={`/artists/${a.slug}/`}>{a.name}</a></>
     ))}

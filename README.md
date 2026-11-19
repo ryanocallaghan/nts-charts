@@ -10,8 +10,9 @@ A personal project, not affiliated with NTS.
   - It finds every show and episode from the NTS sitemap, because the API's own pagination stops after about 1,000 items.
   - Tracks are matched by artist and title, then by ISRC. Artist credits are split into individual artists.
 - Charts rank tracks and artists by the number of distinct episodes that played them in a week, month or year.
-- Artists with pages are matched to [MusicBrainz](https://musicbrainz.org) (by ISRC, or an exact unambiguous name) for facts, Bandcamp/Instagram/Discogs links and a short intro from Wikipedia or the MusicBrainz annotation (`ingest/enrich.ts`, at most 1 request per second).
-- The site is static and rebuilt from the database on a schedule.
+- `ingest/aggregate.ts` rebuilds the charts and the search index after each crawl.
+- The most-played artists are matched to [MusicBrainz](https://musicbrainz.org) (by ISRC, or an exact unambiguous name) for facts, Bandcamp/Instagram/Discogs links and a short intro from Wikipedia or the MusicBrainz annotation (`ingest/enrich.ts`, at most 1 request per second).
+- The site is an [Astro](https://astro.build) server that renders each page from the database when it's requested, so new data shows up as soon as it's aggregated. Every artist, show and repeat guest has a page. Pages are cached for an hour by Cloudflare in front.
 
 ## Running locally
 
@@ -26,6 +27,14 @@ NTS_DB=data/smoke.sqlite node ingest/backfill.ts --shows helm,dj-swisha
 
 # full archive crawl (resumable; about 14 hours at 2 requests/second)
 node ingest/backfill.ts
+
+# charts and search index
+node ingest/aggregate.ts
+
+# the site, reading data/nts.sqlite (or NTS_DB)
+npm run dev
+npm run build && npm start   # production server on HOST/PORT (default localhost:4321)
+npm run smoke -- http://localhost:4321
 ```
 
 ## Data

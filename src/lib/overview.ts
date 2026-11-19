@@ -1,6 +1,5 @@
 // Build-time data for the home page overview. Everything is about the latest 4-week chart window.
 import { all, get } from "./db.ts";
-import { DATED } from "./dates.ts";
 import { compareWindows, formatChange, isoWeekKey, isoWeekStart, rollingStartKey, weekYearsAgo, type Change, type Window } from "./format.ts";
 import { artistChart, artistsForTracks, periodKeys, trackChart, type ArtistRef } from "./queries.ts";
 import { rankLine } from "./series.ts";
@@ -53,11 +52,8 @@ export function headlineStats(key: string, complete: boolean): Stat[] {
   if (complete) {
     // First-ever plays are only meaningful once the whole archive is in.
     const r = get<{ cur: number; prev: number }>(
-      `WITH first AS (
-         SELECT min(e.broadcast_at) f FROM track_artists ta
-         JOIN plays p ON p.track_id = ta.track_id JOIN episodes e ON e.alias = p.episode_alias
-         WHERE ${DATED} GROUP BY ta.artist_id)
-       SELECT sum(f >= ? AND f < ?) cur, sum(f >= ? AND f < ?) prev FROM first`,
+      `SELECT (SELECT count(*) FROM artist_firsts WHERE first_at >= ? AND first_at < ?) cur,
+              (SELECT count(*) FROM artist_firsts WHERE first_at >= ? AND first_at < ?) prev`,
       w.current.from, w.current.to, w.previous.from, w.previous.to,
     )!;
     stats.push({ label: "Artists new to NTS", value: n(r.cur ?? 0), caption: "played for the first time ever", change: formatChange(r.cur ?? 0, r.prev ?? 0, "pct") });

@@ -6,15 +6,12 @@ import { asOf } from "../../../lib/overview.ts";
 import PastYears from "../../../components/PastYears.astro";
 import { periodKeys } from "../../../lib/queries.ts";
 
-export function getStaticPaths() {
-  return DATED_PERIODS.flatMap((type) =>
-    periodKeys(type).map((key) => ({ params: { type, key }, props: { type, key } })),
-  );
-}
-
-const { type, key } = Astro.props as { type: DatedPeriod; key: string };
+const type = Astro.params.type as DatedPeriod;
+const key = Astro.params.key ?? "";
+if (!DATED_PERIODS.includes(type)) return new Response(null, { status: 404 });
 const keys = periodKeys(type);
 const i = keys.indexOf(key);
+if (i < 0) return new Response(null, { status: 404 });
 const prev = keys[i - 1];
 const next = keys[i + 1];
 

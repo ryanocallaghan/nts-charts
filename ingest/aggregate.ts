@@ -4,9 +4,9 @@ import { findThemeTunes, PERIOD_KEY_SQL, PERIOD_TYPES, withMovement, type Period
 import { openDb, setMeta, tx } from "./db.ts";
 import { isPlaceholder, slugify } from "./normalize.ts";
 import { FIRST_VALID_DATE } from "../src/lib/dates.ts";
-
+import { searchNorm } from "../src/lib/search.ts";
 // NTS files one-off guest mixes under one catch-all show; each guest (from the episode name) counts as its own show.
-const GUESTS_SHOW = "guests";
+import { GUEST_PAGES_SQL, GUESTS_SHOW } from "../src/lib/shared-sql.ts";
 
 const TOP_N = Number(process.env.CHART_SIZE ?? 50);
 const TOP_N_ALL_TIME = Number(process.env.ALL_TIME_CHART_SIZE ?? 100);
@@ -103,6 +103,35 @@ tx(db, () => {
     }
   }
 });
+// Search: every artist, show and repeat guest, weighted by the episodes (mixes for guests) they're in.
+// The same pass over artists stores each one's first dated play.
+tx(db, () => {
+  db.exec("DELETE FROM search_index; DELETE FROM artist_firsts;");
+  const add = db.prepare("INSERT INTO search_index(norm, name, kind, key, episodes) VALUES (?, ?, ?, ?, ?)");
+  const first = db.prepare("INSERT INTO artist_firsts(artist_id, first_at) VALUES (?, ?)");
+  let n = 0;
+  const put = (name: string, kind: string, key: string, episodes: number) => {
+    const norm = searchNorm(name);
+    if (norm) { add.run(norm, name, kind, key, episodes); n++; }
+  };
+  for (const r of db.prepare(
+    `SELECT a.id, a.name, a.slug, count(DISTINCT p.episode_alias) n,
+            min(CASE WHEN e.broadcast_at >= '${FIRST_VALID_DATE}' THEN e.broadcast_at END) first
+     FROM artists a JOIN track_artists ta ON ta.artist_id = a.id JOIN plays p ON p.track_id = ta.track_id
+     JOIN episodes e ON e.alias = p.episode_alias WHERE e.broadcast_at IS NOT NULL GROUP BY a.id`,
+  ).iterate() as IterableIterator<{ id: number; name: string; slug: string; n: number; first: string | null }>) {
+    put(r.name, "artist", r.slug, r.n);
+    if (r.first) first.run(r.id, r.first);
+  }
+  for (const r of db.prepare(
+    `SELECT s.alias, coalesce(s.name, s.alias) name, count(e.alias) n
+     FROM shows s JOIN episodes e ON e.show_alias = s.alias WHERE e.track_count > 0 GROUP BY s.alias`,
+  ).all() as { alias: string; name: string; n: number }[]) put(r.name, "show", r.alias, r.n);
+  for (const r of db.prepare(GUEST_PAGES_SQL).all() as { slug: string; name: string; mixes: number }[]) put(r.name, "guest", r.slug, r.mixes);
+  console.log(`  search: ${n} entries`);
+});
+db.exec("INSERT INTO search_index(search_index) VALUES ('optimize')");
+
 setMeta(db, "aggregated_at", new Date().toISOString());
 console.log(`Aggregated in ${((Date.now() - started) / 1000).toFixed(1)}s`);
 db.exec("PRAGMA wal_checkpoint(TRUNCATE)");

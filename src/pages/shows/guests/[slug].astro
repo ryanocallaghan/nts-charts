@@ -3,13 +3,10 @@
 import Base from "../../../layouts/Base.astro";
 import ShowBody from "../../../components/ShowBody.astro";
 import { ntsShowUrl, plural } from "../../../lib/format.ts";
-import { GUESTS_SHOW, guestPages, showDetail, type GuestRow } from "../../../lib/queries.ts";
+import { GUESTS_SHOW, guestPages, showDetail } from "../../../lib/queries.ts";
 
-export function getStaticPaths() {
-  return [...guestPages().values()].map((g) => ({ params: { slug: g.slug }, props: { guest: g } }));
-}
-
-const { guest } = Astro.props as { guest: GuestRow };
+const guest = guestPages().get(Astro.params.slug ?? "");
+if (!guest) return new Response(null, { status: 404 });
 const d = showDetail(GUESTS_SHOW, guest.slug);
 ---
 <Base title={guest.name} description={`${guest.name}'s guest mixes on NTS Radio: tracklists, most-played artists and tracks.`} section="shows">

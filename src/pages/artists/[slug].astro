@@ -5,14 +5,11 @@ import EpisodePlays from "../../components/EpisodePlays.astro";
 import ThemeLabel from "../../components/ThemeLabel.astro";
 import TimeChart from "../../components/TimeChart.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
-import { artistDetail, artistInfo, episodesForTracks, pagedArtists, themeTunesFor, type ArtistRow } from "../../lib/queries.ts";
+import { artistBySlug, artistDetail, artistInfo, episodesForTracks, themeTunesFor } from "../../lib/queries.ts";
 import { monthlyBars, rankLine } from "../../lib/series.ts";
 
-export function getStaticPaths() {
-  return pagedArtists().map((a) => ({ params: { slug: a.slug }, props: { artist: a } }));
-}
-
-const { artist } = Astro.props as { artist: ArtistRow };
+const artist = artistBySlug(Astro.params.slug ?? "");
+if (!artist) return new Response(null, { status: 404 }); // Astro serves src/pages/404.astro
 const d = artistDetail(artist.id);
 const info = artistInfo(artist.id);
 const plays = episodesForTracks(d.topTracks.map((t) => t.id));

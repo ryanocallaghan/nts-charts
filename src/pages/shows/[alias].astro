@@ -2,16 +2,15 @@
 import Base from "../../layouts/Base.astro";
 import ShowBody from "../../components/ShowBody.astro";
 import SearchField from "../../components/SearchField.astro";
+import { memo } from "../../lib/db.ts";
 import { ntsShowUrl, plural } from "../../lib/format.ts";
-import { allShows, GUESTS_SHOW, guestPages, showDetail, type ShowRow } from "../../lib/queries.ts";
+import { GUESTS_SHOW, guestPages, showByAlias, showDetail } from "../../lib/queries.ts";
 
-export function getStaticPaths() {
-  return allShows().map((s) => ({ params: { alias: s.alias }, props: { show: s } }));
-}
-
-const { show } = Astro.props as { show: ShowRow };
-const d = showDetail(show.alias);
+const show = showByAlias(Astro.params.alias ?? "");
+if (!show) return new Response(null, { status: 404 });
 const isGuests = show.alias === GUESTS_SHOW;
+// The guests show holds thousands of mixes (about 0.4 s to query), so keep it until the next ingest.
+const d = isGuests ? memo("showDetail:guests", () => showDetail(GUESTS_SHOW)) : showDetail(show.alias);
 const repeatGuests = isGuests ? [...guestPages().values()] : [];
 ---
 <Base title={show.name} description={isGuests ? "Guest mixes on NTS Radio: every repeat guest, and the latest guest mixes with their tracklists." : `What ${show.name} plays on NTS Radio: most-played artists and tracks, and recent tracklists.`} section="shows">

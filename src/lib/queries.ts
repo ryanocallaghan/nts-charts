@@ -1,27 +1,17 @@
-import { all, get } from "./db.ts";
-import { PAGE_ARTISTS_PARAMS, PAGE_ARTISTS_SQL, SHOW_KEY } from "./artist-pages.ts";
+import { all, get, memo } from "./db.ts";
+import { GUEST_PAGES_SQL, GUESTS_SHOW, SHOW_KEY } from "./shared-sql.ts";
 import { DATED } from "./dates.ts";
 import { ntsEpisodeUrl, rollingStartKey, type PeriodType } from "./format.ts";
+import { searchHref, searchMeta, searchNorm, type SearchKind, type SearchResult } from "./search.ts";
 
 // NTS files one-off guest mixes under one catch-all show. Each guest counts as its own "show"
-// (keyed 'guests/<slug>'); guests with this many mixes get a page at /shows/guests/<slug>/.
-export const GUESTS_SHOW = "guests";
-const GUEST_PAGE_MIN_MIXES = 2;
+// (keyed 'guests/<slug>'); repeat guests get a page at /shows/guests/<slug>/.
+export { GUESTS_SHOW };
 
 export interface GuestRow { slug: string; name: string; mixes: number; last: string }
-let guests: Map<string, GuestRow> | undefined;
 /** Repeat guests (with pages), by slug. Name is taken from their latest mix. */
 export function guestPages(): Map<string, GuestRow> {
-  guests ??= new Map(
-    all<GuestRow>(
-      `SELECT guest_slug slug, count(*) mixes, max(broadcast_at) last,
-              (SELECT trim(name) FROM episodes x WHERE x.guest_slug = e.guest_slug ORDER BY broadcast_at DESC LIMIT 1) name
-       FROM episodes e WHERE guest_slug IS NOT NULL AND broadcast_at IS NOT NULL
-       GROUP BY guest_slug HAVING mixes >= ? AND sum(track_count > 0) > 0 ORDER BY name COLLATE NOCASE`,
-      GUEST_PAGE_MIN_MIXES,
-    ).map((g) => [g.slug, g]),
-  );
-  return guests;
+  return memo("guestPages", () => new Map(all<GuestRow>(GUEST_PAGES_SQL).map((g) => [g.slug, g])));
 }
 
 /** Where a show-or-guest key links: a show page, a repeat guest's page, or a one-off guest's mix on nts.live. */
@@ -57,21 +47,7 @@ const ARTIST_PLAYS = `track_artists ta
   JOIN plays p ON p.track_id = ta.track_id
   JOIN episodes e ON e.alias = p.episode_alias`;
 
-let pageArtists: Map<number, { slug: string; episodes: number }> | undefined;
-function loadPageArtists() {
-  pageArtists ??= new Map(
-    all<{ id: number; slug: string; episodes: number }>(PAGE_ARTISTS_SQL, ...PAGE_ARTISTS_PARAMS).map((r) => [r.id, { slug: r.slug, episodes: r.episodes }]),
-  );
-  return pageArtists;
-}
-let pageSlugs: Map<number, string> | undefined;
-/** id -> slug for artists that get a page. */
-export function artistsWithPages(): Map<number, string> {
-  pageSlugs ??= new Map([...loadPageArtists()].map(([id, a]) => [id, a.slug]));
-  return pageSlugs;
-}
-
-export interface ArtistRef { id: number; name: string; slug: string | null }
+export interface ArtistRef { id: number; name: string; slug: string }
 
 /** Credited artists per track, in credit order. */
 export function artistsForTracks(trackIds: number[]): Map<number, ArtistRef[]> {
@@ -93,12 +69,14 @@ export function artistsForTracks(trackIds: number[]): Map<number, ArtistRef[]> {
 // ---------- charts ----------
 
 export function periodKeys(type: PeriodType): string[] {
-  return all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ? ORDER BY k", type).map((r) => r.k);
+  return memo(`periodKeys:${type}`, () =>
+    all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ? ORDER BY k", type).map((r) => r.k),
+  );
 }
 
 export interface Movement { rank: number; prevRank: number | null; status: string; periodsOnChart: number; score: number; shows: number }
 export interface TrackEntry extends Movement { id: number; title: string; artistDisplay: string; artists: ArtistRef[] }
-export interface ArtistEntry extends Movement { id: number; name: string; slug: string | null }
+export interface ArtistEntry extends Movement { id: number; name: string; slug: string }
 
 const MOVEMENT = `c.rank, c.prev_rank AS prevRank, c.status, c.periods_on_chart AS periodsOnChart, c.score, c.shows_count AS shows`;
 
@@ -125,12 +103,12 @@ export function artistChart(type: PeriodType, key: string, limit = 50): ArtistEn
 // ---------- site-wide ----------
 
 export function siteStats() {
-  return get<{ shows: number; episodes: number; plays: number; tracks: number; artists: number; first: string | null }>(
+  return memo("siteStats", () => get<{ shows: number; episodes: number; plays: number; tracks: number; artists: number; first: string | null }>(
     `SELECT (SELECT count(*) FROM shows) shows,
             (SELECT count(*) FROM episodes WHERE track_count > 0) episodes,
             (SELECT count(*) FROM plays) plays, (SELECT count(*) FROM tracks) tracks, (SELECT count(*) FROM artists) artists,
             (SELECT min(broadcast_at) FROM episodes e WHERE track_count > 0 AND ${DATED}) first`,
-  )!;
+  )!);
 }
 
 export function lastUpdated(): string | null {
@@ -141,16 +119,9 @@ export function lastUpdated(): string | null {
 
 export interface ArtistRow { id: number; name: string; slug: string }
 
-export function pagedArtists(): ArtistRow[] {
-  const ids = [...artistsWithPages().keys()];
-  if (!ids.length) return [];
-  // Chunk to stay well under SQLite's bound-parameter limit.
-  const out: ArtistRow[] = [];
-  for (let i = 0; i < ids.length; i += 500) {
-    const chunk = ids.slice(i, i + 500);
-    out.push(...all<ArtistRow>(`SELECT id, name, slug FROM artists WHERE id IN (${chunk.map(() => "?").join(",")})`, ...chunk));
-  }
-  return out;
+/** The artist at /artists/<slug>/, if there is one. */
+export function artistBySlug(slug: string): ArtistRow | undefined {
+  return get<ArtistRow>("SELECT id, name, slug FROM artists WHERE slug = ?", slug);
 }
 
 export interface ArtistInfo {
@@ -241,12 +212,17 @@ function fillMonths(rows: { month: string; episodes: number }[]) {
 export interface ShowRow { alias: string; name: string; location: string | null; genres: string[]; image: string | null; episodes: number; last: string | null }
 
 export function allShows(): ShowRow[] {
-  return all<Omit<ShowRow, "genres"> & { genres_json: string | null }>(
+  return memo("allShows", () => all<Omit<ShowRow, "genres"> & { genres_json: string | null }>(
     `SELECT s.alias, coalesce(s.name, s.alias) name, s.location, s.genres_json, s.image_url image,
             count(e.alias) episodes, max(e.broadcast_at) last
      FROM shows s JOIN episodes e ON e.show_alias = s.alias AND e.track_count > 0
      GROUP BY s.alias ORDER BY name COLLATE NOCASE`,
-  ).map(({ genres_json, ...r }) => ({ ...r, genres: genres_json ? JSON.parse(genres_json) : [] }));
+  ).map(({ genres_json, ...r }) => ({ ...r, genres: genres_json ? JSON.parse(genres_json) : [] })));
+}
+
+/** The show at /shows/<alias>/ (one with at least one tracklist), if there is one. */
+export function showByAlias(alias: string): ShowRow | undefined {
+  return memo("showsByAlias", () => new Map(allShows().map((s) => [s.alias, s]))).get(alias);
 }
 
 /** A show's page data, or a repeat guest's (their mixes on the catch-all guests show). */
@@ -345,4 +321,31 @@ export function episodesForTracks(
     out.set(trackId, entry);
   }
   return out;
+}
+
+// ---------- search ----------
+
+const SEARCH_MAX_WORDS = 8;
+
+/**
+ * Artists, shows and repeat guests whose names contain a word starting with each query word.
+ * Exact names first, then names that start with the query, then the most played.
+ * `short` means the query is too short to search (no word of two or more characters).
+ */
+export function search(query: string, limit = 50): { short: boolean; total: number; results: SearchResult[] } {
+  const q = searchNorm(query);
+  const words = q.split(" ").filter(Boolean).slice(0, SEARCH_MAX_WORDS);
+  if (!words.some((w) => w.length >= 2)) return { short: words.length > 0, total: 0, results: [] };
+  // searchNorm leaves only letters, digits and spaces, so quoting each word is safe.
+  const match = words.map((w) => `"${w}"*`).join(" ");
+  const rows = all<{ name: string; kind: SearchKind; key: string; episodes: number; total: number }>(
+    `SELECT name, kind, key, episodes, count(*) OVER () total FROM search_index WHERE search_index MATCH ?
+     ORDER BY norm = ? DESC, substr(norm, 1, length(?)) = ? DESC, episodes DESC, name LIMIT ?`,
+    match, q, q, q, limit,
+  );
+  return {
+    short: false,
+    total: rows[0]?.total ?? 0,
+    results: rows.map((r) => ({ name: r.name, href: searchHref(r.kind, r.key), meta: searchMeta(r.kind, r.episodes) })),
+  };
 }
