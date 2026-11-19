@@ -130,7 +130,7 @@ function resolve(rows: { kind: "track" | "artist"; id: number; rank: number; pre
   });
 }
 
-/** Biggest climbers and highest new entries on the latest 4-week chart (tracks and artists). */
+/** Biggest climbers and highest new entries (first time ever; re-entries excluded) on the latest 4-week chart. */
 export function movers(key: string, limit = 5) {
   const cols = "entity_type kind, entity_id id, rank, prev_rank prevRank, status, score";
   const climbers = all<Parameters<typeof resolve>[0][number]>(
@@ -138,7 +138,7 @@ export function movers(key: string, limit = 5) {
      ORDER BY prev_rank - rank DESC, rank LIMIT ?`, key, limit,
   );
   const entries = all<Parameters<typeof resolve>[0][number]>(
-    `SELECT ${cols} FROM chart_entries WHERE period_type = 'rolling' AND period_key = ? AND status IN ('new', 'reentry')
+    `SELECT ${cols} FROM chart_entries WHERE period_type = 'rolling' AND period_key = ? AND status = 'new'
      ORDER BY rank, entity_type DESC LIMIT ?`, key, limit,
   );
   return { climbers: resolve(climbers), entries: resolve(entries) };
