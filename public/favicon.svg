@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- ¡ and ! (the ● / █ columns either side of the Top of the NTS block logo), as shapes so no font is needed. -->
+  <rect width="32" height="32" rx="6" fill="#161616"/>
+  <circle cx="10" cy="7.5" r="3" fill="#ffeb5e"/>
+  <rect x="7.5" y="12" width="5" height="15" rx="1" fill="#ffeb5e"/>
+  <rect x="19.5" y="5" width="5" height="15" rx="1" fill="#ffeb5e"/>
+  <circle cx="22" cy="24.5" r="3" fill="#ffeb5e"/>
+</svg>

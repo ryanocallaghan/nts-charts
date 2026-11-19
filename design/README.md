@@ -1,6 +1,47 @@
 # Logo
 
-- `logo-source.svg`: the original artwork. Its lettering is live text set in Poppins.
-- `../public/logo.svg`: the version the site uses. Its lettering is outlined into paths using Poppins (SIL Open Font License) via opentype.js, so it renders the same on devices without the font.
+The header uses the one-liner wordmark as live text in IBM Plex Mono (`public/fonts`, SIL Open Font License):
 
-If the source changes, outline its `<text>` elements again before replacing `public/logo.svg`.
+```
+¡ [ TOP ] [ of | the ] [ NTS ] !
+```
+
+On narrow screens the middle `[ of | the ]` is hidden. The favicon (`public/favicon.svg`) draws the ¡ and ! as shapes.
+
+Other versions, for places with more room:
+
+```
+ ●  ┌───────────────────────┐  █
+    │   █████  ███  ████    │  █
+ █  │     █   █   █ █   █   │  █
+ █  │     █   █   █ ████    │  █
+ █  │     █   █   █ █       │  █
+ █  │     █    ███  █       │  █
+ █  └───────────────────────┘  █
+ █  ┌──────────┐ ┌──────────┐  █
+ █  │       OF │ │ THE      │  █
+ █  └──────────┘ └──────────┘  █
+ █  ┌───────────────────────┐  █
+ █  │   █   █ █████  ████   │  █
+ █  │   ██  █   █   █       │  █
+ █  │   █ █ █   █    ███    │  █
+ █  │   █  ██   █       █   │  █
+ █  │   █   █   █   ████    │
+ █  └───────────────────────┘  ●
+```
+
+```
+ _____   ___   ____
+|_   _| / _ \ |  _ \
+  | |  | | | || |_) |
+  | |  | |_| ||  __/
+  |_|   \___/ |_|
+
+   .---[ of the ]---.
+
+ _   _  _____  ____
+| \ | ||_   _|/ ___|
+|  \| |  | |  \___ \
+| |\  |  | |   ___) |
+|_| \_|  |_|  |____/
+```

@@ -26,11 +26,14 @@ const nav = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title === SITE_NAME ? title : `${title} · ${SITE_NAME}`}</title>
     <meta name="description" content={description} />
-    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
     <header class="cds--header site-header" aria-label={SITE_NAME}>
-      <a class="cds--header__name site-logo" href="/"><img src="/logo.svg" alt={SITE_NAME} width="53" height="40" /></a>
+      <a class="cds--header__name site-logo" href="/">
+        <span class="visually-hidden">{SITE_NAME}</span>
+        <span class="wordmark" aria-hidden="true">¡ [ TOP ] <span class="wm-mid">[ of | the ] </span>[ NTS ] !</span>
+      </a>
       <nav class="cds--header__nav" aria-label="Main">
         <ul class="cds--header__menu-bar">
           {nav.map((n) => (

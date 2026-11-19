@@ -50,9 +50,12 @@ p { margin: 0 0 1rem; }
 .site-header.cds--header { position: sticky; top: 0; z-index: 10; }
 .site-header .cds--header__nav { display: block; overflow-x: auto; scrollbar-width: none; }
 .site-header .cds--header__nav::before { display: none; }
-/* Logo (public/logo.svg, outlined from design/logo-source.svg) in the 48px header. */
-.site-header .site-logo { padding: 0 1rem; }
-.site-header .site-logo img { display: block; height: 40px; width: auto; }
+/* Wordmark (see design/README.md): live text in IBM Plex Mono. */
+.site-header .site-logo { padding: 0 1.25rem 0 1rem; }
+.site-header .wordmark { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; font-size: 0.875rem; letter-spacing: 0; white-space: pre; color: var(--cds-text-primary); }
+@media (max-width: 40rem) {
+  .site-header .wm-mid { display: none; }
+}
 @media (max-width: 40rem) {
   .site-header .cds--header__name { padding: 0 0.75rem 0 1rem; }
   .site-header .cds--header__menu-item { padding: 0 0.6rem; }
