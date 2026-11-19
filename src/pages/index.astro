@@ -2,6 +2,7 @@
 // Home: an overview of the latest 4-week window, with the full tables a click away.
 import Base from "../layouts/Base.astro";
 import HeroLogo from "../components/HeroLogo.astro";
+import HeaderSearch from "../components/HeaderSearch.astro";
 import PastYears from "../components/PastYears.astro";
 import RankedList from "../components/RankedList.astro";
 import Spotlight from "../components/Spotlight.astro";
@@ -47,11 +48,13 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
       <h2 class="hero-headline">The most-played tracks and artists on NTS Radio</h2>
       <p class="lede">Built from the tracklists of every episode.</p>
       {covered && (
-        <p class="hero-meta">Last 4 weeks · {covered}</p>
+        <p class="hero-meta"><span class="only-wide">Last 4 weeks · </span>{covered}</p>
       )}
+      {/* Below 64rem the header has no search box, so a real one goes here instead of the button. */}
+      <HeaderSearch id="hero-search" class="hero-search" placeholder="Search artists, shows and tracks" />
       <div class="hero-actions">
         <a class="cds--btn cds--btn--primary cds--btn--md" href={chartHref}>See the full chart</a>
-        <a class="cds--btn cds--btn--tertiary cds--btn--md" href="/search/">Search artists &amp; shows</a>
+        <a class="cds--btn cds--btn--tertiary cds--btn--md hero-search-btn" href="/search/">Search artists &amp; shows</a>
       </div>
     </div>
   </div>
@@ -77,13 +80,13 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
     <section class="section">
       <h2>Top 5</h2>
       <p class="section-meta">Last 4 weeks</p>
-      <div class="grid-2">
-        <div class="card">
+      <div class="grid-2" data-phone-tabs="Top 5">
+        <div class="card" data-tab="Tracks">
           <h3>Tracks</h3>
           <RankedList items={top.tracks} movement />
           <p class="more"><a href={chartHref}>See the full chart →</a></p>
         </div>
-        <div class="card">
+        <div class="card" data-tab="Artists">
           <h3>Artists</h3>
           <RankedList items={top.artists} movement />
           <p class="more"><a href={`${chartHref}#artists`}>See the full chart →</a></p>
@@ -96,15 +99,15 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
     <section class="section">
       <h2>On the move</h2>
       <p class="section-meta">4-week chart, compared with last week's · <a href="/tastemakers/">who played them first</a></p>
-      <div class="grid-2">
+      <div class="grid-2" data-phone-tabs="On the move">
         {moves.climbers.length > 0 && (
-          <div class="card">
+          <div class="card" data-tab="Climbers">
             <h3>Biggest climbers</h3>
             <RankedList items={moves.climbers} movement showKind />
           </div>
         )}
         {moves.entries.length > 0 && (
-          <div class="card">
+          <div class="card" data-tab="New entries">
             <h3>New entries</h3>
             <RankedList items={moves.entries} movement showKind />
           </div>
@@ -145,7 +148,7 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
 
   <section class="section more-links">
     <h2>More charts</h2>
-    <div class="hero-actions">
+    <div class="hero-actions more-actions">
       <a class="cds--btn cds--btn--primary cds--btn--md" href={chartHref}>See the full 4-week chart</a>
       <a class="cds--btn cds--btn--tertiary cds--btn--md" href="/charts/all/">All-time chart</a>
       <a class="cds--btn cds--btn--tertiary cds--btn--md" href="/charts/">Browse the archive</a>
@@ -153,3 +156,7 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
   </section>
 </div>
 </Base>
+
+<script>
+  import "../scripts/phone-tabs.ts";
+</script>

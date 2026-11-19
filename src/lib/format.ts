@@ -190,7 +190,8 @@ export function periodDates(type: PeriodType, key: string, asOf: Date): { text: 
   if (type === "all") return { text: "", inProgress: false };
   const { start, end } = periodBounds(type, key);
   if (asOf < end) {
-    const upTo = asOf < start ? "" : `, up to ${asOf.getUTCDate()} ${MONTHS[asOf.getUTCMonth()]}`;
+    // A no-break space, so "18 Nov" never splits across lines.
+    const upTo = asOf < start ? "" : `, up to ${asOf.getUTCDate()}\u00a0${MONTHS[asOf.getUTCMonth()]}`;
     return { text: `${dateRange(start, new Date(end.getTime() - 1))} · in progress${upTo}`, inProgress: true };
   }
   if (type === "month" || type === "year") return { text: "", inProgress: false };

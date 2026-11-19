@@ -51,13 +51,13 @@ describe("overview helpers", () => {
   });
   it("labels chart dates the same way everywhere: in progress with the data date while running, full range once done", () => {
     const asOf = new Date("2026-11-18T09:00:00Z");
-    expect(periodDates("rolling", "2026-W47", asOf)).toEqual({ text: "26 Oct – 22 Nov 2026 · in progress, up to 18 Nov", inProgress: true });
-    expect(periodDates("week", "2026-W47", asOf)).toEqual({ text: "16–22 Nov 2026 · in progress, up to 18 Nov", inProgress: true });
+    expect(periodDates("rolling", "2026-W47", asOf)).toEqual({ text: "26 Oct – 22 Nov 2026 · in progress, up to 18\u00a0Nov", inProgress: true });
+    expect(periodDates("week", "2026-W47", asOf)).toEqual({ text: "16–22 Nov 2026 · in progress, up to 18\u00a0Nov", inProgress: true });
     expect(periodDates("rolling", "2026-W46", asOf)).toEqual({ text: "19 Oct – 15 Nov 2026", inProgress: false });
     expect(periodDates("week", "2026-W46", asOf)).toEqual({ text: "9–15 Nov 2026", inProgress: false });
-    expect(periodDates("month", "2026-11", asOf)).toEqual({ text: "1–30 Nov 2026 · in progress, up to 18 Nov", inProgress: true });
+    expect(periodDates("month", "2026-11", asOf)).toEqual({ text: "1–30 Nov 2026 · in progress, up to 18\u00a0Nov", inProgress: true });
     expect(periodDates("month", "2026-10", asOf)).toEqual({ text: "", inProgress: false });
-    expect(periodDates("year", "2026", asOf)).toEqual({ text: "1 Jan – 31 Dec 2026 · in progress, up to 18 Nov", inProgress: true });
+    expect(periodDates("year", "2026", asOf)).toEqual({ text: "1 Jan – 31 Dec 2026 · in progress, up to 18\u00a0Nov", inProgress: true });
   });
   it("formats changes as percentages or points", () => {
     expect(formatChange(112, 100, "pct")).toMatchObject({ text: "+12%", dir: "up" });
@@ -86,7 +86,7 @@ describe("quarters and in-progress titles", () => {
   it("labels quarter dates", () => {
     const asOf = new Date("2026-11-18T09:00:00Z");
     expect(periodDates("quarter", "2026-Q3", asOf)).toEqual({ text: "Jul – Sep 2026", inProgress: false });
-    expect(periodDates("quarter", "2026-Q4", asOf)).toEqual({ text: "1 Oct – 31 Dec 2026 · in progress, up to 18 Nov", inProgress: true });
+    expect(periodDates("quarter", "2026-Q4", asOf)).toEqual({ text: "1 Oct – 31 Dec 2026 · in progress, up to 18\u00a0Nov", inProgress: true });
   });
   it("doesn't promise an end date for a running 4-week chart", () => {
     expect(periodHeading("rolling", "2026-W47", true).title).toBe("Last 4 weeks");

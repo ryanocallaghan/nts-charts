@@ -1,14 +1,14 @@
 ---
 // Search from any page. A plain GET form to /search/ (works without JavaScript); with JavaScript it
 // becomes a combobox that suggests artists, shows and tracks as you type (src/scripts/suggest.ts).
-interface Props { id: string; class?: string }
-const { id, class: cls } = Astro.props;
+interface Props { id: string; class?: string; placeholder?: string }
+const { id, class: cls, placeholder = "Search" } = Astro.props;
 ---
 <form class:list={["header-search", cls]} action="/search/" method="get" role="search" data-suggest>
   <label class="visually-hidden" for={id}>Search artists, shows and tracks</label>
   <svg class="header-search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
     <path d="M15,14.3L10.7,10c1.9-2.3,1.6-5.8-0.7-7.7S4.2,0.7,2.3,3S0.7,8.8,3,10.7c2,1.7,5,1.7,7,0l4.3,4.3L15,14.3z M2,6.5C2,4,4,2,6.5,2S11,4,11,6.5S9,11,6.5,11S2,9,2,6.5z"></path>
   </svg>
-  <input id={id} class="header-search-input" type="search" name="q" placeholder="Search" autocomplete="off" spellcheck="false" />
+  <input id={id} class="header-search-input" type="search" name="q" placeholder={placeholder} autocomplete="off" spellcheck="false" />
   <ul id={`${id}-list`} class="header-search-list" role="listbox" aria-label="Suggestions" hidden></ul>
 </form>

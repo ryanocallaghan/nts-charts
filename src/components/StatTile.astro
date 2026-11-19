@@ -11,7 +11,7 @@ const arrow = { up: "▲", down: "▼", same: "–" };
   {stat.caption && <div class="caption">{stat.caption}</div>}
   {stat.change && (
     <div class={`delta ${stat.change.dir}`} title={stat.change.label}>
-      <span aria-hidden="true">{arrow[stat.change.dir]} </span>{stat.change.text}<span class="muted"> vs previous 4 weeks</span>
+      <span aria-hidden="true">{arrow[stat.change.dir]} </span>{stat.change.text}<span class="muted"> vs <span class="only-wide">previous 4 weeks</span><span class="only-narrow">last 4 wks</span></span>
     </div>
   )}
 </div>

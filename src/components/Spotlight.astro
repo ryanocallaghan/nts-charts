@@ -26,22 +26,25 @@ const how =
   : p.prevRank && p.prevRank > 1 ? `▲ from #${p.prevRank}`
   : "Steady at #1";
 const weeks = p.weeksAtOne > 1 ? `${p.weeksAtOne} weeks at #1` : "1st week at #1";
-const W = 160, H = 40;
-const spark = p.history.y.length > 1 ? sparklinePath(p.history.y, W, H, p.history.max ?? 50) : null;
+// Two sizes: beside the text on wider screens, full width on its own row on phones (see global.css).
+const H = 40;
+const sparks = p.history.y.length > 1
+  ? [{ w: 160, cls: "only-wide" }, { w: 320, cls: "only-narrow spark-full" }].map((s) => ({ ...s, path: sparklinePath(p.history.y, s.w, H, p.history.max ?? 50) }))
+  : [];
 ---
 <section class="card spotlight">
   <p class="spot-label">{p.label}</p>
   <h3 class="spot-title">{p.href ? <a href={p.href}>{p.title} <span aria-hidden="true">→</span></a> : p.title}</h3>
-  <p class="spot-credit">{p.artists ? <ArtistLinks artists={p.artists} fallback={p.credit ?? ""} /> : <span aria-hidden="true">&nbsp;</span>}</p>
+  <p class:list={["spot-credit", { "spot-credit-empty": !p.artists }]}>{p.artists ? <ArtistLinks artists={p.artists} fallback={p.credit ?? ""} /> : <span aria-hidden="true">&nbsp;</span>}</p>
   <p class="spot-stats">{plural(p.episodes, "episode")} across {plural(p.shows, "show")}</p>
   <div class="spot-run">
     <p class="spot-move">{how.startsWith("▲") ? <><span class="move up" aria-hidden="true">▲</span><span class="visually-hidden">Up</span> {how.slice(2)}</> : how} · {weeks}</p>
-    {spark && (
-      <svg class="sparkline" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
-        <line x1="0" x2={W} y1="4" y2="4" class="spark-top" />
-        <path d={spark.d} class="spark-line" />
-        {spark.last && <circle cx={spark.last.x} cy={spark.last.y} r="4" class="spark-dot" />}
+    {sparks.map(({ w, cls, path }) => (
+      <svg class:list={["sparkline", cls]} width={w} height={H} viewBox={`0 0 ${w} ${H}`} aria-hidden="true" focusable="false">
+        <line x1="0" x2={w} y1="4" y2="4" class="spark-top" />
+        <path d={path.d} class="spark-line" />
+        {path.last && <circle cx={path.last.x} cy={path.last.y} r="4" class="spark-dot" />}
       </svg>
-    )}
+    ))}
   </div>
 </section>

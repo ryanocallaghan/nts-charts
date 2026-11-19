@@ -378,3 +378,48 @@ h1 .filter-heading { display: block; font-size: 1.25rem; color: var(--ink-2); ma
 .heat-legend .swatch { width: 0.875rem; height: 0.875rem; border-radius: 2px; }
 .bump-card { margin-top: 1rem; }
 .bump-card h3 { margin-top: 0; }
+
+/* Shown only on one side of the phone breakpoint */
+@media (min-width: 641px) { .only-narrow { display: none !important; } }
+@media (max-width: 640px) { .only-wide { display: none !important; } }
+
+/* Home hero search: below 64rem the header has no search box, so the hero has one in place of the
+   Search button. Full height and 16px text, so phones don't zoom in when it's tapped. */
+.hero-search { display: none; }
+@media (max-width: 63.99rem) {
+  .hero-search { display: flex; max-width: 34rem; margin: 0 0 0.75rem; }
+  .hero-search .header-search-input { height: 3rem; font-size: 1rem; padding-left: 2.5rem; }
+  .hero-search .header-search-icon { left: 0.875rem; }
+  .hero-search .header-search-list { left: 0; right: auto; width: 100%; }
+  .hero-search-btn { display: none; }
+}
+
+/* One card at a time on phones (src/scripts/phone-tabs.ts) */
+.phone-tabs-bar { display: none; }
+@media (max-width: 640px) {
+  .phone-tabs-bar { display: flex; margin: 0 0 0.75rem; }
+  .phone-tabs-ready > .phone-tab-hidden { display: none; }
+  .phone-tabs-ready > [data-tab] > h3:first-child { display: none; }
+}
+
+/* Home on phones: a compact hero so the #1s show on the first screen, roomier cards, one-column past years */
+@media (max-width: 640px) {
+  .hero { gap: 1rem; padding-bottom: 0; }
+  .hero-logo .ascii { font-size: 7px; }
+  .hero-headline { font-size: 1.375rem; }
+  .hero-text .lede { margin-bottom: 0.5rem; }
+  .hero-meta { margin-bottom: 0.75rem; }
+  .home .hero-actions .cds--btn { width: 100%; max-width: none; }
+  .home .section { margin-top: 1.75rem; }
+  .home .section > h2 { font-size: 1.5rem; }
+  .spotlight .spot-credit-empty { display: none; }
+  .spotlight .spot-run { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .spotlight .spark-full { width: 100%; height: auto; }
+  .home .multiples.past-years { grid-template-columns: 1fr; gap: 1px; }
+  .past-years .card { padding: 0.75rem 1rem; }
+  .past-years h3 { display: inline; margin-right: 0.5rem; }
+  .past-years h3 + .small { display: inline; }
+  .past-years .otd { margin: 0.375rem 0 0; }
+  .past-years .otd br { display: none; }
+  .past-years .otd .spot-label { margin-right: 0.375rem; }
+}
