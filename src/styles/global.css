@@ -239,3 +239,5 @@ ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
 
 /* Home type scale: section headings outrank the cards inside them. */
 .home .section > h2 { font-size: 1.75rem; font-weight: 400; margin-bottom: 0.25rem; }
+.section-meta { color: var(--cds-text-helper); font-size: 0.875rem; margin: 0 0 0.75rem; }
+.section > .section-meta + .grid-2, .section > .section-meta + .stats { margin-top: 0; }
