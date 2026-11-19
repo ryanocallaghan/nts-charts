@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareWindows, dateRange, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
+import { compareWindows, dateRange, periodDates, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
 
 describe("ISO weeks", () => {
   it("matches known ISO week numbers, including year boundaries", () => {
@@ -47,6 +47,17 @@ describe("overview helpers", () => {
   it("formats date ranges", () => {
     expect(dateRange(new Date("2026-10-26T00:00:00Z"), new Date("2026-11-18T09:00:00Z"))).toBe("26 Oct – 18 Nov 2026");
     expect(dateRange(new Date("2025-12-29T00:00:00Z"), new Date("2026-01-04T00:00:00Z"))).toBe("29 Dec 2025 – 4 Jan 2026");
+    expect(dateRange(new Date("2026-11-16T00:00:00Z"), new Date("2026-11-18T09:00:00Z"))).toBe("16–18 Nov 2026");
+  });
+  it("labels chart dates the same way everywhere: so far while running, full range once done", () => {
+    const asOf = new Date("2026-11-18T09:00:00Z");
+    expect(periodDates("rolling", "2026-W47", asOf)).toEqual({ text: "26 Oct – 18 Nov 2026, so far", inProgress: true });
+    expect(periodDates("week", "2026-W47", asOf)).toEqual({ text: "16–18 Nov 2026, so far", inProgress: true });
+    expect(periodDates("rolling", "2026-W46", asOf)).toEqual({ text: "19 Oct – 15 Nov 2026", inProgress: false });
+    expect(periodDates("week", "2026-W46", asOf)).toEqual({ text: "9–15 Nov 2026", inProgress: false });
+    expect(periodDates("month", "2026-11", asOf)).toEqual({ text: "1–18 Nov 2026, so far", inProgress: true });
+    expect(periodDates("month", "2026-10", asOf)).toEqual({ text: "", inProgress: false });
+    expect(periodDates("year", "2026", asOf)).toEqual({ text: "1 Jan – 18 Nov 2026, so far", inProgress: true });
   });
   it("formats changes as percentages or points", () => {
     expect(formatChange(112, 100, "pct")).toMatchObject({ text: "+12%", dir: "up" });

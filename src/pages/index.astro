@@ -6,7 +6,7 @@ import RankedList from "../components/RankedList.astro";
 import Spotlight from "../components/Spotlight.astro";
 import StatTile from "../components/StatTile.astro";
 import TimeChart from "../components/TimeChart.astro";
-import { compareWindows, dateRange, formatDate, periodLabel, SITE_NAME } from "../lib/format.ts";
+import { formatDate, periodDates, periodLabel, SITE_NAME } from "../lib/format.ts";
 import { archiveComplete, asOf, genreMix, genreTrends, headlineStats, movers, onThisDay, spotlight, type Item } from "../lib/overview.ts";
 import { artistChart, periodKeys, siteStats, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
 import { genreBars, shareLine } from "../lib/series.ts";
@@ -16,7 +16,8 @@ const latestWeek = periodKeys("week").at(-1);
 const stats = siteStats();
 const chartHref = latest ? `/charts/rolling/${latest}/` : "/charts/";
 // While the window is in progress, show the dates the numbers actually cover, not the whole window.
-const covered = latest ? compareWindows(latest, asOf()).current : null;
+// Same date label as the chart page: the dates covered so far while the window is still running.
+const covered = latest ? periodDates("rolling", latest, asOf()).text : "";
 
 const trackItem = (t: TrackEntry): Item => ({
   rank: t.rank, title: t.title, artists: t.artists, credit: t.artistDisplay, kind: "track",
@@ -45,7 +46,7 @@ const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: a
       <h2 class="hero-headline">The most-played tracks and artists on NTS Radio</h2>
       <p class="lede">Built from the tracklists of every episode.</p>
       {covered && (
-        <p class="hero-meta">Last 4 weeks · {dateRange(new Date(covered.from), new Date(new Date(covered.to).getTime() - 1))}</p>
+        <p class="hero-meta">Last 4 weeks · {covered}</p>
       )}
       <div class="hero-actions">
         <a class="cds--btn cds--btn--primary cds--btn--md" href={chartHref}>See the full chart</a>

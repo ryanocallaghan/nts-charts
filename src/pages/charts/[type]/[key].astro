@@ -1,7 +1,8 @@
 ---
 import Base from "../../../layouts/Base.astro";
 import ChartView from "../../../components/ChartView.astro";
-import { currentPeriodKey, DATED_PERIODS, isoWeekKey, isoWeekStart, periodHeading, periodLabel, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
+import { DATED_PERIODS, isoWeekKey, isoWeekStart, periodDates, periodHeading, periodLabel, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
+import { asOf } from "../../../lib/overview.ts";
 import { periodKeys } from "../../../lib/queries.ts";
 
 export function getStaticPaths() {
@@ -15,7 +16,6 @@ const keys = periodKeys(type);
 const i = keys.indexOf(key);
 const prev = keys[i - 1];
 const next = keys[i + 1];
-const inProgress = key === currentPeriodKey(type);
 
 // Switching type keeps you near the same date.
 const start = type === "week" || type === "rolling" ? isoWeekStart(key) : new Date(`${type === "month" ? `${key}-01` : `${key}-01-01`}T00:00:00Z`);
@@ -26,6 +26,9 @@ const near: Record<DatedPeriod, string> = {
   year: String(start.getUTCFullYear()),
 };
 const heading = periodHeading(type, key);
+// Same date label as the home page: the dates covered so far while the chart is still running.
+const dates = periodDates(type, key, asOf());
+const sub = [heading.sub.split(" · ")[0], dates.text].filter(Boolean).join(" · ");
 // Short labels for previous/next: "Week 46", "October 2026", "2025", or "To 15 Nov" for 4-week charts.
 const stepLabel = (k: string) => {
   if (type !== "rolling") return periodLabel(type, k).split(" · ")[0];
@@ -39,9 +42,9 @@ const switchHref = (t: DatedPeriod) => {
   return target ? `/charts/${t}/${target}/` : "/charts/";
 };
 ---
-<Base title={`${heading.title} · ${heading.sub}`} section="charts">
+<Base title={`${heading.title} · ${sub}`} section="charts">
   <h1>{heading.title}</h1>
-  <p class="page-sub">{heading.sub}{inProgress && <> <span class="cds--tag cds--tag--sm cds--tag--outline">In progress</span></>}</p>
+  <p class="page-sub">{sub}</p>
 
   <div class="period-nav">
     <nav class="cds--content-switcher cds--content-switcher--md period-switcher" aria-label="Chart period">

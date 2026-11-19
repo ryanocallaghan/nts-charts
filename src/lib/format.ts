@@ -126,10 +126,37 @@ export function rollingStartKey(key: string): string {
   return isoWeekKey(d);
 }
 
-/** "26 Oct – 18 Nov 2026" (years shown on both ends only when they differ). */
+/** "26 Oct – 18 Nov 2026", "16–18 Nov 2026" (years on both ends only when they differ). */
 export function dateRange(from: Date, to: Date): string {
+  const sameYear = from.getUTCFullYear() === to.getUTCFullYear();
+  if (sameYear && from.getUTCMonth() === to.getUTCMonth()) {
+    const end = `${to.getUTCDate()} ${MONTHS[to.getUTCMonth()]} ${to.getUTCFullYear()}`;
+    return from.getUTCDate() === to.getUTCDate() ? end : `${from.getUTCDate()}–${end}`;
+  }
   const d = (x: Date, year: boolean) => `${x.getUTCDate()} ${MONTHS[x.getUTCMonth()]}${year ? ` ${x.getUTCFullYear()}` : ""}`;
-  return `${d(from, from.getUTCFullYear() !== to.getUTCFullYear())} – ${d(to, true)}`;
+  return `${d(from, !sameYear)} – ${d(to, true)}`;
+}
+
+/** Start (inclusive) and end (exclusive) of a chart period. */
+export function periodBounds(type: Exclude<PeriodType, "all">, key: string): { start: Date; end: Date } {
+  if (type === "week") { const start = isoWeekStart(key); return { start, end: new Date(start.getTime() + 7 * DAY) }; }
+  if (type === "rolling") return { start: isoWeekStart(rollingStartKey(key)), end: new Date(isoWeekStart(key).getTime() + 7 * DAY) };
+  if (type === "month") { const [y, m] = key.split("-").map(Number); return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)) }; }
+  const y = Number(key);
+  return { start: new Date(Date.UTC(y, 0, 1)), end: new Date(Date.UTC(y + 1, 0, 1)) };
+}
+
+/**
+ * The dates a chart covers, for labels shared by every page. While the period is still running
+ * (the data stops before its end) it's the dates so far: "26 Oct – 18 Nov 2026, so far".
+ * Finished periods give their full range, or nothing for months and years (the title says it).
+ */
+export function periodDates(type: PeriodType, key: string, asOf: Date): { text: string; inProgress: boolean } {
+  if (type === "all") return { text: "", inProgress: false };
+  const { start, end } = periodBounds(type, key);
+  if (asOf < end) return { text: `${dateRange(start, asOf < start ? start : asOf)}, so far`, inProgress: true };
+  if (type === "month" || type === "year") return { text: "", inProgress: false };
+  return { text: dateRange(start, new Date(end.getTime() - 1)), inProgress: false };
 }
 
 export function formatDate(iso: string): string {
