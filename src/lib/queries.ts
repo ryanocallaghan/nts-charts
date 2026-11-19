@@ -68,9 +68,10 @@ export function artistsForTracks(trackIds: number[]): Map<number, ArtistRef[]> {
 
 // ---------- charts ----------
 
-export function periodKeys(type: PeriodType): string[] {
+/** Chart period keys, oldest first. Shared and cached: copy before sorting or reversing. */
+export function periodKeys(type: PeriodType): readonly string[] {
   return memo(`periodKeys:${type}`, () =>
-    all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ? ORDER BY k", type).map((r) => r.k),
+    Object.freeze(all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ? ORDER BY k", type).map((r) => r.k)),
   );
 }
 
@@ -211,13 +212,14 @@ function fillMonths(rows: { month: string; episodes: number }[]) {
 
 export interface ShowRow { alias: string; name: string; location: string | null; genres: string[]; image: string | null; episodes: number; last: string | null }
 
-export function allShows(): ShowRow[] {
-  return memo("allShows", () => all<Omit<ShowRow, "genres"> & { genres_json: string | null }>(
+/** Every show with a tracklist, by name. Shared and cached: copy before sorting. */
+export function allShows(): readonly ShowRow[] {
+  return memo("allShows", () => Object.freeze(all<Omit<ShowRow, "genres"> & { genres_json: string | null }>(
     `SELECT s.alias, coalesce(s.name, s.alias) name, s.location, s.genres_json, s.image_url image,
             count(e.alias) episodes, max(e.broadcast_at) last
      FROM shows s JOIN episodes e ON e.show_alias = s.alias AND e.track_count > 0
      GROUP BY s.alias ORDER BY name COLLATE NOCASE`,
-  ).map(({ genres_json, ...r }) => ({ ...r, genres: genres_json ? JSON.parse(genres_json) : [] })));
+  ).map(({ genres_json, ...r }) => ({ ...r, genres: genres_json ? JSON.parse(genres_json) : [] }))));
 }
 
 /** The show at /shows/<alias>/ (one with at least one tracklist), if there is one. */

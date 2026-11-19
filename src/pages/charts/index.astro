@@ -5,7 +5,7 @@ import { periodKeys, siteStats } from "../../lib/queries.ts";
 
 const stats = siteStats();
 
-const years = periodKeys("year").reverse();
+const years = [...periodKeys("year")].reverse();
 const months = periodKeys("month");
 const quarters = periodKeys("quarter");
 const weeks = periodKeys("week");
