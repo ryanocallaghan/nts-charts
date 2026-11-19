@@ -159,6 +159,27 @@ export function periodBounds(type: Exclude<PeriodType, "all">, key: string): { s
 }
 
 /**
+ * Where the period switcher goes from this chart: for each type, the period at this chart's end (or
+ * at the latest data, while it's still running). So 2026 leads to Q4, November and the latest week
+ * rather than January, and a week leads to the month and year it ends in. For weeks, the last
+ * week mostly inside this period (its Thursday on or before the end), as ISO weeks straddle years.
+ */
+export function switchTargets(type: DatedPeriod, key: string, asOf: Date): Record<DatedPeriod, string> {
+  const { start, end } = periodBounds(type, key);
+  const last = new Date(end.getTime() - 1);
+  const running = asOf < end;
+  const at = running ? (asOf < start ? start : asOf) : last;
+  const week = running ? isoWeekKey(at) : isoWeekKey(new Date(at.getTime() - 3 * DAY));
+  return {
+    week,
+    rolling: week,
+    month: at.toISOString().slice(0, 7),
+    quarter: quarterKey(at),
+    year: String(at.getUTCFullYear()),
+  };
+}
+
+/**
  * The dates a chart covers, for labels shared by every page. While the period is still running
  * (the data stops before its end) it's the whole period plus how far the data goes:
  * "26 Oct – 22 Nov 2026 · in progress, up to 18 Nov".

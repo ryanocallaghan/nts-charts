@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareWindows, dateRange, periodBounds, periodDates, quarterKey, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
+import { compareWindows, dateRange, periodBounds, periodDates, switchTargets, quarterKey, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
 
 describe("ISO weeks", () => {
   it("matches known ISO week numbers, including year boundaries", () => {
@@ -93,3 +93,23 @@ describe("quarters and in-progress titles", () => {
     expect(periodHeading("rolling", "2026-W46").title).toBe("4 weeks to 15 Nov");
   });
 });
+
+describe("switchTargets", () => {
+  const asOf = new Date("2026-11-18T09:00:00Z"); // a Wednesday in 2026-W47
+  it("goes to the latest data from a running period, not its start", () => {
+    expect(switchTargets("year", "2026", asOf)).toEqual({ week: "2026-W47", rolling: "2026-W47", month: "2026-11", quarter: "2026-Q4", year: "2026" });
+    expect(switchTargets("quarter", "2026-Q4", asOf).month).toBe("2026-11");
+  });
+  it("goes to the end of a finished period", () => {
+    expect(switchTargets("year", "2019", asOf)).toEqual({ week: "2019-W52", rolling: "2019-W52", month: "2019-12", quarter: "2019-Q4", year: "2019" });
+    expect(switchTargets("quarter", "2026-Q1", asOf).month).toBe("2026-03");
+    // October 2026 ends on a Saturday: its last mostly-October week starts Mon 26 Oct.
+    expect(switchTargets("month", "2026-10", asOf).week).toBe("2026-W44");
+  });
+  it("keeps the year a week ends in, and the same week between weekly and 4-week charts", () => {
+    // 2026-W01 runs Mon 29 Dec 2025 to Sun 4 Jan 2026.
+    expect(switchTargets("week", "2026-W01", asOf)).toMatchObject({ week: "2026-W01", rolling: "2026-W01", month: "2026-01", year: "2026" });
+    expect(switchTargets("rolling", "2026-W40", asOf)).toMatchObject({ week: "2026-W40", month: "2026-10" });
+  });
+});
+

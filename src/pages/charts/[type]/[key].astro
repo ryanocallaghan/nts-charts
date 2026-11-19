@@ -1,7 +1,7 @@
 ---
 import Base from "../../../layouts/Base.astro";
 import ChartView from "../../../components/ChartView.astro";
-import { DATED_PERIODS, isoWeekKey, isoWeekStart, periodBounds, periodDates, periodHeading, periodLabel, quarterKey, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
+import { DATED_PERIODS, isoWeekStart, periodDates, periodHeading, periodLabel, switchTargets, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
 import { asOf } from "../../../lib/overview.ts";
 import PastYears from "../../../components/PastYears.astro";
 import ChartFilters from "../../../components/ChartFilters.astro";
@@ -38,15 +38,8 @@ const query = (t: string) => {
 const prev = keys[i - 1];
 const next = keys[i + 1];
 
-// Switching type keeps you near the same date.
-const start = type === "week" || type === "rolling" ? isoWeekStart(key) : periodBounds(type, key).start;
-const near: Record<DatedPeriod, string> = {
-  week: isoWeekKey(start),
-  rolling: isoWeekKey(start),
-  month: start.toISOString().slice(0, 7),
-  quarter: quarterKey(start),
-  year: String(start.getUTCFullYear()),
-};
+// Switching type keeps you at the same point in time: this chart's end, or the latest data while it's running.
+const near = switchTargets(type, key, asOf());
 // Same date label as the home page: the whole period, and how far the data goes while it's still running.
 const dates = periodDates(type, key, asOf());
 const heading = periodHeading(type, key, dates.inProgress);
@@ -59,8 +52,9 @@ const stepLabel = (k: string) => {
   return `To ${end.getUTCDate()} ${end.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
 };
 const switchHref = (t: DatedPeriod) => {
+  // No chart for that exact period (a gap, or before the charts began): the nearest earlier one, else the first.
   const ks = periodKeys(t);
-  const target = ks.includes(near[t]) ? near[t] : ks.at(-1);
+  const target = ks.includes(near[t]) ? near[t] : (ks.findLast((k) => k <= near[t]) ?? ks[0]);
   return target ? `/charts/${t}/${target}/${query(t)}` : "/charts/";
 };
 ---
