@@ -2,9 +2,10 @@
 // Stats, most-played artists/tracks and recent episodes: shared by show pages and guest pages.
 import ArtistLinks from "./ArtistLinks.astro";
 import ThemeLabel from "./ThemeLabel.astro";
+import PlayPatterns from "./PlayPatterns.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../lib/format.ts";
 import { trackHref } from "../lib/search.ts";
-import { guestPages, showEarlyPlays, similarShows, themeTunesFor, type showDetail } from "../lib/queries.ts";
+import { guestPages, playTimes, showEarlyPlays, similarShows, themeTunesFor, type showDetail } from "../lib/queries.ts";
 
 // `showKey`: the show alias, or 'guests/<slug>' for a repeat guest (for similar shows and early plays).
 interface Props { show: string; showKey: string; detail: ReturnType<typeof showDetail>; episodesLabel?: string; moreHref: string }
@@ -41,6 +42,8 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
         </ul>}
   </section>
 </div>
+
+{showKey !== "guests" && <PlayPatterns times={playTimes("show", showKey)} />}
 
 <section class="card section">
   <h2>{episodesLabel}</h2>

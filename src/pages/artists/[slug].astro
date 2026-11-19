@@ -4,8 +4,9 @@ import ArtistAbout from "../../components/ArtistAbout.astro";
 import EpisodePlays from "../../components/EpisodePlays.astro";
 import ThemeLabel from "../../components/ThemeLabel.astro";
 import TimeChart from "../../components/TimeChart.astro";
+import PlayPatterns from "../../components/PlayPatterns.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
-import { artistBySlug, artistDetail, artistFirstPlay, artistInfo, artistShowLinks, episodesForTracks, relatedArtists, themeTunesFor } from "../../lib/queries.ts";
+import { artistBySlug, artistDetail, artistFirstPlay, artistInfo, artistShowLinks, episodesForTracks, playTimes, relatedArtists, themeTunesFor } from "../../lib/queries.ts";
 import { connectionsGraph, monthlyBars, rankLine } from "../../lib/series.ts";
 import { trackHref } from "../../lib/search.ts";
 
@@ -51,6 +52,8 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
         ? <TimeChart title="Weekly chart history" caption={`${plural(d.chartHistory.length, "week")} in the Top 50 artists`} data={rankLine(d.chartHistory)} />
         : <section class="card"><h2>Weekly chart history</h2><p class="muted">Hasn't made the weekly Top 50 yet.</p></section>}
     </div>
+
+    <PlayPatterns times={playTimes("artist", artist.id)} subject="them" />
 
     <div class="grid-2 section">
       <section class="card">

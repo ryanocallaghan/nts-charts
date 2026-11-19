@@ -1,19 +1,22 @@
 // Interactive charts. Only the ECharts pieces we use are bundled; each chart initialises
 // when it scrolls into view and re-themes when the OS colour scheme changes.
 import * as echarts from "echarts/core";
-import { BarChart, GraphChart, LineChart } from "echarts/charts";
-import { DataZoomComponent, GridComponent, TooltipComponent } from "echarts/components";
+import { BarChart, GraphChart, HeatmapChart, LineChart } from "echarts/charts";
+import { CalendarComponent, DataZoomComponent, GridComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
-import { formatViz } from "../lib/series.ts";
+import { formatViz, heatBins } from "../lib/series.ts";
+import { formatDate } from "../lib/format.ts";
 
-echarts.use([BarChart, GraphChart, LineChart, GridComponent, TooltipComponent, DataZoomComponent, SVGRenderer]);
+echarts.use([BarChart, GraphChart, HeatmapChart, LineChart, CalendarComponent, GridComponent, TooltipComponent, DataZoomComponent, VisualMapComponent, SVGRenderer]);
 
 export interface VizData {
   // bars: vertical counts over time · rank: chart position over time (inverted)
   // hbar: horizontal % bars by category · share: % line over time (small multiples share `max`)
   // stack: several % series stacked over time (`series`, bottom first; `y` unused; `max` the axis top)
   // graph: a network (`nodes`, `links`); x, tip and y unused
-  kind: "bars" | "rank" | "hbar" | "share" | "stack" | "graph";
+  // calendar: episodes per day (`cells`), one year at a time (`years`); clock: weekday × hour (`grid`)
+  // bump: ranks of several entries over time (`series`), each labelled at its end
+  kind: "bars" | "rank" | "hbar" | "share" | "stack" | "graph" | "calendar" | "clock" | "bump";
   name: string;            // series name, e.g. "Episodes"
   x: string[];             // short axis labels (categories for hbar)
   tip: string[];           // long labels for the tooltip
@@ -22,6 +25,10 @@ export interface VizData {
   series?: { name: string; y: (number | null)[]; color: string }[]; // stack: color is a CSS variable, e.g. "--cat-1"
   nodes?: { id: string; name: string; href: string; kind: "self" | "artist" | "show"; weight: number; detail: string }[];
   links?: { source: string; target: string; weight: number }[];
+  cells?: [string, number][];   // calendar: [YYYY-MM-DD, episodes]
+  years?: string[];             // calendar: years with plays, oldest first
+  grid?: number[][];            // clock: [weekday 0 = Monday][hour 0–23] episodes
+  hrefs?: string[];             // bump: each series' page
 }
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -102,13 +109,101 @@ function graphOption(d: VizData, t: Record<string, string>): echarts.EChartsCore
   };
 }
 
-function option(d: VizData): echarts.EChartsCoreOption {
+/** Heatmap colours: few → many on the sequential ramp, spread over however many bins there are. */
+function heatPieces(max: number, empty?: string) {
+  const bins = heatBins(max);
+  const step = (i: number) => (bins.length === 1 ? 3 : Math.round(1 + (i * 4) / (bins.length - 1)));
+  return [
+    ...(empty ? [{ min: 0, max: 0, color: empty }] : []),
+    ...bins.map(([min, max], i) => ({ min, max, color: css(`--seq-${step(i)}`) })),
+  ];
+}
+
+const tooltipBase = (t: Record<string, string>) => ({
+  confine: true, backgroundColor: t.surface, borderColor: t.grid, borderWidth: 1, padding: [8, 10],
+  textStyle: { color: t.ink, fontSize: 13 },
+});
+const eps = (n: number) => `${n.toLocaleString("en-GB")} episode${n === 1 ? "" : "s"}`;
+
+/** Episodes per day for one year (the year buttons beside the chart switch it). */
+function calendarOption(d: VizData, t: Record<string, string>, year: string): echarts.EChartsCoreOption {
+  return {
+    animation: false,
+    textStyle: { fontFamily: t.font },
+    tooltip: { ...tooltipBase(t), formatter: (p: unknown) => { const [day, n] = (p as { value: [string, number] }).value; return `<b>${esc(formatDate(day))}</b><br>${eps(n)}`; } },
+    visualMap: { type: "piecewise", show: false, pieces: heatPieces(d.max ?? 1) },
+    calendar: {
+      range: year, cellSize: ["auto", 14], left: 28, right: 4, top: 22, bottom: 2,
+      splitLine: { show: false }, yearLabel: { show: false },
+      itemStyle: { color: t.empty, borderColor: t.surface, borderWidth: 2 },
+      dayLabel: { firstDay: 1, nameMap: ["S", "M", "T", "W", "T", "F", "S"], color: t.muted, fontSize: 10 },
+      monthLabel: { color: t.muted, fontSize: 11 },
+    },
+    series: [{ type: "heatmap", coordinateSystem: "calendar", data: (d.cells ?? []).filter(([day]) => day.startsWith(year)) }],
+  };
+}
+
+/** Episodes by weekday (rows, Monday first) and starting hour (columns), UK time. */
+function clockOption(d: VizData, t: Record<string, string>): echarts.EChartsCoreOption {
+  const hours = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
+  const data = (d.grid ?? []).flatMap((row, day) => row.map((n, h) => [h, day, n]));
+  return {
+    animation: false,
+    textStyle: { fontFamily: t.font },
+    grid: { left: 4, right: 4, top: 4, bottom: 4, containLabel: true },
+    tooltip: { ...tooltipBase(t), formatter: (p: unknown) => {
+      const [h, day, n] = (p as { value: number[] }).value;
+      return `<b>${d.x[day]} ${hours[h]}:00–${hours[(h + 1) % 24]}:00</b><br>${eps(n)}`;
+    } },
+    xAxis: { type: "category", data: hours, splitArea: { show: false }, axisTick: { show: false }, axisLine: { show: false },
+      axisLabel: { color: t.muted, fontSize: 11, interval: 2 } },
+    yAxis: { type: "category", data: d.x, inverse: true, axisTick: { show: false }, axisLine: { show: false },
+      axisLabel: { color: t.muted, fontSize: 11 } },
+    visualMap: { type: "piecewise", show: false, dimension: 2, pieces: heatPieces(d.max ?? 1, t.empty) },
+    series: [{ type: "heatmap", data, itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 2 }, emphasis: { itemStyle: { borderColor: t.ink, borderWidth: 1 } } }],
+  };
+}
+
+/** Several entries' ranks over time, all in one grey; hovering a line picks it out in blue. Labelled at
+ *  the end. The axis shows the top `max` places; anything lower runs along a "lower" line at the bottom
+ *  (the tooltip gives the real rank). */
+function bumpOption(d: VizData, t: Record<string, string>): echarts.EChartsCoreOption {
+  const series = d.series ?? [];
+  const top = d.max ?? 10;
+  return {
+    animationDuration: 300,
+    textStyle: { fontFamily: t.font },
+    grid: { left: 4, right: 170, top: 12, bottom: 4, containLabel: true },
+    tooltip: { ...tooltipBase(t), trigger: "item", formatter: (p: unknown) => {
+      const x = p as { seriesName: string; dataIndex: number; data: { rank: number } | null };
+      return `<b>${esc(x.seriesName)}</b><br>${esc(d.tip[x.dataIndex])}: ${x.data == null ? "not in the Top 50" : `#${x.data.rank}`}`;
+    } },
+    xAxis: { type: "category", data: d.x, boundaryGap: false, axisTick: { show: false }, axisLine: { lineStyle: { color: t.axis } },
+      axisLabel: { color: t.muted, fontSize: 12, hideOverlap: true } },
+    yAxis: { type: "value", inverse: true, min: 1, max: top + 1, interval: 1, splitLine: { lineStyle: { color: t.grid } },
+      axisLabel: { color: t.muted, fontSize: 11, formatter: (v: number) => (v > top ? "lower" : `#${v}`) } },
+    series: series.map((s) => ({
+      type: "line", name: s.name, connectNulls: false, symbol: "circle", symbolSize: 6,
+      data: s.y.map((r) => (r == null ? null : { value: Math.min(r, top + 1), rank: r })),
+      lineStyle: { width: 2, color: t.muted }, itemStyle: { color: t.muted, borderColor: t.surface, borderWidth: 1 },
+      endLabel: { show: true, formatter: (p: { data: { rank: number } }) => `${p.data.rank}  ${s.name}`, color: t.ink2, fontSize: 12, width: 160, overflow: "truncate" },
+      emphasis: { focus: "series", lineStyle: { width: 3, color: t.series }, itemStyle: { color: t.series }, endLabel: { color: t.ink, fontWeight: 600 } },
+      blur: { lineStyle: { opacity: 0.25 }, itemStyle: { opacity: 0.25 }, endLabel: { opacity: 0.4 } },
+    })),
+  };
+}
+
+function option(d: VizData, year?: string): echarts.EChartsCoreOption {
   const t = {
     ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), grid: css("--grid"), axis: css("--axis"),
     surface: css("--surface"), series: css("--series-1"), wash: css("--series-1-wash"), font: css("--font"),
+    empty: css("--hover"),
   };
   if (d.kind === "stack") return stackOption(d, t);
   if (d.kind === "graph") return graphOption(d, t);
+  if (d.kind === "calendar") return calendarOption(d, t, year ?? d.years?.at(-1) ?? String(new Date().getFullYear()));
+  if (d.kind === "clock") return clockOption(d, t);
+  if (d.kind === "bump") return bumpOption(d, t);
   const horizontal = d.kind === "hbar";
   const pct = d.kind === "hbar" || d.kind === "share";
   const zoom = !horizontal && d.x.length > ZOOM_AFTER;
@@ -202,15 +297,26 @@ function option(d: VizData): echarts.EChartsCoreOption {
   };
 }
 
-const mounted: { chart: echarts.ECharts; data: VizData }[] = [];
+const mounted: { chart: echarts.ECharts; data: VizData; el: HTMLElement }[] = [];
 
 function mount(el: HTMLElement) {
   const data = JSON.parse(el.dataset.viz!) as VizData;
   const chart = echarts.init(el, undefined, { renderer: "svg" });
-  chart.setOption(option(data));
+  chart.setOption(option(data, el.dataset.year));
+  // Calendar: buttons with data-cal-year in the same card switch the year shown.
+  if (data.kind === "calendar") {
+    const buttons = [...(el.closest(".card")?.querySelectorAll<HTMLButtonElement>("[data-cal-year]") ?? [])];
+    for (const b of buttons) b.hidden = false; // they only work with JavaScript
+    for (const b of buttons) b.addEventListener("click", () => {
+      el.dataset.year = b.dataset.calYear;
+      for (const o of buttons) o.setAttribute("aria-pressed", String(o === b));
+      chart.setOption(option(data, el.dataset.year), true);
+    });
+  }
+  if (data.kind === "bump") chart.on("click", (p) => { const href = data.hrefs?.[p.seriesIndex ?? -1]; if (href) location.href = href; });
   if (data.kind === "graph") chart.on("click", (p) => { const href = (p.data as { href?: string })?.href; if (href) location.href = href; });
   new ResizeObserver(() => chart.resize()).observe(el);
-  mounted.push({ chart, data });
+  mounted.push({ chart, data, el });
 }
 
 const io = new IntersectionObserver(
@@ -233,5 +339,5 @@ export function observeViz(root: ParentNode = document) {
 observeViz();
 
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  for (const m of mounted) m.chart.setOption(option(m.data), true);
+  for (const m of mounted) m.chart.setOption(option(m.data, m.el.dataset.year), true);
 });

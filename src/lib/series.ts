@@ -148,3 +148,54 @@ export function connectionsGraph(
     ],
   };
 }
+
+const UK = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23", weekday: "short" });
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/** A UTC timestamp's date, weekday (0 = Monday) and hour in UK time, where NTS broadcasts from. */
+export function ukTime(iso: string): { date: string; weekday: number; hour: number } {
+  const p = Object.fromEntries(UK.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, weekday: WEEKDAYS.indexOf(p.weekday), hour: Number(p.hour) };
+}
+
+/** Episodes per day (UK dates) for a calendar heatmap. */
+export function playCalendar(times: string[]): VizData {
+  const days = new Map<string, number>();
+  for (const t of times) { const d = ukTime(t).date; days.set(d, (days.get(d) ?? 0) + 1); }
+  const cells = [...days].sort((a, b) => a[0].localeCompare(b[0]));
+  return {
+    kind: "calendar", name: "Episodes", x: [], tip: [], y: [], cells,
+    years: [...new Set(cells.map(([d]) => d.slice(0, 4)))],
+    max: Math.max(1, ...cells.map(([, n]) => n)),
+  };
+}
+
+/** Episodes by weekday and hour they started (UK time), for a weekly clock heatmap. */
+export function playClock(times: string[]): VizData {
+  const grid = WEEKDAYS.map(() => new Array<number>(24).fill(0));
+  for (const t of times) { const u = ukTime(t); grid[u.weekday][u.hour]++; }
+  return { kind: "clock", name: "Episodes", x: WEEKDAYS, tip: [], y: [], grid, max: Math.max(1, ...grid.flat()) };
+}
+
+/** Five bins for a heatmap scale (few → many): exact counts when small, otherwise even steps up to max. */
+export function heatBins(max: number): [number, number][] {
+  if (max <= 5) return Array.from({ length: max }, (_, i) => [i + 1, i + 1] as [number, number]);
+  const edges = [0, 0.2, 0.4, 0.6, 0.8, 1].map((f) => Math.max(1, Math.round(f * max)));
+  const bins: [number, number][] = [];
+  for (let i = 0; i < 5; i++) {
+    const lo = i === 0 ? 1 : edges[i] + 1;
+    const hi = edges[i + 1];
+    if (hi >= lo) bins.push([lo, hi]);
+  }
+  return bins;
+}
+
+/** The current top entries' ranks over the last few charts, for a bump chart. */
+export function bumpChart(keys: readonly string[], entries: { name: string; href: string; ranks: (number | null)[] }[], label: (key: string) => string, tip: (key: string) => string): VizData {
+  return {
+    kind: "bump", name: "Rank", x: keys.map(label), tip: keys.map(tip), y: [],
+    max: Math.max(10, entries.length), // places shown on the axis; lower ranks run along the bottom
+    series: entries.map((e) => ({ name: e.name, y: e.ranks, color: "" })),
+    hrefs: entries.map((e) => e.href),
+  };
+}

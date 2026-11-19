@@ -82,7 +82,7 @@ const year = archive.match(/href="\/years\/(\d{4})\/"/)?.[1];
 if (year) await check(`/years/${year}/`, { status: 200, contains: "New to NTS" });
 else { console.log("FAIL no year review link on the archive page"); failed++; }
 await check("/years/1999/", { status: 404 });
-if (top) await check(top, { status: 200, contains: "First played on NTS by" });
+if (top) await check(top, { status: 200, contains: "When it's played" });
 
 await check("/search/?q=aphex+twin", { status: 200, contains: 'href="/artists/aphex-twin/"' });
 await check("/search?q=aphex", { status: 301, location: "/search/?q=aphex" });

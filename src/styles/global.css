@@ -21,6 +21,8 @@
      Validated with the dataviz palette checks against the card surface in each mode. */
   --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
   --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #6250d6; --cat-other: #c6c6c6;
+  /* Sequential (heatmaps): one blue, few -> many. Light mode runs light to dark. */
+  --seq-1: #cde2fb; --seq-2: #86b6ef; --seq-3: #3987e5; --seq-4: #1c5cab; --seq-5: #0d366b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,6 +31,8 @@
     --series-1-wash: rgba(69, 137, 255, 0.14);
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
     --cat-5: #d55181; --cat-6: #0ca30c; --cat-7: #9085e9; --cat-other: #525252;
+    /* Dark mode flips the anchor: few sits near the surface, many is brightest. */
+    --seq-1: #184f95; --seq-2: #256abf; --seq-3: #3987e5; --seq-4: #6da7ec; --seq-5: #b7d3f6;
   }
 }
 
@@ -363,3 +367,13 @@ h1 .filter-heading { display: block; font-size: 1.25rem; color: var(--ink-2); ma
 .key { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 50%; vertical-align: 0; }
 .key-show { background: var(--cat-2); }
 .key-artist { background: var(--cat-1); }
+
+/* Play calendar and clock */
+.year-switch { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0 0 0.5rem; }
+.year-btn { font: inherit; font-size: 0.75rem; padding: 0.125rem 0.5rem; border: 1px solid var(--border); background: transparent; color: var(--ink-2); cursor: pointer; border-radius: 2px; }
+.year-btn[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.year-btn[hidden] { display: none; }
+.heat-legend { display: flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--muted); margin: 0.25rem 0 0; }
+.heat-legend .swatch { width: 0.875rem; height: 0.875rem; border-radius: 2px; }
+.bump-card { margin-top: 1rem; }
+.bump-card h3 { margin-top: 0; }

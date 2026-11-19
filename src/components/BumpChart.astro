@@ -1,0 +1,39 @@
+---
+// How the current top 10 got there: each entry's rank over the last 12 charts of this type.
+import { artistChart, periodKeys, rankHistories, trackChart } from "../lib/queries.ts";
+import { trackHref } from "../lib/search.ts";
+import { bumpChart } from "../lib/series.ts";
+import { isoWeekStart, periodLabel, type PeriodType } from "../lib/format.ts";
+interface Props { type: PeriodType; periodKey: string }
+const { type, periodKey } = Astro.props;
+const N = 10, WINDOW = 12;
+const all = periodKeys(type);
+const end = all.indexOf(periodKey);
+const keys = all.slice(Math.max(0, end - WINDOW + 1), end + 1);
+const short = (k: string) => { const d = isoWeekStart(k); if (type === "rolling") d.setUTCDate(d.getUTCDate() + 6); return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`; };
+const tip = (k: string) => periodLabel(type, k);
+const tracks = trackChart(type, periodKey, N);
+const artists = artistChart(type, periodKey, N);
+const tRuns = rankHistories(type, periodKey, "track", tracks.map((t) => t.id), WINDOW);
+const aRuns = rankHistories(type, periodKey, "artist", artists.map((a) => a.id), WINDOW);
+const charts = [
+  { title: "Top 10 tracks", data: bumpChart(keys, tracks.map((t) => ({ name: t.title, href: trackHref(t), ranks: tRuns.get(t.id) ?? [] })), short, tip) },
+  { title: "Top 10 artists", data: bumpChart(keys, artists.map((a) => ({ name: a.name, href: `/artists/${a.slug}/`, ranks: aRuns.get(a.id) ?? [] })), short, tip) },
+];
+---
+{keys.length >= 3 && tracks.length > 0 && (
+  <section class="section">
+    <h2>How the top 10 got here</h2>
+    <p class="section-meta">Each entry's rank in the last {keys.length} charts ("lower" is below the top 10, gaps are weeks outside the Top 50). Hover a line to pick it out; click to open its page.</p>
+    {charts.map((c) => (
+      <section class="card viz-card bump-card">
+        <h3>{c.title}</h3>
+        <div class="viz" style="height:340px" data-viz={JSON.stringify(c.data)} role="img" aria-label={`${c.title}: rank in each of the last ${keys.length} charts. The chart table above lists them.`}></div>
+      </section>
+    ))}
+  </section>
+)}
+
+<script>
+  import "../scripts/charts.ts";
+</script>

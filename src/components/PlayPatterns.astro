@@ -1,0 +1,48 @@
+---
+// When something gets played: a calendar of episodes per day (a year at a time) and a weekly clock of
+// the weekday and hour episodes started (UK time). Sequential blue, few → many.
+import { playCalendar, playClock } from "../lib/series.ts";
+// `subject`: what the episodes played ("them", "it"); leave it out for a show's own episodes.
+interface Props { times: string[]; subject?: string }
+const { times, subject } = Astro.props;
+const what = subject ? `Episodes that played ${subject}` : "Episodes with tracklists";
+const calendar = playCalendar(times);
+const clock = playClock(times);
+const years = calendar.years ?? [];
+const latest = years.at(-1);
+const hours = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
+---
+{times.length > 0 && (
+  <div class="grid-2 section">
+    <section class="card viz-card">
+      <h2>Days played</h2>
+      <p class="caption">{what}, per day</p>
+      {years.length > 1 && (
+        <div class="year-switch" role="group" aria-label="Year">
+          {years.map((y) => <button type="button" class="year-btn" data-cal-year={y} aria-pressed={String(y === latest)} hidden>{y}</button>)}
+        </div>
+      )}
+      <div class="viz" style="height:150px" data-viz={JSON.stringify(calendar)} data-year={latest} role="img" aria-label={`${what}, per day, by year.`}></div>
+      <p class="heat-legend" aria-hidden="true">Fewer {[1, 2, 3, 4, 5].map((i) => <span class="swatch" style={`background:var(--seq-${i})`}></span>)} More</p>
+    </section>
+    <section class="card viz-card">
+      <h2>When it's played</h2>
+      <p class="caption">Episodes by weekday and the hour they started, UK time</p>
+      <div class="viz" style="height:220px" data-viz={JSON.stringify(clock)} role="img" aria-label={`${what} by weekday and start time. Data table below.`}></div>
+      <p class="heat-legend" aria-hidden="true">Fewer {[1, 2, 3, 4, 5].map((i) => <span class="swatch" style={`background:var(--seq-${i})`}></span>)} More</p>
+      <details class="data-table">
+        <summary>Show data table</summary>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Day</th>{hours.map((h) => <th>{h}</th>)}</tr></thead>
+            <tbody>{(clock.grid ?? []).map((row, i) => <tr><td>{clock.x[i]}</td>{row.map((n) => <td>{n || ""}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  </div>
+)}
+
+<script>
+  import "../scripts/charts.ts";
+</script>

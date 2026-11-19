@@ -4,8 +4,9 @@ import Base from "../../layouts/Base.astro";
 import ArtistLinks from "../../components/ArtistLinks.astro";
 import ThemeLabel from "../../components/ThemeLabel.astro";
 import TimeChart from "../../components/TimeChart.astro";
+import PlayPatterns from "../../components/PlayPatterns.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
-import { artistsForTracks, themeTunesFor, trackById, trackDetail, TRACK_EPISODES_PER_PAGE } from "../../lib/queries.ts";
+import { artistsForTracks, playTimes, themeTunesFor, trackById, trackDetail, TRACK_EPISODES_PER_PAGE } from "../../lib/queries.ts";
 import { trackKey } from "../../lib/search.ts";
 import { monthlyBars, rankLine } from "../../lib/series.ts";
 
@@ -53,6 +54,8 @@ const pageHref = (n: number) => (n === 1 ? `/tracks/${key}/` : `/tracks/${key}/?
         ? <TimeChart title="Weekly chart history" caption={`${plural(d.chartHistory.length, "week")} in the Top 50 tracks`} data={rankLine(d.chartHistory)} />
         : <section class="card"><h2>Weekly chart history</h2><p class="muted">Hasn't made the weekly Top 50.</p></section>}
     </div>
+
+    {d.stats.episodes >= 3 && <PlayPatterns times={playTimes("track", track.id)} subject="it" />}
 
     <div class="grid-2 section">
       <section class="card">

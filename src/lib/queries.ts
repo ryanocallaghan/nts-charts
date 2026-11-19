@@ -760,3 +760,15 @@ export function yearReview(year: string) {
     return { stats, newcomers, climbers, rising, falling, busiest, hasPrevious: tPrev > 1 };
   });
 }
+
+// ---------- when things are played ----------
+
+/** Broadcast times (UTC) of the dated episodes that played an artist or track, or of a show's episodes. */
+export function playTimes(kind: "artist" | "track" | "show", key: number | string): string[] {
+  const sql = {
+    artist: "SELECT e.broadcast_at t FROM episode_artists ea JOIN episodes e ON e.rowid = ea.episode_id WHERE ea.artist_id = ?",
+    track: `SELECT DISTINCT e.alias, e.broadcast_at t FROM plays p JOIN episodes e ON e.alias = p.episode_alias WHERE p.track_id = ? AND ${DATED}`,
+    show: `SELECT e.broadcast_at t FROM episodes e WHERE ${SHOW_KEY} = ? AND e.track_count > 0 AND ${DATED}`,
+  }[kind];
+  return all<{ t: string }>(sql, key).map((r) => r.t);
+}
