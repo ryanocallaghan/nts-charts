@@ -6,7 +6,7 @@ The header uses the one-liner wordmark as live text in IBM Plex Mono (`public/fo
 ¡ [ TOP ] [ of | the ] [ NTS ] !
 ```
 
-On narrow screens the middle `[ of | the ]` is hidden. The favicon (`public/favicon.svg`) draws the ¡ and ! as shapes.
+On narrow screens it's set slightly smaller. The favicon (`public/favicon.svg`) draws the ¡ and ! as shapes, in white on the site's blue.
 
 Other versions, for places with more room:
 
