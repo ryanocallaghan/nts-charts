@@ -1,6 +1,6 @@
 // Turn query rows into chart-ready series for <TimeChart>.
 import type { VizData } from "../scripts/charts.ts";
-import { isoWeekKey, isoWeekStart, periodLabel } from "./format.ts";
+import { dateRange, isoWeekKey, isoWeekStart, periodLabel } from "./format.ts";
 
 /** How a value reads in tooltips and data tables. */
 export function formatViz(kind: VizData["kind"], v: number | null): string {
@@ -23,8 +23,37 @@ export function monthlyBars(rows: { month: string; episodes: number }[]): VizDat
   };
 }
 
-/** Weekly rank line with gaps (null) for weeks off the chart, so the line breaks. */
-export function rankLine(rows: { week: string; rank: number }[], max = 50): VizData {
+export interface ChartRun { from: string; to: string; weeks: number; peak: number; peakWeek: string; dates: string }
+
+/** Unbroken runs of weeks on the chart (rows in week order), with each run's dates and peak. */
+export function chartRuns(rows: { week: string; rank: number }[]): ChartRun[] {
+  const runs: ChartRun[] = [];
+  let prev = "";
+  for (const r of rows) {
+    const run = runs.at(-1);
+    if (run && prev && isoWeekKey(new Date(isoWeekStart(prev).getTime() + 7 * 86_400_000)) === r.week) {
+      run.to = r.week;
+      run.weeks++;
+      if (r.rank < run.peak) { run.peak = r.rank; run.peakWeek = r.week; }
+    } else {
+      runs.push({ from: r.week, to: r.week, weeks: 1, peak: r.rank, peakWeek: r.week, dates: "" });
+    }
+    prev = r.week;
+  }
+  for (const run of runs) run.dates = dateRange(isoWeekStart(run.from), new Date(isoWeekStart(run.to).getTime() + 6 * 86_400_000));
+  return runs;
+}
+
+/**
+ * A chart history too thin for a line: under 15 weeks, or mostly separate appearances (more runs than
+ * half its weeks). Those draw as dots with a list of runs; longer histories as a line.
+ */
+export function sparseHistory(weeks: number, runs: number): boolean {
+  return weeks < 15 || runs > weeks / 2;
+}
+
+/** Weekly rank line with gaps (null) for weeks off the chart, so the line breaks. `dots`: dots only, no line or zoom. */
+export function rankLine(rows: { week: string; rank: number }[], max = 50, dots = false): VizData {
   const ranks = new Map(rows.map((r) => [r.week, r.rank]));
   const weeks: string[] = [];
   if (rows.length) {
@@ -42,6 +71,7 @@ export function rankLine(rows: { week: string; rank: number }[], max = 50): VizD
     x: weeks.map((w) => { const d = isoWeekStart(w); return `${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${yy(d.getUTCFullYear())}`; }),
     tip: weeks.map((w) => periodLabel("week", w)),
     y: weeks.map((w) => ranks.get(w) ?? null),
+    ...(dots ? { dots: true } : {}),
   };
 }
 

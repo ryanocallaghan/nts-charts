@@ -30,6 +30,7 @@ export interface VizData {
   years?: string[];             // calendar: years with plays, oldest first
   grid?: number[][];            // clock: [weekday 0 = Monday][hour 0–23] episodes
   hrefs?: string[];             // bump: each series' page
+  dots?: boolean;               // rank: a thin history, drawn as dots only (no line, no zoom)
 }
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -194,7 +195,7 @@ function bumpOption(d: VizData, t: Record<string, string>): echarts.EChartsCoreO
   };
 }
 
-function option(d: VizData, year?: string): echarts.EChartsCoreOption {
+function option(d: VizData, year?: string, narrow = false): echarts.EChartsCoreOption {
   const t = {
     ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), grid: css("--grid"), axis: css("--axis"),
     surface: css("--surface"), series: css("--series-1"), wash: css("--series-1-wash"), font: css("--font"),
@@ -207,11 +208,12 @@ function option(d: VizData, year?: string): echarts.EChartsCoreOption {
   if (d.kind === "bump") return bumpOption(d, t);
   const horizontal = d.kind === "hbar";
   const pct = d.kind === "hbar" || d.kind === "share";
-  const zoom = !horizontal && d.x.length > ZOOM_AFTER;
-  // Open on the latest points, unless it's a rank history with only a few weeks on the chart, spread
-  // out: then the whole run fits better than a window that may hold one point.
-  const sparse = d.kind === "rank" && d.y.filter((v) => v != null).length <= 20;
-  const start = zoom && !sparse ? Math.max(0, 100 - (ZOOM_WINDOW / d.x.length) * 100) : 0;
+  // Long series get a zoom slider, opening on the latest points. Not for a thin rank history (dots),
+  // nor for rank lines on a phone, where the slider is fiddly: the whole history shows instead.
+  const zoom = !horizontal && d.x.length > ZOOM_AFTER && !d.dots && !(d.kind === "rank" && narrow);
+  // A rank line with few weeks on the chart opens on the whole run, not a window that may hold none.
+  const few = d.kind === "rank" && d.y.filter((v) => v != null).length <= 20;
+  const start = zoom && !few ? Math.max(0, 100 - (ZOOM_WINDOW / d.x.length) * 100) : 0;
   const axisLabel = { color: t.muted, fontSize: 12 };
   const categoryAxis = {
     type: "category" as const,
@@ -236,6 +238,8 @@ function option(d: VizData, year?: string): echarts.EChartsCoreOption {
         };
 
   return {
+    // Dots grow in one after another, which takes ages across hundreds of weeks: draw them at once.
+    animation: !d.dots,
     animationDuration: 300,
     textStyle: { fontFamily: t.font },
     grid: { left: 4, right: 12, top: 12, bottom: zoom ? 52 : 4, containLabel: true },
@@ -287,10 +291,11 @@ function option(d: VizData, year?: string): echarts.EChartsCoreOption {
             type: "line", name: d.name, data: d.y, connectNulls: false,
             // Long series hide their dots, except a point with gaps on both sides, which would
             // otherwise draw nothing (e.g. a single week on the chart).
+            // A thin history (dots) is all dots and no line.
             symbol: "circle", showSymbol: true, showAllSymbol: true,
             symbolSize: (_: unknown, p: { dataIndex: number }) =>
-              d.x.length <= ZOOM_AFTER || (d.y[p.dataIndex - 1] == null && d.y[p.dataIndex + 1] == null) ? 9 : 0,
-            lineStyle: { width: 2, color: t.series, cap: "round", join: "round" },
+              d.dots || d.x.length <= ZOOM_AFTER || (d.y[p.dataIndex - 1] == null && d.y[p.dataIndex + 1] == null) ? 9 : 0,
+            lineStyle: d.dots ? { width: 0, opacity: 0 } : { width: 2, color: t.series, cap: "round", join: "round" },
             itemStyle: { color: t.series, borderColor: t.surface, borderWidth: 2 },
             areaStyle: undefined,
           },
@@ -303,7 +308,8 @@ const mounted: { chart: echarts.ECharts; data: VizData; el: HTMLElement }[] = []
 function mount(el: HTMLElement) {
   const data = JSON.parse(el.dataset.viz!) as VizData;
   const chart = echarts.init(el, undefined, { renderer: "svg" });
-  chart.setOption(option(data, el.dataset.year));
+  const narrow = () => el.clientWidth < 480;
+  chart.setOption(option(data, el.dataset.year, narrow()));
   // Calendar: buttons with data-cal-year in the same card switch the year shown.
   if (data.kind === "calendar") {
     const buttons = [...(el.closest(".card")?.querySelectorAll<HTMLButtonElement>("[data-cal-year]") ?? [])];
@@ -311,7 +317,7 @@ function mount(el: HTMLElement) {
     for (const b of buttons) b.addEventListener("click", () => {
       el.dataset.year = b.dataset.calYear;
       for (const o of buttons) o.setAttribute("aria-pressed", String(o === b));
-      chart.setOption(option(data, el.dataset.year), true);
+      chart.setOption(option(data, el.dataset.year, narrow()), true);
     });
   }
   // Chart clicks open the line's or node's page; counted as events (Umami can't see clicks inside a chart).
@@ -342,5 +348,5 @@ export function observeViz(root: ParentNode = document) {
 observeViz();
 
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  for (const m of mounted) m.chart.setOption(option(m.data, m.el.dataset.year), true);
+  for (const m of mounted) m.chart.setOption(option(m.data, m.el.dataset.year, m.el.clientWidth < 480), true);
 });

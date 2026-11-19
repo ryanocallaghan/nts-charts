@@ -300,6 +300,7 @@ table.chart .rank-move, table.chart .h-sm { display: none; }
 .filtering + .show-more { display: none; }
 .show-more { margin-top: 0.5rem; }
 ul.plain.columns + .show-more { margin-top: 0.75rem; }
+ul.plain.chart-runs { margin-top: 1rem; }
 
 /* Home on phones: tiles and small charts two per row. */
 @media (max-width: 640px) {

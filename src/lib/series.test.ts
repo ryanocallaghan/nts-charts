@@ -62,3 +62,29 @@ describe("bumpChart", () => {
     expect(b.max).toBe(10);
   });
 });
+
+import { chartRuns, sparseHistory } from "./series.ts";
+
+describe("chartRuns", () => {
+  it("groups consecutive weeks, across a year end, with each run's peak and dates", () => {
+    const runs = chartRuns([
+      { week: "2025-W04", rank: 50 },
+      { week: "2025-W06", rank: 9 }, { week: "2025-W07", rank: 3 },
+      { week: "2025-W52", rank: 20 }, { week: "2026-W01", rank: 12 },
+    ]);
+    expect(runs.map((r) => [r.from, r.to, r.weeks, r.peak, r.peakWeek])).toEqual([
+      ["2025-W04", "2025-W04", 1, 50, "2025-W04"],
+      ["2025-W06", "2025-W07", 2, 3, "2025-W07"],
+      ["2025-W52", "2026-W01", 2, 12, "2026-W01"],
+    ]);
+    expect(runs[0].dates).toBe("20–26 Jan 2025");
+    expect(runs[2].dates).toBe("22 Dec 2025 – 4 Jan 2026");
+  });
+  it("calls a history sparse when it's short or mostly separate weeks", () => {
+    expect(sparseHistory(7, 5)).toBe(true);
+    expect(sparseHistory(14, 1)).toBe(true);
+    expect(sparseHistory(40, 25)).toBe(true);
+    expect(sparseHistory(164, 12)).toBe(false);
+  });
+});
+

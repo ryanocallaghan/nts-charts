@@ -1,0 +1,29 @@
+---
+// A track's or artist's weekly chart history. A long history is a rank line; a thin one (few weeks, or
+// mostly separate appearances) is dots, since a line would be mostly gaps, with a list of its runs on
+// the chart when there are few enough to read (the data table has every week). See sparseHistory().
+import { plural } from "../lib/format.ts";
+import { chartRuns, rankLine, sparseHistory } from "../lib/series.ts";
+import TimeChart from "./TimeChart.astro";
+interface Props { rows: { week: string; rank: number }[]; entity: "tracks" | "artists" }
+const { rows, entity } = Astro.props;
+const runs = chartRuns(rows);
+const dots = sparseHistory(rows.length, runs.length);
+const MAX_RUNS_LISTED = 25;
+const caption = [
+  `${plural(rows.length, "week")} in the Top 50 ${entity}`,
+  runs.length > 1 ? `${runs.length} separate runs` : rows.length > 1 ? "all in a row" : "",
+].filter(Boolean).join(" · ");
+---
+<TimeChart title="Weekly chart history" caption={caption} data={rankLine(rows, 50, dots)}>
+  {dots && runs.length <= MAX_RUNS_LISTED && (
+    <ul class="plain chart-runs" data-collapse-list="10" aria-label="Runs on the chart, latest first">
+      {runs.toReversed().map((r) => (
+        <li>
+          <a href={`/charts/week/${r.peakWeek}/`}>{r.dates}</a>
+          <span class="count">{r.weeks === 1 ? `#${r.peak}` : `${r.weeks} weeks · peak #${r.peak}`}</span>
+        </li>
+      ))}
+    </ul>
+  )}
+</TimeChart>

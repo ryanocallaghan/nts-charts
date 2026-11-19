@@ -20,6 +20,7 @@ const rows = data.x.map((_, i) => ({ label: data.tip[i], value: data.y[i] })).fi
   {bare ? <h3 class="visually-hidden">{title}</h3> : <h2>{href ? <a href={href}>{title}</a> : title}</h2>}
   {caption && <p class="caption">{caption}</p>}
   <div class="viz" style={`height:${height}px`} data-viz={JSON.stringify(data)} role="img" aria-label={`${title}. Data table below.`}></div>
+  <slot />
   <details class="data-table">
     <summary>Show data table</summary>
     <table>
