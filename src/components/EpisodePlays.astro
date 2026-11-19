@@ -8,7 +8,7 @@ const { plays, label } = Astro.props;
 {plays && plays.episodes.length > 0 && (
   <details class="plays">
     <summary>{label ?? `Played on ${plural(plays.total, "episode")}`}</summary>
-    <ul>
+    <ul data-collapse-list="10">
       {plays.episodes.map((e) => (
         <li>
           <time datetime={e.broadcast}>{formatDate(e.broadcast)}</time>

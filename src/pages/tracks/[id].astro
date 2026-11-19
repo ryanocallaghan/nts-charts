@@ -60,7 +60,7 @@ const pageHref = (n: number) => (n === 1 ? `/tracks/${key}/` : `/tracks/${key}/?
     <div class="grid-2 section">
       <section class="card">
         <h2>Shows that play it</h2>
-        <ul class="plain">
+        <ul class="plain" data-collapse-list="10">
           {d.shows.map((s) => (
             <li><span><a href={s.href}>{s.name}</a>{s.guest && <span class="muted"> · guest</span>}</span><span class="count">{plural(s.episodes, "episode")}</span></li>
           ))}
@@ -69,7 +69,7 @@ const pageHref = (n: number) => (n === 1 ? `/tracks/${key}/` : `/tracks/${key}/?
       <section class="card" id="episodes">
         <h2>Every episode</h2>
         {pages > 1 && <p class="caption muted">Newest first · {(page - 1) * TRACK_EPISODES_PER_PAGE + 1}–{Math.min(page * TRACK_EPISODES_PER_PAGE, d.stats.episodes)} of {d.stats.episodes.toLocaleString("en-GB")}</p>}
-        <ul class="plain">
+        <ul class="plain" data-collapse-list="10">
           {d.episodes.map((e) => (
             <li>
               <span>

@@ -25,7 +25,7 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
 <div class="grid-2 section">
   <section class="card">
     <h2>Most-played artists</h2>
-    <ul class="plain">
+    <ul class="plain" data-collapse-list="10">
       {d.topArtists.map((a) => (
         <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{plural(a.episodes, "episode")}</span></li>
       ))}
@@ -35,7 +35,7 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
     <h2>Most-played tracks</h2>
     {d.topTracks.length === 0
       ? <p class="muted">No track has been played in more than one episode yet.</p>
-      : <ul class="plain">
+      : <ul class="plain" data-collapse-list="10">
           {d.topTracks.map((t) => (
             <li><span><a href={trackHref(t)}>{t.title}</a> <span class="muted">— {t.artistDisplay}</span><ThemeLabel themes={themes.get(t.id)} /></span><span class="count">{plural(t.episodes, "episode")}</span></li>
           ))}
@@ -70,7 +70,7 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
       <section class="card">
         <h2>Similar shows</h2>
         <p class="caption muted">Shows that play many of the same artists</p>
-        <ul class="plain">
+        <ul class="plain" data-collapse-list="10">
           {similar.map((s) => <li><a href={s.href}>{s.name}</a><span class="count">{Math.round(s.score * 100)}% alike</span></li>)}
         </ul>
       </section>
@@ -79,7 +79,7 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
       <section class="card">
         <h2>Ahead of the charts</h2>
         <p class="caption muted">Played {plural(early.tracks, "track")} in the 12 weeks before they first made the weekly chart, on average {early.weeksEarly} weeks early. <a href="/tastemakers/">Tastemakers</a></p>
-        <ul class="plain">
+        <ul class="plain" data-collapse-list="10">
           {early.recent.map((t) => (
             <li><span><a href={trackHref(t)}>{t.title}</a> <span class="muted">— {t.artistDisplay}</span></span><span class="count">{plural(t.weeksEarly, "week")} early</span></li>
           ))}

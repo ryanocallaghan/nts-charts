@@ -48,13 +48,13 @@ const pts = (v: number) => `${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(1)} pts`
     <section class="card">
       <h2>New to NTS</h2>
       <p class="caption muted">First played in {year}, by episodes that year</p>
-      <ul class="plain">{r.newcomers.map((a) => <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{plural(a.cur, "episode")}</span></li>)}</ul>
+      <ul class="plain" data-collapse-list="10">{r.newcomers.map((a) => <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{plural(a.cur, "episode")}</span></li>)}</ul>
     </section>
     {r.climbers.length > 0 && (
       <section class="card">
         <h2>Biggest climbers</h2>
         <p class="caption muted">Most extra episodes compared with {Number(year) - 1}</p>
-        <ul class="plain">{r.climbers.map((a) => <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{a.prev} → {a.cur} episodes</span></li>)}</ul>
+        <ul class="plain" data-collapse-list="10">{r.climbers.map((a) => <li><a href={`/artists/${a.slug}/`}>{a.name}</a><span class="count">{a.prev} → {a.cur} episodes</span></li>)}</ul>
       </section>
     )}
   </div>
@@ -64,12 +64,12 @@ const pts = (v: number) => `${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(1)} pts`
       <section class="card">
         <h2>Genres on the rise</h2>
         <p class="caption muted">Biggest gains in share of genre tags since {Number(year) - 1}</p>
-        <ul class="plain">{r.rising.map((g) => <li><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count"><span class="move up" aria-hidden="true">▲</span> {pts(g.change)} · {g.cur.toFixed(1)}%</span></li>)}</ul>
+        <ul class="plain" data-collapse-list="10">{r.rising.map((g) => <li><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count"><span class="move up" aria-hidden="true">▲</span> {pts(g.change)} · {g.cur.toFixed(1)}%</span></li>)}</ul>
       </section>
       <section class="card">
         <h2>Genres in decline</h2>
         <p class="caption muted">Biggest falls in share of genre tags since {Number(year) - 1}</p>
-        <ul class="plain">{r.falling.map((g) => <li><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count"><span class="move down" aria-hidden="true">▼</span> {pts(g.change)} · {g.cur.toFixed(1)}%</span></li>)}</ul>
+        <ul class="plain" data-collapse-list="10">{r.falling.map((g) => <li><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count"><span class="move down" aria-hidden="true">▼</span> {pts(g.change)} · {g.cur.toFixed(1)}%</span></li>)}</ul>
       </section>
     </div>
   )}
@@ -77,6 +77,6 @@ const pts = (v: number) => `${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(1)} pts`
   <section class="card section">
     <h2>Busiest shows</h2>
     <p class="caption muted">Episodes with tracklists in {year}</p>
-    <ul class="plain columns">{r.busiest.map((s) => <li><a href={s.href}>{s.name}</a><span class="count">{plural(s.episodes, "episode")}</span></li>)}</ul>
+    <ul class="plain columns" data-collapse-list="10">{r.busiest.map((s) => <li><a href={s.href}>{s.name}</a><span class="count">{plural(s.episodes, "episode")}</span></li>)}</ul>
   </section>
 </Base>

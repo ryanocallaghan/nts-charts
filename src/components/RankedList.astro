@@ -3,10 +3,11 @@
 import type { Item } from "../lib/overview.ts";
 import ArtistLinks from "./ArtistLinks.astro";
 import Movement from "./Movement.astro";
-interface Props { items: Item[]; movement?: boolean; showKind?: boolean }
-const { items, movement = false, showKind = false } = Astro.props;
+// collapse: show this many at a time, with a "Show more" button (src/scripts/collapse.ts).
+interface Props { items: Item[]; movement?: boolean; showKind?: boolean; collapse?: number }
+const { items, movement = false, showKind = false, collapse } = Astro.props;
 ---
-<ol class="ranked">
+<ol class="ranked" data-collapse-list={collapse}>
   {items.map((it) => (
     <li>
       <span class="pos">{it.rank}</span>

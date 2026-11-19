@@ -16,13 +16,14 @@ const r = q.trim() ? search(q) : null;
     <SearchField id="q" name="q" value={q} label="Artist or show name" autofocus />
   </form>
   <p class="muted" id="status" aria-live="polite">{r ? searchStatus(r) : ""}</p>
-  <ul class="plain" id="results">
+  <ul class="plain" id="results" data-collapse-list="10">
     {r?.results.map((x) => <li><a href={x.href}>{x.name}</a><span class="count">{x.meta}</span></li>)}
   </ul>
 </Base>
 
 <script>
   import type { SearchResult } from "../lib/search.ts";
+  import { recollapse } from "../scripts/collapse.ts";
 
   const input = document.getElementById("q") as HTMLInputElement;
   const status = document.getElementById("status")!;
@@ -33,7 +34,7 @@ const r = q.trim() ? search(q) : null;
   async function render() {
     const mine = ++seq;
     const q = input.value.trim();
-    if (!q) { results.replaceChildren(); status.textContent = ""; return; }
+    if (!q) { results.replaceChildren(); recollapse(results); status.textContent = ""; return; }
     try {
       const res = await fetch(`/api/search.json?q=${encodeURIComponent(q)}`);
       const data = (await res.json()) as { status: string; results: SearchResult[] };
@@ -52,6 +53,7 @@ const r = q.trim() ? search(q) : null;
           return li;
         }),
       );
+      recollapse(results);
     } catch {
       if (mine === seq) status.textContent = "Search isn't working right now. Press Enter to try again.";
     }

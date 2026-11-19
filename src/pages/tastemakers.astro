@@ -21,7 +21,7 @@ const lists: { title: string; meta: string; rows: Tastemaker[] }[] = [
       <section class="card">
         <h2>{l.title}</h2>
         <p class="caption muted">{l.meta}</p>
-        <ol class="ranked">
+        <ol class="ranked" data-collapse-list="10">
           {l.rows.map((r, i) => (
             <li>
               <span class="pos">{i + 1}</span>

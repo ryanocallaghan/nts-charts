@@ -65,8 +65,8 @@ const filterHref = latest ? `/charts/rolling/${latest}/?genre=${genre.slug}` : n
       <h2>Last 12 months</h2>
       <p class="section-meta">Most-played in episodes tagged {genre.name}, by episodes that played them</p>
       <div class="grid-2">
-        <section class="card"><h3>Tracks</h3>{year.tracks.length ? <RankedList items={year.tracks.map(trackItem)} /> : <p class="muted">No track was played in more than one episode.</p>}</section>
-        <section class="card"><h3>Artists</h3>{year.artists.length ? <RankedList items={year.artists.map(artistItem)} /> : <p class="muted">Not tagged in the last 12 months.</p>}</section>
+        <section class="card"><h3>Tracks</h3>{year.tracks.length ? <RankedList items={year.tracks.map(trackItem)} collapse={10} /> : <p class="muted">No track was played in more than one episode.</p>}</section>
+        <section class="card"><h3>Artists</h3>{year.artists.length ? <RankedList items={year.artists.map(artistItem)} collapse={10} /> : <p class="muted">Not tagged in the last 12 months.</p>}</section>
       </div>
     </section>
 
@@ -80,7 +80,3 @@ const filterHref = latest ? `/charts/rolling/${latest}/?genre=${genre.slug}` : n
     )}
   </article>
 </Base>
-
-<script>
-  import "../../scripts/collapse.ts";
-</script>

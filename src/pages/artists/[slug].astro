@@ -73,7 +73,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
       </section>
       <section class="card">
         <h2>Shows that play them</h2>
-        <ul class="plain">
+        <ul class="plain" data-collapse-list="10">
           {d.shows.map((s) => (
             <li><span><a href={s.href}>{s.name}</a>{s.guest && <span class="muted"> · guest</span>}</span><span class="count">{plural(s.episodes, "episode")}</span></li>
           ))}
@@ -91,7 +91,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
         <section class="card">
           <h2>Often played alongside</h2>
           <p class="caption muted">Artists played in the same episodes, relative to how much each is played</p>
-          <ul class="plain">
+          <ul class="plain" data-collapse-list="10">
             {related.map((r) => <li><a href={`/artists/${r.slug}/`}>{r.name}</a><span class="count">{r.shared.toLocaleString("en-GB")} shared episodes</span></li>)}
           </ul>
         </section>
@@ -100,7 +100,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
 
     <section class="card section">
       <h2>Recent plays</h2>
-      <ul class="plain">
+      <ul class="plain" data-collapse-list="10">
         {d.recent.map((r) => (
           <li>
             <span><a class="quiet" href={trackHref(r)}>{r.title}</a> <span class="muted">on</span> <a href={ntsEpisodeUrl(r.show, r.episode)}>{r.name}</a></span>
@@ -111,7 +111,3 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
     </section>
   </article>
 </Base>
-
-<script>
-  import "../../scripts/collapse.ts";
-</script>

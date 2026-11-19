@@ -47,7 +47,7 @@ const near: Record<DatedPeriod, string> = {
   quarter: quarterKey(start),
   year: String(start.getUTCFullYear()),
 };
-// Same date label as the home page: the dates covered so far while the chart is still running.
+// Same date label as the home page: the whole period, and how far the data goes while it's still running.
 const dates = periodDates(type, key, asOf());
 const heading = periodHeading(type, key, dates.inProgress);
 const sub = [heading.sub.split(" · ")[0], dates.text].filter(Boolean).join(" · ");

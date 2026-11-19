@@ -18,7 +18,7 @@ const latest = periodKeys("rolling").at(-1);
 const latestWeek = periodKeys("week").at(-1);
 const chartHref = latest ? `/charts/rolling/${latest}/` : "/charts/";
 // While the window is in progress, show the dates the numbers actually cover, not the whole window.
-// Same date label as the chart page: the dates covered so far while the window is still running.
+// Same date label as the chart page: the whole window, and how far the data goes while it's still running.
 const covered = latest ? periodDates("rolling", latest, asOf()).text : "";
 
 const trackItem = (t: TrackEntry): Item => ({

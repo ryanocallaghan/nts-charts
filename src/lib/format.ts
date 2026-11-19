@@ -160,14 +160,18 @@ export function periodBounds(type: Exclude<PeriodType, "all">, key: string): { s
 
 /**
  * The dates a chart covers, for labels shared by every page. While the period is still running
- * (the data stops before its end) it's the dates so far: "26 Oct – 18 Nov 2026, so far".
+ * (the data stops before its end) it's the whole period plus how far the data goes:
+ * "26 Oct – 22 Nov 2026 · in progress, up to 18 Nov".
  * Finished periods give their full range: just the months for quarters ("Oct – Dec 2026"), and
  * nothing for months and years (the title says it).
  */
 export function periodDates(type: PeriodType, key: string, asOf: Date): { text: string; inProgress: boolean } {
   if (type === "all") return { text: "", inProgress: false };
   const { start, end } = periodBounds(type, key);
-  if (asOf < end) return { text: `${dateRange(start, asOf < start ? start : asOf)}, so far`, inProgress: true };
+  if (asOf < end) {
+    const upTo = asOf < start ? "" : `, up to ${asOf.getUTCDate()} ${MONTHS[asOf.getUTCMonth()]}`;
+    return { text: `${dateRange(start, new Date(end.getTime() - 1))} · in progress${upTo}`, inProgress: true };
+  }
   if (type === "month" || type === "year") return { text: "", inProgress: false };
   if (type === "quarter") {
     const last = new Date(end.getTime() - 1);

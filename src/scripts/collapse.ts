@@ -1,12 +1,15 @@
 // Long lists show their first N items, with a button revealing N more at a time.
 // Mark a list with data-collapse-list="10". Without JavaScript every item stays visible.
 // A list with the "filtering" class (an active filter box) shows all matches and hides the button.
+const buttons = new WeakMap<HTMLElement, HTMLButtonElement>();
+
 export function initCollapse(root: ParentNode = document) {
   root.querySelectorAll<HTMLElement>("[data-collapse-list]:not([data-collapse-ready])").forEach((list) => {
     list.dataset.collapseReady = "";
     const step = Number(list.dataset.collapseList) || 10;
     const items = [...list.children] as HTMLElement[];
     if (items.length <= step) return;
+    buttons.get(list)?.remove();
     const button = document.createElement("button");
     button.type = "button";
     button.className = "cds--btn cds--btn--ghost cds--btn--sm show-more";
@@ -26,7 +29,16 @@ export function initCollapse(root: ParentNode = document) {
     });
     show(step);
     list.after(button);
+    buttons.set(list, button);
   });
+}
+
+/** Re-collapse a list whose items were replaced by script (search results as you type). */
+export function recollapse(list: HTMLElement) {
+  buttons.get(list)?.remove();
+  buttons.delete(list);
+  delete list.dataset.collapseReady;
+  initCollapse(list.parentElement ?? document);
 }
 
 initCollapse();
