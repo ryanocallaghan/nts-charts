@@ -64,11 +64,7 @@ p { margin: 0 0 1rem; }
 .site-header .site-logo { padding: 0 1.5rem 0 0; }
 .site-header .wordmark { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; font-size: 0.875rem; letter-spacing: 0; white-space: pre; color: var(--cds-text-primary); }
 @media (max-width: 40rem) {
-  .site-header .wordmark { font-size: 0.75rem; }
-}
-@media (max-width: 40rem) {
   .site-header .cds--header__name { padding: 0 0.75rem 0 0; }
-  .site-header .cds--header__menu-item { padding: 0 0.6rem; }
 }
 
 main.wrap { padding-top: 1.75rem; padding-bottom: 3rem; }
@@ -245,3 +241,59 @@ ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
 .home .section > h2 { font-size: 1.75rem; font-weight: 400; margin-bottom: 0.25rem; }
 .section-meta { color: var(--cds-text-helper); font-size: 0.875rem; margin: 0 0 0.75rem; }
 .section > .section-meta + .grid-2, .section > .section-meta + .stats { margin-top: 0; }
+
+/* Phone menu (below 40rem the inline nav is replaced by a Menu button and panel). */
+.mobile-menu { display: none; }
+@media (max-width: 40rem) {
+  .site-header .cds--header__nav { display: none; }
+  .mobile-menu { display: block; margin-left: auto; }
+  .mobile-menu-button {
+    display: flex; align-items: center; gap: 0.5rem; height: 48px; padding: 0 0 0 1rem; cursor: pointer;
+    list-style: none; color: var(--cds-text-primary); font-size: 0.875rem;
+  }
+  .mobile-menu-button::-webkit-details-marker { display: none; }
+  .mobile-menu-button:focus-visible { outline: 2px solid var(--cds-focus); outline-offset: -2px; }
+  .mobile-menu-panel {
+    position: fixed; top: 48px; left: 0; right: 0; z-index: 20;
+    background: var(--cds-layer-01); border-bottom: 1px solid var(--cds-border-subtle-01);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+  .mobile-menu-panel ul { list-style: none; margin: 0; padding: 0.25rem 0; }
+  .mobile-menu-panel a {
+    display: flex; align-items: center; min-height: 48px; padding: 0 16px; color: var(--cds-text-primary);
+    border-left: 3px solid transparent; text-decoration: none;
+  }
+  .mobile-menu-panel a:hover { background: var(--cds-layer-hover-01); }
+  .mobile-menu-panel a[aria-current="page"] { border-left-color: var(--cds-border-interactive); font-weight: 600; }
+  /* With the menu collapsed there's room for the wordmark at its normal size. */
+  .site-header .wordmark { font-size: 0.8125rem; }
+}
+
+/* Chart tables on phones: movement moves under the rank, the numbers column narrows, cells tighten,
+   so titles get most of the width. */
+table.chart .rank-move, table.chart .h-sm { display: none; }
+@media (max-width: 640px) {
+  table.chart td.mv, table.chart th.mv { display: none; }
+  table.chart .rank-move { display: block; margin-top: 0.25rem; font-size: 0.75rem; }
+  table.chart .h-lg { display: none; }
+  table.chart .h-sm { display: inline; }
+  table.chart .rank { width: 2.75rem; }
+  table.chart td, table.chart th { padding-left: 0.5rem; padding-right: 0.5rem; }
+  table.chart td.num, table.chart th.num { width: 3rem; }
+}
+
+/* Collapsible lists (src/scripts/collapse.ts) */
+.collapsed-out { display: none !important; }
+.filtering > li.collapsed-out:not([hidden]) { display: flex !important; }
+.filtering + .show-more { display: none; }
+.show-more { margin-top: 0.5rem; }
+ul.plain.columns + .show-more { margin-top: 0.75rem; }
+
+/* Home on phones: tiles and small charts two per row. */
+@media (max-width: 640px) {
+  .home .headline { grid-template-columns: 1fr 1fr; }
+  .home .headline .stat .value { font-size: 1.5rem; }
+  .home .multiples { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .home .multiples .viz-card { padding: 0.75rem; }
+  .home .multiples .viz { height: 110px !important; }
+}

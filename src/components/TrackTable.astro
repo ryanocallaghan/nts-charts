@@ -14,7 +14,7 @@ const { rows, periodNoun, movement = true, plays } = Astro.props;
         <th class="rank">#</th>
         {movement && <th class="mv"><span class="visually-hidden">Movement</span></th>}
         <th>Track</th>
-        <th class="num" title="Distinct episodes that played it">Episodes</th>
+        <th class="num" title="Distinct episodes that played it"><span class="h-lg">Episodes</span><span class="h-sm">Eps</span></th>
         <th class="num hide-sm" title="Distinct shows that played it">Shows</th>
         {movement && <th class="num hide-sm" title={`${periodNoun}s on chart`}>{periodNoun}s</th>}
       </tr>
@@ -22,7 +22,7 @@ const { rows, periodNoun, movement = true, plays } = Astro.props;
     <tbody>
       {rows.map((r) => (
         <tr>
-          <td class="rank">{r.rank}</td>
+          <td class="rank">{r.rank}{movement && <span class="rank-move"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></span>}</td>
           {movement && <td class="mv"><Movement status={r.status} rank={r.rank} prevRank={r.prevRank} /></td>}
           <td>
             <div class="title">{r.title}</div>

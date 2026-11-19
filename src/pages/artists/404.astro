@@ -13,6 +13,7 @@ import Base from "../../layouts/Base.astro";
 
 <script>
   import { observeViz } from "../../scripts/charts.ts";
+  import { initCollapse } from "../../scripts/collapse.ts";
   import { artistShard } from "../../lib/shard.ts";
   import { formatDate, ntsEpisodeUrl, plural, SITE_NAME } from "../../lib/format.ts";
   import { monthlyBars } from "../../lib/series.ts";
@@ -87,12 +88,13 @@ import Base from "../../layouts/Base.astro";
       ${a.m.length > 1 ? `<section class="card viz-card section"><h2>Plays over time</h2><p class="caption">Episodes that played them, per month</p>
         <div class="viz" style="height:260px" data-viz="${esc(JSON.stringify(viz))}" role="img" aria-label="Plays over time"></div></section>` : ""}
       <div class="grid-2 section">
-        <section class="card"><h2>Most-played tracks</h2><ul class="plain">${tracks}</ul></section>
+        <section class="card"><h2>Most-played tracks</h2><ul class="plain" data-collapse-list="10">${tracks}</ul></section>
         <section class="card"><h2>Shows that play them</h2><ul class="plain">${shows}</ul></section>
       </div>
       <section class="card section"><h2>Recent plays</h2><ul class="plain">${recent}</ul></section>`;
     root.removeAttribute("aria-busy");
     observeViz(root);
+    initCollapse(root);
   }
 
   const slug = decodeURIComponent(location.pathname.split("/").filter(Boolean)[1] ?? "");

@@ -51,8 +51,32 @@ const nav = [
           ))}
         </ul>
       </nav>
+      {/* Phones: the inline menu doesn't fit, so a Menu button opens the full list. Works without JS. */}
+      <details class="mobile-menu">
+        <summary class="mobile-menu-button">
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="currentColor"><rect x="2" y="4" width="16" height="1.5"/><rect x="2" y="9.25" width="16" height="1.5"/><rect x="2" y="14.5" width="16" height="1.5"/></svg>
+          <span>Menu</span>
+        </summary>
+        <nav class="mobile-menu-panel" aria-label="Main">
+          <ul>
+            {nav.map((n) => (
+              <li><a href={n.href} aria-current={section === n.key ? "page" : undefined}>{n.label}</a></li>
+            ))}
+          </ul>
+        </nav>
+      </details>
       </div>
     </header>
+    <script is:inline>
+      // Close the phone menu on Escape, on a tap outside it, or after choosing a link.
+      (function () {
+        var menu = document.querySelector(".mobile-menu");
+        if (!menu) return;
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape" && menu.open) { menu.open = false; menu.querySelector("summary").focus(); } });
+        document.addEventListener("click", function (e) { if (menu.open && !menu.contains(e.target)) menu.open = false; });
+        menu.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) menu.open = false; });
+      })();
+    </script>
     {hideWordmark && (
       <script is:inline>
         // Hide the header wordmark (keeping its space) while the page's own logo is on screen.

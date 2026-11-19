@@ -45,7 +45,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
     <div class="grid-2 section">
       <section class="card">
         <h2>Most-played tracks</h2>
-        <ul class="plain">
+        <ul class="plain" data-collapse-list="10">
           {d.topTracks.map((t) => (
             <li>
               <span>
@@ -81,3 +81,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
     </section>
   </article>
 </Base>
+
+<script>
+  import "../../scripts/collapse.ts";
+</script>

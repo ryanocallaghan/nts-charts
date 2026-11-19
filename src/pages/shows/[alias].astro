@@ -27,7 +27,7 @@ const repeatGuests = isGuests ? [...guestPages().values()] : [];
         <h2>Repeat guests</h2>
         <p class="caption muted">{plural(repeatGuests.length, "guest")} with more than one mix.</p>
         <SearchField label="Filter guests" data-filter="#guest-list" />
-        <ul class="plain columns" id="guest-list">
+        <ul class="plain columns" id="guest-list" data-collapse-list="20">
           {repeatGuests.map((g) => <li data-name={g.name.toLowerCase()}><a href={`/shows/guests/${g.slug}/`}>{g.name}</a><span class="count">{plural(g.mixes, "mix", "mixes")}</span></li>)}
         </ul>
       </section>
@@ -42,7 +42,12 @@ const repeatGuests = isGuests ? [...guestPages().values()] : [];
     const list = document.querySelector(input.dataset.filter!);
     input.addEventListener("input", () => {
       const q = input.value.trim().toLowerCase();
+      list?.classList.toggle("filtering", !!q); // search every guest, not just the ones shown
       for (const li of list?.querySelectorAll<HTMLElement>("li") ?? []) li.hidden = !!q && !li.dataset.name!.includes(q);
     });
   }
+</script>
+
+<script>
+  import "../../scripts/collapse.ts";
 </script>
