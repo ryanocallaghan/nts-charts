@@ -26,7 +26,8 @@ COPY --from=build /app/src/lib ./src/lib
 COPY --from=build /app/src/scripts ./src/scripts
 COPY --from=build /app/scripts ./scripts
 # The database volume: SQLite needs the folder writable, for its -wal and -shm files.
-RUN mkdir -p /data && chown node:node /data dist/client/_astro
+# The assets folder too, recursively: a new nts-assets volume starts as a copy of it, ownership included.
+RUN mkdir -p /data && chown node:node /data && chown -R node:node dist/client/_astro
 USER node
 VOLUME /data
 EXPOSE 4321
