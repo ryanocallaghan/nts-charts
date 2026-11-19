@@ -1,10 +1,11 @@
 ---
 import Base from "../../layouts/Base.astro";
+import ArtistAbout from "../../components/ArtistAbout.astro";
 import EpisodePlays from "../../components/EpisodePlays.astro";
 import ThemeLabel from "../../components/ThemeLabel.astro";
 import TimeChart from "../../components/TimeChart.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
-import { artistDetail, episodesForTracks, pagedArtists, themeTunesFor, type ArtistRow } from "../../lib/queries.ts";
+import { artistDetail, artistInfo, episodesForTracks, pagedArtists, themeTunesFor, type ArtistRow } from "../../lib/queries.ts";
 import { monthlyBars, rankLine } from "../../lib/series.ts";
 
 export function getStaticPaths() {
@@ -13,6 +14,7 @@ export function getStaticPaths() {
 
 const { artist } = Astro.props as { artist: ArtistRow };
 const d = artistDetail(artist.id);
+const info = artistInfo(artist.id);
 const plays = episodesForTracks(d.topTracks.map((t) => t.id));
 const themes = themeTunesFor(d.topTracks.map((t) => t.id));
 const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.rank)) : null;
@@ -21,6 +23,7 @@ const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.ran
   <article>
     <p class="eyebrow">Artist</p>
     <h1>{artist.name}</h1>
+    <ArtistAbout info={info} />
 
     <div class="stats">
       <div class="stat"><div class="label">Episodes</div><div class="value">{d.stats.episodes.toLocaleString("en-GB")}</div></div>

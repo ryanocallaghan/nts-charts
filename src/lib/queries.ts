@@ -1,19 +1,11 @@
 import { all, get } from "./db.ts";
+import { PAGE_ARTISTS_PARAMS, PAGE_ARTISTS_SQL, SHOW_KEY } from "./artist-pages.ts";
 import { ntsEpisodeUrl, rollingStartKey, type PeriodType } from "./format.ts";
-
-// Artists get their own page only above this activity (keeps the site under hosting file limits).
-const ARTIST_MIN_EPISODES = Number(process.env.ARTIST_MIN_EPISODES ?? 3);
-const ARTIST_MIN_SHOWS = Number(process.env.ARTIST_MIN_SHOWS ?? 2);
-// ...and at most this many (the most-played first). Cloudflare Pages allows 20,000 files per deploy;
-// shows, charts and the data/search shards take roughly another 5,500. Every other artist gets a
-// page rendered in the browser from a data shard (see artists/404.astro).
-const ARTIST_PAGE_LIMIT = Number(process.env.ARTIST_PAGE_LIMIT ?? 12000);
 
 // NTS files one-off guest mixes under one catch-all show. Each guest counts as its own "show"
 // (keyed 'guests/<slug>'); guests with this many mixes get a page at /shows/guests/<slug>/.
 export const GUESTS_SHOW = "guests";
 const GUEST_PAGE_MIN_MIXES = 2;
-const SHOW_KEY = "coalesce('guests/' || e.guest_slug, e.show_alias)";
 
 export interface GuestRow { slug: string; name: string; mixes: number; last: string }
 let guests: Map<string, GuestRow> | undefined;
@@ -67,16 +59,7 @@ const ARTIST_PLAYS = `track_artists ta
 let pageArtists: Map<number, { slug: string; episodes: number }> | undefined;
 function loadPageArtists() {
   pageArtists ??= new Map(
-    all<{ id: number; slug: string; episodes: number }>(
-      `SELECT a.id, a.slug, count(DISTINCT p.episode_alias) episodes, count(DISTINCT e.show_alias) shows
-       FROM ${ARTIST_PLAYS} JOIN artists a ON a.id = ta.artist_id
-       GROUP BY a.id
-       HAVING (episodes >= ? AND shows >= ?)
-           OR a.id IN (SELECT entity_id FROM chart_entries WHERE entity_type = 'artist')
-       ORDER BY episodes DESC, shows DESC, a.id
-       LIMIT ?`,
-      ARTIST_MIN_EPISODES, ARTIST_MIN_SHOWS, ARTIST_PAGE_LIMIT,
-    ).map((r) => [r.id, { slug: r.slug, episodes: r.episodes }]),
+    all<{ id: number; slug: string; episodes: number }>(PAGE_ARTISTS_SQL, ...PAGE_ARTISTS_PARAMS).map((r) => [r.id, { slug: r.slug, episodes: r.episodes }]),
   );
   return pageArtists;
 }
@@ -169,9 +152,34 @@ export function pagedArtists(): ArtistRow[] {
   return out;
 }
 
+export interface ArtistInfo {
+  mbid: string;
+  type: string | null;
+  area: string | null;
+  begin_year: number | null;
+  end_year: number | null;
+  disambiguation: string | null;
+  bio: string | null;
+  bio_source: "wikipedia" | "musicbrainz" | null;
+  bio_url: string | null;
+  links: { bandcamp?: string; instagram?: string; discogs?: string };
+}
+
+/** MusicBrainz/Wikipedia info for an artist, when ingest/enrich.ts found a confident match. */
+export function artistInfo(id: number): ArtistInfo | null {
+  const r = get<Omit<ArtistInfo, "links"> & { links_json: string | null }>(
+    `SELECT mbid, type, area, begin_year, end_year, disambiguation, bio, bio_source, bio_url, links_json
+     FROM artist_info WHERE artist_id = ? AND mbid IS NOT NULL`,
+    id,
+  );
+  if (!r) return null;
+  const { links_json, ...rest } = r;
+  return { ...rest, links: links_json ? JSON.parse(links_json) : {} };
+}
+
 export function artistDetail(id: number) {
   const stats = get<{ episodes: number; shows: number; tracks: number; first: string; last: string }>(
-    `SELECT count(DISTINCT p.episode_alias) episodes, count(DISTINCT e.show_alias) shows,
+    `SELECT count(DISTINCT p.episode_alias) episodes, count(DISTINCT ${SHOW_KEY}) shows,
             count(DISTINCT p.track_id) tracks, min(e.broadcast_at) first, max(e.broadcast_at) last
      FROM ${ARTIST_PLAYS} WHERE ta.artist_id = ?`,
     id,

@@ -1,0 +1,31 @@
+---
+// Facts, a short intro and links for an artist, from MusicBrainz (CC0) and Wikipedia (CC BY-SA) or a
+// MusicBrainz annotation (CC BY-NC-SA). Renders nothing when there's no confident match.
+import type { ArtistInfo } from "../lib/queries.ts";
+interface Props { info: ArtistInfo | null }
+const { info } = Astro.props;
+const years = info && info.begin_year ? `${info.begin_year}–${info.end_year ?? ""}` : null;
+const facts = info ? [info.type, info.area, years].filter(Boolean).join(" · ") : "";
+const links = info
+  ? ([["Bandcamp", info.links.bandcamp], ["Instagram", info.links.instagram], ["Discogs", info.links.discogs]] as const).filter(([, url]) => url)
+  : [];
+const credit = info?.bio_source === "wikipedia"
+  ? { name: "Wikipedia", licence: "CC BY-SA", licenceUrl: "https://creativecommons.org/licenses/by-sa/4.0/" }
+  : { name: "MusicBrainz", licence: "CC BY-NC-SA", licenceUrl: "https://creativecommons.org/licenses/by-nc-sa/3.0/" };
+---
+{info && (facts || info.bio || links.length > 0) && (
+  <section class="artist-about" aria-label="About">
+    {facts && <p class="about-facts">{facts}{info.disambiguation && !info.bio && <> · {info.disambiguation}</>}</p>}
+    {info.bio && (
+      <p class="about-bio">
+        {info.bio}{" "}
+        <span class="about-credit">From <a href={info.bio_url ?? undefined} rel="noopener">{credit.name}</a> · <a href={credit.licenceUrl} rel="noopener license">{credit.licence}</a></span>
+      </p>
+    )}
+    {links.length > 0 && (
+      <p class="about-links">
+        {links.map(([label, url], i) => <>{i > 0 && <span class="muted"> · </span>}<a class="cds--link" href={url} rel="noopener">{label} ↗</a></>)}
+      </p>
+    )}
+  </section>
+)}

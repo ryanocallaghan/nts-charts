@@ -10,6 +10,7 @@ A personal project, not affiliated with NTS.
   - It finds every show and episode from the NTS sitemap, because the API's own pagination stops after about 1,000 items.
   - Tracks are matched by artist and title, then by ISRC. Artist credits are split into individual artists.
 - Charts rank tracks and artists by the number of distinct episodes that played them in a week, month or year.
+- Artists with pages are matched to [MusicBrainz](https://musicbrainz.org) (by ISRC, or an exact unambiguous name) for facts, Bandcamp/Instagram/Discogs links and a short intro from Wikipedia or the MusicBrainz annotation (`ingest/enrich.ts`, at most 1 request per second).
 - The site is static and rebuilt from the database on a schedule.
 
 ## Running locally

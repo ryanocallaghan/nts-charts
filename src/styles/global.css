@@ -210,3 +210,11 @@ ol.ranked .mv { flex: none; width: 3.25rem; font-size: 0.8rem; }
 .hero-text .lede { margin-bottom: 1.25rem; }
 .hero-period { font-size: 1.75rem; margin: 0 0 0.25rem; }
 .headline { margin-top: 0.75rem; }
+
+/* Artist "About" (MusicBrainz / Wikipedia) */
+.artist-about { max-width: 46rem; margin: 0 0 1.25rem; }
+.about-facts { color: var(--cds-text-secondary); margin: 0 0 0.5rem; }
+.about-bio { margin: 0 0 0.5rem; line-height: 1.55; }
+.about-credit { color: var(--cds-text-helper); font-size: 0.8rem; white-space: nowrap; }
+.about-credit a { color: inherit; text-decoration: underline; text-decoration-color: var(--cds-border-strong-01); }
+.about-links { margin: 0; display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: baseline; }

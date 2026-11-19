@@ -20,6 +20,8 @@ function migrate(db: DatabaseSync) {
   const cols = new Set((db.prepare("PRAGMA table_info(episodes)").all() as { name: string }[]).map((c) => c.name));
   if (!cols.has("guest_slug")) db.exec("ALTER TABLE episodes ADD COLUMN guest_slug TEXT");
   db.exec("CREATE INDEX IF NOT EXISTS episodes_guest ON episodes(guest_slug) WHERE guest_slug IS NOT NULL");
+  const info = new Set((db.prepare("PRAGMA table_info(artist_info)").all() as { name: string }[]).map((c) => c.name));
+  if (info.size && !info.has("bio_source")) db.exec("ALTER TABLE artist_info ADD COLUMN bio_source TEXT");
 }
 
 /** Run fn inside a transaction, rolling back on error. */

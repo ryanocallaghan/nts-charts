@@ -91,3 +91,21 @@ CREATE TABLE IF NOT EXISTS theme_tunes (
   of_total  INTEGER NOT NULL,     -- the show's episodes with tracklists
   PRIMARY KEY (show_key, track_id)
 );
+
+-- MusicBrainz (+ Wikipedia) info for artists with pre-built pages (filled by ingest/enrich.ts).
+-- mbid NULL means "checked, no confident match" (retried after a while).
+CREATE TABLE IF NOT EXISTS artist_info (
+  artist_id       INTEGER PRIMARY KEY,
+  mbid            TEXT,
+  method          TEXT,        -- 'isrc' | 'name' | 'none'
+  checked_at      TEXT NOT NULL,
+  type            TEXT,        -- Person, Group, …
+  area            TEXT,
+  begin_year      INTEGER,
+  end_year        INTEGER,
+  disambiguation  TEXT,
+  bio             TEXT,        -- short intro: Wikipedia extract (CC BY-SA) or MusicBrainz annotation (CC BY-NC-SA)
+  bio_source      TEXT,        -- 'wikipedia' | 'musicbrainz'
+  bio_url         TEXT,
+  links_json      TEXT         -- {"bandcamp": url, "instagram": url, "discogs": url}
+);

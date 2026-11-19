@@ -39,14 +39,18 @@ jobs:
         run: bash scripts/download-db.sh
 
       # Only the main branch writes the database; other branches build a preview from it.
+      # Backfill and artist-info jobs write the database too; while either runs, deploy without writing.
       - name: Is the backfill running?
         id: backfill
         run: |
-          active=$(gh run list --workflow backfill.yml --json status \
-            --jq '[.[] | select(.status != "completed")] | length')
+          active=0
+          for wf in backfill.yml enrich.yml; do
+            n=$(gh run list --workflow "$wf" --json status --jq '[.[] | select(.status != "completed")] | length')
+            active=$((active + n))
+          done
           [ "${{ github.ref_name }}" = "main" ] || { active=preview; echo "::notice::Preview of ${{ github.ref_name }}: not updating the database."; }
           echo "active=$active" >> "$GITHUB_OUTPUT"
-          [ "$active" = "0" ] || [ "$active" = "preview" ] || echo "::notice::Backfill in progress: deploying its latest database without updating it."
+          [ "$active" = "0" ] || [ "$active" = "preview" ] || echo "::notice::Backfill or artist-info job in progress: deploying the latest database without updating it."
 
       - name: Fetch new episodes
         if: steps.backfill.outputs.active == '0'
