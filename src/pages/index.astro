@@ -6,20 +6,17 @@ import RankedList from "../components/RankedList.astro";
 import Spotlight from "../components/Spotlight.astro";
 import StatTile from "../components/StatTile.astro";
 import TimeChart from "../components/TimeChart.astro";
-import { compareWindows, currentPeriodKey, dateRange, formatDate, isoWeekStart, periodLabel, SITE_NAME } from "../lib/format.ts";
+import { compareWindows, dateRange, formatDate, periodLabel, SITE_NAME } from "../lib/format.ts";
 import { archiveComplete, asOf, genreMix, genreTrends, headlineStats, movers, onThisDay, spotlight, type Item } from "../lib/overview.ts";
 import { artistChart, periodKeys, siteStats, trackChart, type ArtistEntry, type TrackEntry } from "../lib/queries.ts";
 import { genreBars, shareLine } from "../lib/series.ts";
 
 const latest = periodKeys("rolling").at(-1);
 const latestWeek = periodKeys("week").at(-1);
-const inProgress = latest === currentPeriodKey("rolling");
 const stats = siteStats();
 const chartHref = latest ? `/charts/rolling/${latest}/` : "/charts/";
 // While the window is in progress, show the dates the numbers actually cover, not the whole window.
 const covered = latest ? compareWindows(latest, asOf()).current : null;
-const windowEnd = latest ? new Date(isoWeekStart(latest).getTime() + 6 * 86_400_000) : null;
-const endLabel = windowEnd ? `${windowEnd.getUTCDate()} ${windowEnd.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}` : "";
 
 const trackItem = (t: TrackEntry): Item => ({
   rank: t.rank, title: t.title, artists: t.artists, credit: t.artistDisplay, kind: "track",
@@ -45,14 +42,11 @@ const allTime = { tracks: trackChart("all", "all", 5).map(trackItem), artists: a
   <div class="hero">
     <HeroLogo />
     <div class="hero-text">
-      <h2 class="hero-period">{latest ? "Last 4 weeks" : "No charts yet"}</h2>
+      <h2 class="hero-headline">The most-played tracks and artists on NTS Radio</h2>
+      <p class="lede">Built from the tracklists of every episode. A track scores once per episode that plays it, so one show repeating a record can't top the chart.</p>
       {covered && (
-        <p class="page-sub">
-          {dateRange(new Date(covered.from), new Date(new Date(covered.to).getTime() - 1))}
-          {inProgress && <span class="cds--tag cds--tag--sm cds--tag--outline">In progress, runs to {endLabel}</span>}
-        </p>
+        <p class="hero-meta">Last 4 weeks · {dateRange(new Date(covered.from), new Date(new Date(covered.to).getTime() - 1))}</p>
       )}
-      <p class="lede">What NTS Radio has been playing, from the tracklists of every episode. Tracks and artists score once per episode that plays them.</p>
       <div class="hero-actions">
         <a class="cds--btn cds--btn--primary cds--btn--md" href={chartHref}>See the full chart</a>
         <a class="cds--btn cds--btn--tertiary cds--btn--md" href="/search/">Search artists &amp; shows</a>
