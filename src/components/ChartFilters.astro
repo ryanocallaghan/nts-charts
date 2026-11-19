@@ -1,12 +1,15 @@
 ---
 // Narrow a chart to a genre and/or the place episodes were broadcast from. A GET form, so it works
 // without JavaScript (with the Apply button); with JavaScript it applies as soon as a choice changes.
-import { filterGenres, filterPlaces, type ChartFilter } from "../lib/queries.ts";
+// A genre is either its records (Discogs) or what NTS's shows tagged with it play ("Genre of").
+import { byShows, filterGenres, filterPlaces, hasRecordChart, hasShowChart, type ChartFilter } from "../lib/queries.ts";
 interface Props { action: string; filter: ChartFilter }
 const { action, filter } = Astro.props;
 const genres = filterGenres();
 const places = filterPlaces();
 const active = !!(filter.genre || filter.place);
+// Both kinds are only a choice when the genre has both; otherwise the chart page picks the one there is.
+const both = !!filter.genre && hasRecordChart(filter.genre) && hasShowChart(filter.genre);
 ---
 <form class="chart-filters" action={action} method="get" data-autosubmit>
   <div class="cds--select">
@@ -19,6 +22,18 @@ const active = !!(filter.genre || filter.place);
       <svg class="cds--select__arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z"></path></svg>
     </div>
   </div>
+  {both && (
+    <div class="cds--select">
+      <label class="cds--label" for="filter-by">Genre of</label>
+      <div class="cds--select-input__wrapper">
+        <select class="cds--select-input" id="filter-by" name="by">
+          <option value="" selected={!byShows(filter)}>The record</option>
+          <option value="shows" selected={byShows(filter)}>The show</option>
+        </select>
+        <svg class="cds--select__arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z"></path></svg>
+      </div>
+    </div>
+  )}
   <div class="cds--select">
     <label class="cds--label" for="filter-place">Broadcast from</label>
     <div class="cds--select-input__wrapper">
@@ -36,10 +51,12 @@ const active = !!(filter.genre || filter.place);
 <script>
   for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosubmit]")) {
     form.querySelector<HTMLElement>(".filter-apply")!.hidden = true;
-    form.addEventListener("change", () => {
+    form.addEventListener("change", (e) => {
       // Leave empty choices out of the URL.
       const params = new URLSearchParams();
       for (const s of form.querySelectorAll("select")) if (s.value) params.set(s.name, s.value);
+      // "Genre of" belongs to the genre it was shown for.
+      if (!params.has("genre") || (e.target as HTMLSelectElement).name === "genre") params.delete("by");
       location.href = form.action + (params.size ? `?${params}` : "");
     });
   }

@@ -7,7 +7,7 @@ import TimeChart from "../../components/TimeChart.astro";
 import ChartHistory from "../../components/ChartHistory.astro";
 import PlayPatterns from "../../components/PlayPatterns.astro";
 import { formatDate, ntsEpisodeUrl, plural } from "../../lib/format.ts";
-import { artistsForTracks, playTimes, themeTunesFor, trackById, trackDetail, TRACK_EPISODES_PER_PAGE } from "../../lib/queries.ts";
+import { artistsForTracks, playTimes, themeTunesFor, trackById, trackDetail, trackGenres, TRACK_EPISODES_PER_PAGE } from "../../lib/queries.ts";
 import { trackKey } from "../../lib/search.ts";
 import { monthlyBars } from "../../lib/series.ts";
 
@@ -26,6 +26,7 @@ const pages = Math.max(1, Math.ceil(d.stats.episodes / TRACK_EPISODES_PER_PAGE))
 if (page > pages) return new Response(null, { status: 404 });
 const artists = artistsForTracks([track.id]).get(track.id) ?? [];
 const themes = themeTunesFor([track.id]).get(track.id);
+const genres = trackGenres(track.id);
 const peak = d.chartHistory.length ? Math.min(...d.chartHistory.map((h) => h.rank)) : null;
 const pageHref = (n: number) => (n === 1 ? `/tracks/${key}/` : `/tracks/${key}/?page=${n}`);
 ---
@@ -41,6 +42,12 @@ const pageHref = (n: number) => (n === 1 ? `/tracks/${key}/` : `/tracks/${key}/?
       <div class="stat"><div class="label">Weeks in the Top 50</div><div class="value">{d.chartHistory.length.toLocaleString("en-GB")}</div></div>
       <div class="stat"><div class="label">Peak weekly rank</div><div class="value">{peak ? `#${peak}` : "—"}</div></div>
     </div>
+    {genres && (
+      <div class="section track-genres">
+        <p class="tag-list">{genres.genres.map((g) => <a class="genre-tag" href={`/genres/${g.slug}/`}>{g.name}</a>)}</p>
+        <p class="small muted">Genres from {genres.url ? <a href={genres.url}>{genres.release}</a> : genres.release} on Discogs</p>
+      </div>
+    )}
     {d.first && (
       <p class="section first-play">
         First played on NTS by <a href={d.first.by.href}>{d.first.by.name}</a>, {formatDate(d.first.episode.broadcast)}{" "}

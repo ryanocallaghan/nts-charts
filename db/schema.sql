@@ -129,10 +129,13 @@ CREATE INDEX IF NOT EXISTS artist_stats_first ON artist_stats(first_at);
 
 -- NTS's genre tags on episodes, tidied (rebuilt by aggregate.ts): one row per genre with its most
 -- common spelling, and which dated, tracklisted episodes carry it. For genre pages and chart filters.
+-- tracks: how many records have the genre (from Discogs, below). A genre with no NTS tag (episodes 0)
+-- is a Discogs style, listed once enough records have it.
 CREATE TABLE IF NOT EXISTS genres (
   slug     TEXT PRIMARY KEY,
   name     TEXT NOT NULL,
-  episodes INTEGER NOT NULL
+  episodes INTEGER NOT NULL,
+  tracks   INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS episode_genres (
   genre_slug    TEXT NOT NULL,
@@ -177,3 +180,24 @@ CREATE TABLE IF NOT EXISTS early_plays (
   PRIMARY KEY (show_key, track_id)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS early_plays_week ON early_plays(chart_week);
+
+-- Each track's release on Discogs and its styles, looked up by ingest/record-genres.ts (kept between
+-- runs; not rebuilt). found 0: searched, nothing by this artist with this track.
+CREATE TABLE IF NOT EXISTS track_discogs (
+  track_id    INTEGER PRIMARY KEY,
+  checked_at  TEXT NOT NULL,
+  found       INTEGER NOT NULL,
+  url         TEXT,             -- the master or release page
+  release     TEXT,             -- "Artist - Release"
+  year        INTEGER,
+  styles_json TEXT,             -- the styles that count for this track (ingest/discogs.ts pickStyles)
+  genres_json TEXT              -- the release's top-level Discogs genres
+);
+-- Each track's genres, from track_discogs mapped onto NTS's tags (rebuilt by aggregate.ts). For
+-- genre charts of records rather than of shows.
+CREATE TABLE IF NOT EXISTS track_genres (
+  genre_slug TEXT NOT NULL,
+  track_id   INTEGER NOT NULL,
+  PRIMARY KEY (genre_slug, track_id)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS track_genres_track ON track_genres(track_id);

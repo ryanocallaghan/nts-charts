@@ -1,80 +1,104 @@
 ---
-// A genre, from NTS's tags on episodes: how much it's played over the years, what's played under it
-// lately, the shows that tag it most, and the genres it's often tagged with.
+// A genre, two ways: its records (tracks whose release Discogs files under it) and its shows (episodes
+// NTS tags with it). Most genres have both; a Discogs style with no NTS tag has only records, and an
+// NTS tag with no Discogs style only shows. With both, each chart has a Records | Shows switch.
 import Base from "../../layouts/Base.astro";
-import RankedList from "../../components/RankedList.astro";
+import GenrePair from "../../components/GenrePair.astro";
+import RecordGenreNote from "../../components/RecordGenreNote.astro";
+import Tabs from "../../components/Tabs.astro";
 import TimeChart from "../../components/TimeChart.astro";
-import { formatDate, plural } from "../../lib/format.ts";
-import { asOf, type Item } from "../../lib/overview.ts";
-import { filteredChart, genreBySlug, genreDetail, periodKeys, windowChart, type ArtistEntry, type TrackEntry } from "../../lib/queries.ts";
-import { trackHref } from "../../lib/search.ts";
+import { formatDate, periodBounds, plural } from "../../lib/format.ts";
+import { asOf } from "../../lib/overview.ts";
+import { filteredChart, genreBySlug, genreDetail, hasRecordChart, hasShowChart, periodKeys, windowChart, type ChartFilter } from "../../lib/queries.ts";
 import { yearShareLine } from "../../lib/series.ts";
 
 const genre = genreBySlug(Astro.params.slug ?? "");
 if (!genre) return new Response(null, { status: 404 });
 const d = genreDetail(genre.slug);
-const filter = { genre };
+const tagged = genre.episodes > 0;
+const records = genre.tracks > 0 && (hasRecordChart(genre) || !tagged);
+const shows = tagged && (hasShowChart(genre) || !records);
+const kinds = [
+  ...(records ? [{ key: "records", label: `${genre.name} records`, filter: { genre, by: "records" } as ChartFilter }] : []),
+  ...(shows ? [{ key: "shows", label: `On ${genre.name} shows`, filter: { genre, by: "shows" } as ChartFilter }] : []),
+];
 
 // Last 4 weeks (the latest 4-week chart) and the last 12 months up to the latest data.
 const latest = periodKeys("rolling").at(-1);
-const recent = latest ? filteredChart("rolling", latest, filter) : null;
 const end = asOf();
 end.setUTCHours(24, 0, 0, 0);
-const year = windowChart(filter, new Date(end.getTime() - 365 * 86_400_000), end, 20);
-
-const trackItem = (t: TrackEntry): Item => ({ rank: t.rank, title: t.title, href: trackHref(t), artists: t.artists, credit: t.artistDisplay, kind: "track", count: plural(t.score, "ep") });
-const artistItem = (a: ArtistEntry): Item => ({ rank: a.rank, title: a.name, href: `/artists/${a.slug}/`, kind: "artist", count: plural(a.score, "ep") });
+const yearRange = { start: new Date(end.getTime() - 365 * 86_400_000), end };
+const charts = kinds.map((k) => ({
+  ...k,
+  recent: latest ? filteredChart("rolling", latest, k.filter) : null,
+  year: windowChart(k.filter, yearRange.start, yearRange.end, 20),
+  fullHref: latest ? `/charts/rolling/${latest}/?genre=${genre.slug}${k.key === "shows" && records ? "&by=shows" : ""}` : null,
+}));
 const thisYear = d.years.at(-1);
-const filterHref = latest ? `/charts/rolling/${latest}/?genre=${genre.slug}` : null;
+const what = (key: string) => key === "records" ? `${genre.name} records` : `episodes tagged ${genre.name}`;
+const n = (x: number) => x.toLocaleString("en-GB");
 ---
-<Base title={`${genre.name} on NTS`} description={`${genre.name} on NTS Radio: the most-played tracks and artists in episodes tagged ${genre.name}, the shows that play it, and how it has grown.`} section="genres">
+<Base title={`${genre.name} on NTS`} description={`${genre.name} on NTS Radio: the most-played ${genre.name} records, what the shows tagged ${genre.name} play, and how it has grown.`} section="genres">
   <article>
     <p class="eyebrow"><a href="/genres/">Genre</a></p>
     <h1>{genre.name}</h1>
-    <p class="lede">From the genre tags NTS gives each episode. {plural(d.stats.episodes, "episode")} tagged {genre.name}{d.stats.first && `, since ${formatDate(d.stats.first)}`}.</p>
+    <p class="lede">
+      {genre.tracks > 0 && <>{genre.name} records are tracks whose release <a href="https://www.discogs.com/">Discogs</a> files under {genre.name}: {plural(genre.tracks, "record")} so far. </>}
+      {tagged
+        ? <>{genre.name} shows are the episodes NTS tags {genre.name}: {plural(d.stats.episodes, "episode")}{d.stats.first && ` since ${formatDate(d.stats.first)}`}.</>
+        : <>NTS doesn't tag episodes {genre.name}, so there are only records.</>}
+      {tagged && !records && <> Too few records have this genre on Discogs for a chart of its own, so the charts are of what these shows play.</>}
+    </p>
 
     <div class="stats">
-      <div class="stat"><div class="label">Episodes</div><div class="value">{d.stats.episodes.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">Shows</div><div class="value">{d.stats.shows.toLocaleString("en-GB")}</div></div>
-      <div class="stat"><div class="label">Share of episodes{thisYear && `, ${thisYear.year}`}</div><div class="value">{thisYear && thisYear.total ? `${Math.round((1000 * thisYear.tagged) / thisYear.total) / 10}%` : "—"}</div></div>
-      <div class="stat"><div class="label">Last tagged</div><div class="value" style="font-size:1rem;padding-top:0.4rem">{d.stats.last ? formatDate(d.stats.last) : "—"}</div></div>
+      {genre.tracks > 0 && <div class="stat"><div class="label">Records</div><div class="value">{n(genre.tracks)}</div></div>}
+      {tagged && <div class="stat"><div class="label">Episodes</div><div class="value">{n(d.stats.episodes)}</div></div>}
+      {tagged && <div class="stat"><div class="label">Shows</div><div class="value">{n(d.stats.shows)}</div></div>}
+      {tagged && <div class="stat"><div class="label">Share of episodes{thisYear && `, ${thisYear.year}`}</div><div class="value">{thisYear && thisYear.total ? `${Math.round((1000 * thisYear.tagged) / thisYear.total) / 10}%` : "—"}</div></div>}
+      {tagged && <div class="stat"><div class="label">Last tagged</div><div class="value" style="font-size:1rem;padding-top:0.4rem">{d.stats.last ? formatDate(d.stats.last) : "—"}</div></div>}
     </div>
 
-    <div class="grid-2 section">
-      <TimeChart title="Over the years" caption={`Share of genre-tagged episodes tagged ${genre.name}`} data={yearShareLine(d.years)} labelHeader="Year" />
-      <section class="card">
-        <h2>Shows that tag it most</h2>
-        <ul class="plain" data-collapse-list="10">
-          {d.shows.map((s) => <li><span><a href={s.href}>{s.name}</a>{s.guest && <span class="muted"> · guest</span>}</span><span class="count">{plural(s.episodes, "episode")}</span></li>)}
-        </ul>
-      </section>
-    </div>
-
-    {recent && (recent.tracks.length > 0 || recent.artists.length > 0) && (
-      <section class="section">
-        <h2>Last 4 weeks</h2>
-        <p class="section-meta">Most-played in episodes tagged {genre.name}{filterHref && <> · <a href={filterHref}>full chart</a></>}</p>
-        <div class="grid-2">
-          <section class="card"><h3>Tracks</h3>{recent.tracks.length ? <RankedList items={recent.tracks.slice(0, 10).map(trackItem)} /> : <p class="muted">No track was played in more than one episode.</p>}</section>
-          <section class="card"><h3>Artists</h3><RankedList items={recent.artists.slice(0, 10).map(artistItem)} /></section>
-        </div>
-      </section>
+    {tagged && (
+      <div class="grid-2 section">
+        <TimeChart title="Shows over the years" caption={`Share of genre-tagged episodes tagged ${genre.name}`} data={yearShareLine(d.years)} labelHeader="Year" />
+        <section class="card">
+          <h2>Shows that tag it most</h2>
+          <ul class="plain" data-collapse-list="10">
+            {d.shows.map((s) => <li><span><a href={s.href}>{s.name}</a>{s.guest && <span class="muted"> · guest</span>}</span><span class="count">{plural(s.episodes, "episode")}</span></li>)}
+          </ul>
+        </section>
+      </div>
     )}
 
     <section class="section">
+      <h2>Last 4 weeks</h2>
+      {charts.length > 1 && <Tabs id="genre-recent" tabs={charts.map((c) => ({ key: c.key, label: c.label }))} />}
+      {charts.map((c) => (
+        <div class="tabpanel" id={charts.length > 1 ? `genre-recent-${c.key}` : undefined} role={charts.length > 1 ? "tabpanel" : undefined}>
+          <p class="section-meta">Most-played {what(c.key)}{c.fullHref && <> · <a href={c.fullHref}>full chart</a></>}</p>
+          {c.recent && <GenrePair tracks={c.recent.tracks} artists={c.recent.artists} limit={10} empty="Nothing played in more than one episode." />}
+          {c.key === "records" && latest && <RecordGenreNote genre={genre} range={periodBounds("rolling", latest)} />}
+        </div>
+      ))}
+    </section>
+
+    <section class="section">
       <h2>Last 12 months</h2>
-      <p class="section-meta">Most-played in episodes tagged {genre.name}, by episodes that played them</p>
-      <div class="grid-2">
-        <section class="card"><h3>Tracks</h3>{year.tracks.length ? <RankedList items={year.tracks.map(trackItem)} collapse={10} /> : <p class="muted">No track was played in more than one episode.</p>}</section>
-        <section class="card"><h3>Artists</h3>{year.artists.length ? <RankedList items={year.artists.map(artistItem)} collapse={10} /> : <p class="muted">Not tagged in the last 12 months.</p>}</section>
-      </div>
+      {charts.length > 1 && <Tabs id="genre-year" tabs={charts.map((c) => ({ key: c.key, label: c.label }))} />}
+      {charts.map((c) => (
+        <div class="tabpanel" id={charts.length > 1 ? `genre-year-${c.key}` : undefined} role={charts.length > 1 ? "tabpanel" : undefined}>
+          <p class="section-meta">Most-played {what(c.key)}, by episodes that played them</p>
+          <GenrePair tracks={c.year.tracks} artists={c.year.artists} collapse={10} empty="Nothing played in more than one episode." />
+          {c.key === "records" && <RecordGenreNote genre={genre} range={yearRange} />}
+        </div>
+      ))}
     </section>
 
     {d.neighbours.length > 0 && (
       <section class="card section">
         <h2>Often tagged with</h2>
         <p class="tag-list">
-          {d.neighbours.map((n) => <a class="genre-tag" href={`/genres/${n.slug}/`}>{n.name} <span class="muted">{n.together.toLocaleString("en-GB")}</span></a>)}
+          {d.neighbours.map((g) => <a class="genre-tag" href={`/genres/${g.slug}/`}>{g.name} <span class="muted">{n(g.together)}</span></a>)}
         </p>
       </section>
     )}

@@ -1,0 +1,14 @@
+---
+// Under a chart of a genre's records: where record genres come from, and how much of the period's
+// music they cover, so a thin chart reads as thin data rather than a quiet genre.
+import { recordGenreCoverage, type GenreRow } from "../lib/queries.ts";
+interface Props { genre: GenreRow; range: { start: Date; end: Date }; showsHref?: string }
+const { genre, range, showsHref } = Astro.props;
+const c = recordGenreCoverage(range.start, range.end);
+const pct = (n: number) => `${Math.round((100 * n) / (c.tracks || 1))}%`;
+---
+<p class="record-genre-note small muted">
+  {genre.name} records are tracks whose release <a href="https://www.discogs.com/">Discogs</a> files under {genre.name}.{" "}
+  {c.tracks > 0 && <>Genres are known for {pct(c.known)} of the tracks played in 2 or more episodes in this period{c.unchecked / c.tracks >= 0.05 && <>; {pct(c.unchecked)} haven't been looked up yet</>}, so the rest can't appear here.</>}
+  {showsHref && <> <a href={showsHref}>What {genre.name} shows played instead →</a></>}
+</p>

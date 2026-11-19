@@ -1,0 +1,17 @@
+---
+// A genre's top tracks and artists side by side (genre pages), for its records or its shows.
+import RankedList from "./RankedList.astro";
+import { plural } from "../lib/format.ts";
+import type { Item } from "../lib/overview.ts";
+import type { ArtistEntry, TrackEntry } from "../lib/queries.ts";
+import { trackHref } from "../lib/search.ts";
+interface Props { tracks: TrackEntry[]; artists: ArtistEntry[]; limit?: number; collapse?: number; empty: string }
+const { tracks, artists, limit, collapse, empty } = Astro.props;
+const trackItem = (t: TrackEntry): Item => ({ rank: t.rank, title: t.title, href: trackHref(t), artists: t.artists, credit: t.artistDisplay, kind: "track", count: plural(t.score, "ep") });
+const artistItem = (a: ArtistEntry): Item => ({ rank: a.rank, title: a.name, href: `/artists/${a.slug}/`, kind: "artist", count: plural(a.score, "ep") });
+const cut = <T,>(xs: T[]) => (limit ? xs.slice(0, limit) : xs);
+---
+<div class="grid-2">
+  <section class="card"><h3>Tracks</h3>{tracks.length ? <RankedList items={cut(tracks).map(trackItem)} collapse={collapse} /> : <p class="muted">{empty}</p>}</section>
+  <section class="card"><h3>Artists</h3>{artists.length ? <RankedList items={cut(artists).map(artistItem)} collapse={collapse} /> : <p class="muted">{empty}</p>}</section>
+</div>

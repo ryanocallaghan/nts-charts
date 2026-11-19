@@ -39,6 +39,9 @@ export const ENRICH_ARTISTS_SQL = `
   LIMIT ?`;
 export const ENRICH_ARTISTS_PARAMS = [ENRICH_MIN_EPISODES, ENRICH_MIN_SHOWS, ENRICH_LIMIT] as const;
 
+/** A Discogs style with no NTS tag becomes a genre once this many records have it. */
+export const DISCOGS_GENRE_MIN_TRACKS = Number(process.env.DISCOGS_GENRE_MIN_TRACKS ?? 20);
+
 // ---------- charts ----------
 
 export const CHART_SIZE = Number(process.env.CHART_SIZE ?? 50);
@@ -53,13 +56,15 @@ export interface RankOptions {
   range?: boolean;
   /** Only the period whose key is bound after any `where` parameters. */
   onePeriod?: boolean;
+  /** Extra condition on the played track (`p.track_id`), e.g. a record genre; its params come after the period key. */
+  trackWhere?: string;
 }
 
 /**
  * Rank tracks or artists by the distinct episodes that played them in each chart period. Ties: more
  * shows, then the most recent play. A show's theme tune doesn't count for that show. Rows:
  * (periodKey, entityId, rank, score, shows).
- * Bind, in order: [range start, range end], ...where params, [period key], CHART_MIN_SCORE, size.
+ * Bind, in order: [range start, range end], ...where params, [period key], ...trackWhere params, CHART_MIN_SCORE, size.
  * aggregate.ts ranks every period at once; the site ranks one period of a filtered chart.
  */
 export function rankSql(periodType: PeriodType, entity: "track" | "artist", opts: RankOptions = {}): string {
@@ -81,7 +86,7 @@ export function rankSql(periodType: PeriodType, entity: "track" | "artist", opts
              count(DISTINCT ep.show_key) AS shows,
              max(ep.broadcast_at) AS last_play
       FROM plays p JOIN ep ON ep.alias = p.episode_alias ${join}
-      WHERE ${opts.onePeriod ? "ep.pk = ? AND " : ""}NOT EXISTS (SELECT 1 FROM theme_tunes tt WHERE tt.show_key = ep.show_key AND tt.track_id = p.track_id)
+      WHERE ${opts.onePeriod ? "ep.pk = ? AND " : ""}${opts.trackWhere ? `(${opts.trackWhere}) AND ` : ""}NOT EXISTS (SELECT 1 FROM theme_tunes tt WHERE tt.show_key = ep.show_key AND tt.track_id = p.track_id)
       GROUP BY ep.pk, ${id}
       HAVING score >= ?
     ),

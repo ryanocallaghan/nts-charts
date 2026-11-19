@@ -69,7 +69,8 @@ if (genre) {
   const charts = await fetch(`${base}/charts/`).then((r) => r.text());
   const rolling = charts.match(/\/charts\/rolling\/(\d{4}-W\d\d)\//)?.[1] ?? home.match(/\/charts\/rolling\/(\d{4}-W\d\d)\//)?.[1];
   if (rolling) {
-    await check(`/charts/rolling/${rolling}/?genre=${genre}`, { status: 200, contains: "only episodes tagged" });
+    await check(`/charts/rolling/${rolling}/?genre=${genre}&by=shows`, { status: 200, contains: "only episodes tagged" });
+    await check(`/charts/rolling/${rolling}/?genre=${genre}`, { status: 200, contains: "only " });
     await check(`/charts/rolling/${rolling}/?genre=no-such-genre-zz9`, { status: 404 });
   }
 }

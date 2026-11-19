@@ -7,4 +7,8 @@
 dir=dist/client/_astro
 cp -r astro-build/. "$dir"/ || echo "start.sh: couldn't copy this build's assets into $dir" >&2
 find "$dir" -type f -mtime +7 -delete 2>/dev/null || true
+# The site opens the database read-only, so bring its tables and columns up to date with db/schema.sql
+# first (new tables, added columns; it takes a moment and leaves data alone).
+node --input-type=module -e "import { openDb } from './ingest/db.ts'; openDb().close();" \
+  || echo "start.sh: couldn't update the database schema" >&2
 exec node dist/server/entry.mjs

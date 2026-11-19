@@ -11,6 +11,7 @@ A personal project, not affiliated with NTS.
   - Tracks are matched by artist and title, then by ISRC. Artist credits are split into individual artists.
 - Charts rank tracks and artists by the number of distinct episodes that played them in a week, month or year.
 - `ingest/aggregate.ts` rebuilds the charts and the search index after each crawl.
+- Tracks played in two or more episodes are looked up on [Discogs](https://www.discogs.com) for their record's styles (`ingest/record-genres.ts`, most-played first, about 3,000 an hour). These are the "records" in genre charts: a House record is one whose release Discogs files under House, whichever show played it. Where Discogs' name is the same genre as an NTS tag it uses the NTS tag (`ingest/discogs.ts`); other styles become genres of their own once 20 records have them. NTS's episode tags are still there as each genre's "shows" view.
 - The most-played artists are matched to [MusicBrainz](https://musicbrainz.org) (by ISRC, or an exact unambiguous name) for facts, Bandcamp/Instagram/Discogs links and a short intro from Wikipedia or the MusicBrainz annotation (`ingest/enrich.ts`, at most 1 request per second).
 - The site is an [Astro](https://astro.build) server that renders each page from the database when it's requested, so new data shows up as soon as it's aggregated. Every artist, show and repeat guest has a page. Pages are cached for an hour by Cloudflare in front.
 
@@ -58,8 +59,11 @@ Cron on the server, in UK time, kept clear of MY BIN.DAY's jobs (2pm, 6pm and ea
 ```
 15 10,22 * * * cd ~/nts-charts && flock -n /tmp/nts-db.lock sh -c 'docker compose exec -T web node ingest/incremental.ts && docker compose exec -T web node ingest/aggregate.ts' > /tmp/nts-update.log 2>&1
 0 23 * * * cd ~/nts-charts && flock -n /tmp/nts-db.lock docker compose exec -T web node ingest/enrich.ts --max-minutes 90 > /tmp/nts-enrich.log 2>&1
+45 0 * * * cd ~/nts-charts && flock -n /tmp/nts-db.lock docker compose exec -T web node ingest/record-genres.ts --max-minutes 60 > /tmp/nts-genres.log 2>&1
 0 11 * * 1 cd ~/nts-charts && sh scripts/backup-db.sh > /tmp/nts-backup.log 2>&1
 ```
+
+Record genres need a [Discogs personal access token](https://www.discogs.com/settings/developers) ("Generate new token"; no app key or secret) in `~/nts-charts/.env` as `DISCOGS_TOKEN=...`. Lookups made at 00:45 show up after the next 10:15 update.
 
 The weekly backup keeps the last four copies in `~/backups` and uploads one to the `db-latest` release. It needs the GitHub CLI (`sudo apt install gh`), signed in once with `gh auth login --with-token` using a fine-grained token for this repository with **Contents: read and write**.
 

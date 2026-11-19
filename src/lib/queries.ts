@@ -452,26 +452,35 @@ export function search(query: string, limit = 50): { short: boolean; total: numb
 
 // ---------- genres and places ----------
 
-export interface GenreRow { slug: string; name: string; episodes: number }
+/**
+ * A genre: an NTS tag on episodes (episodes > 0), a genre of records from Discogs (tracks > 0), or
+ * usually both. A genre with no NTS tag is a Discogs style.
+ */
+export interface GenreRow { slug: string; name: string; episodes: number; tracks: number }
 
-/** Every genre, biggest first. */
+/** Every genre, most-tagged episodes first, then most records. */
 export function allGenres(): readonly GenreRow[] {
-  return memo("genres", () => Object.freeze(all<GenreRow>("SELECT slug, name, episodes FROM genres ORDER BY episodes DESC, name")));
+  return memo("genres", () => Object.freeze(all<GenreRow>("SELECT slug, name, episodes, tracks FROM genres ORDER BY episodes DESC, tracks DESC, name")));
 }
 
 export function genreBySlug(slug: string): GenreRow | undefined {
   return memo("genresBySlug", () => new Map(allGenres().map((g) => [g.slug, g]))).get(slug);
 }
 
-// Charts can be narrowed to genres and places with enough episodes to make a chart worth reading.
+// Charts can be narrowed to genres and places with enough episodes, or records, to make a chart worth reading.
 const FILTER_MIN_EPISODES = 200;
+const FILTER_MIN_TRACKS = 50;
 
 /** Genres offered as chart filters, by name. */
 export function filterGenres(): readonly GenreRow[] {
   return memo("filterGenres", () => Object.freeze(
-    allGenres().filter((g) => g.episodes >= FILTER_MIN_EPISODES).sort((a, b) => a.name.localeCompare(b.name, "en-GB")),
+    allGenres().filter((g) => g.episodes >= FILTER_MIN_EPISODES || g.tracks >= FILTER_MIN_TRACKS).sort((a, b) => a.name.localeCompare(b.name, "en-GB")),
   ));
 }
+
+/** Whether a genre has enough records (Discogs) or tagged episodes (NTS) for a chart of each kind. */
+export const hasRecordChart = (g: GenreRow) => g.tracks >= FILTER_MIN_TRACKS;
+export const hasShowChart = (g: GenreRow) => g.episodes >= FILTER_MIN_EPISODES;
 
 export interface PlaceRow { name: string; episodes: number }
 
@@ -485,23 +494,42 @@ export function filterPlaces(): readonly PlaceRow[] {
   )));
 }
 
-/** A chart narrowed to episodes tagged with a genre and/or broadcast from a place. */
-export interface ChartFilter { genre?: GenreRow; place?: string }
+/**
+ * A chart narrowed to a genre and/or the place episodes were broadcast from. A genre means records of
+ * that genre (Discogs), or with `by: "shows"`, anything played in episodes NTS tags with it.
+ */
+export interface ChartFilter { genre?: GenreRow; by?: "records" | "shows"; place?: string }
+
+export const byShows = (f: ChartFilter) => f.by === "shows";
 
 export function filterLabel(f: ChartFilter): string {
-  return [f.genre?.name, f.place && `from ${f.place}`].filter(Boolean).join(", ");
+  return [f.genre && (byShows(f) ? `${f.genre.name} shows` : f.genre.name), f.place && `from ${f.place}`].filter(Boolean).join(", ");
+}
+
+/** What a filtered chart counts, for under its heading: "only House records and episodes broadcast from London". */
+export function filterDescription(f: ChartFilter): string {
+  return "only " + [
+    f.genre && (byShows(f) ? `episodes tagged ${f.genre.name}` : `${f.genre.name} records`),
+    f.place && `episodes broadcast from ${f.place}`,
+  ].filter(Boolean).join(" and ");
 }
 
 /** SQL condition on episodes for a filter; `prefix` qualifies the columns (e.g. "e."). */
 function filterWhere(f: ChartFilter, prefix = ""): { sql: string; params: string[] } {
   const parts: string[] = [];
   const params: string[] = [];
-  if (f.genre) { parts.push(`${prefix}alias IN (SELECT episode_alias FROM episode_genres WHERE genre_slug = ?)`); params.push(f.genre.slug); }
+  if (f.genre && byShows(f)) { parts.push(`${prefix}alias IN (SELECT episode_alias FROM episode_genres WHERE genre_slug = ?)`); params.push(f.genre.slug); }
   if (f.place) { parts.push(`${prefix}location = ?`); params.push(f.place); }
   return { sql: parts.join(" AND ") || "1", params };
 }
 
-const filterKey = (f: ChartFilter) => `${f.genre?.slug ?? ""}|${f.place ?? ""}`;
+/** SQL condition on the played track (p.track_id) for a filter: its record genre. */
+function filterTrackWhere(f: ChartFilter): { sql: string; params: string[] } {
+  if (!f.genre || byShows(f)) return { sql: "", params: [] };
+  return { sql: "p.track_id IN (SELECT track_id FROM track_genres WHERE genre_slug = ?)", params: [f.genre.slug] };
+}
+
+const filterKey = (f: ChartFilter) => `${f.genre?.slug ?? ""}|${byShows(f) ? "shows" : "records"}|${f.place ?? ""}`;
 
 type RankRow = { entityId: number; rank: number; score: number; shows: number };
 
@@ -509,9 +537,10 @@ type RankRow = { entityId: number; rank: number; score: number; shows: number };
 function rankFiltered(type: PeriodType, key: string, entity: "track" | "artist", filter: ChartFilter, range: { start: Date; end: Date }): RankRow[] {
   return cached(`rank:${type}:${key}:${entity}:${filterKey(filter)}:${range.start.toISOString()}:${range.end.toISOString()}`, () => {
     const w = filterWhere(filter);
+    const t = filterTrackWhere(filter);
     return all<RankRow>(
-      rankSql(type, entity, { where: w.sql, range: true, onePeriod: true }),
-      range.start.toISOString(), range.end.toISOString(), ...w.params, key, CHART_MIN_SCORE, CHART_SIZE,
+      rankSql(type, entity, { where: w.sql, range: true, onePeriod: true, trackWhere: t.sql || undefined }),
+      range.start.toISOString(), range.end.toISOString(), ...w.params, key, ...t.params, CHART_MIN_SCORE, CHART_SIZE,
     );
   });
 }
@@ -569,6 +598,35 @@ export function windowChart(filter: ChartFilter, start: Date, end: Date, limit =
   return { tracks: resolveTracks(t, withPrevious(t, null)), artists: resolveArtists(a, withPrevious(a, null)) };
 }
 
+/**
+ * How much of a date range's chartable music (tracks played in at least CHART_MIN_SCORE episodes) has
+ * a known record genre, and how much hasn't been looked up on Discogs yet. For under record-genre charts.
+ */
+export function recordGenreCoverage(start: Date, end: Date): { tracks: number; known: number; unchecked: number } {
+  return cached(`recordCoverage:${start.toISOString()}:${end.toISOString()}`, () => get<{ tracks: number; known: number; unchecked: number }>(
+    `WITH t AS (
+       SELECT p.track_id id FROM plays p JOIN episodes e ON e.alias = p.episode_alias
+       WHERE e.broadcast_at >= ? AND e.broadcast_at < ? GROUP BY p.track_id HAVING count(DISTINCT p.episode_alias) >= ?)
+     SELECT count(*) tracks,
+            coalesce(sum(EXISTS (SELECT 1 FROM track_genres tg WHERE tg.track_id = t.id)), 0) known,
+            coalesce(sum(NOT EXISTS (SELECT 1 FROM track_discogs d WHERE d.track_id = t.id)), 0) unchecked
+     FROM t`,
+    start.toISOString(), end.toISOString(), CHART_MIN_SCORE,
+  )!);
+}
+
+/** A track's record genres and the Discogs release they're from, or null if none are known. */
+export function trackGenres(trackId: number): { genres: GenreRow[]; release: string; url: string | null } | null {
+  const d = get<{ release: string; url: string | null }>("SELECT release, url FROM track_discogs WHERE track_id = ? AND found = 1", trackId);
+  if (!d) return null;
+  const genres = all<GenreRow>(
+    `SELECT g.slug, g.name, g.episodes, g.tracks FROM track_genres tg JOIN genres g ON g.slug = tg.genre_slug
+     WHERE tg.track_id = ? ORDER BY g.tracks DESC, g.name`,
+    trackId,
+  );
+  return genres.length ? { genres, release: d.release, url: d.url } : null;
+}
+
 /** Episodes with at least one genre tag, per year (the base for every genre's yearly share). */
 function taggedEpisodesByYear(): Map<string, number> {
   return memo("taggedEpisodesByYear", () => new Map(all<{ year: string; n: number }>(
@@ -624,7 +682,7 @@ export function genreRiver(n = 7) {
     }
     const share = (q: string, tags: number) => Math.round((1000 * tags) / (totals.get(q) || 1)) / 10;
     const series = top.map((g) => ({ name: g.name, slug: g.slug, values: quarters.map((q) => share(q, by.get(`${q}|${g.slug}`) ?? 0)) }));
-    return { quarters, series, others: allGenres().length - top.length };
+    return { quarters, series, others: allGenres().filter((g) => g.episodes > 0).length - top.length };
   });
 }
 

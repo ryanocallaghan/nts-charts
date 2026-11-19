@@ -30,7 +30,13 @@ beforeAll(async () => {
       ('feb-1', 1, 2), ('feb-2', 1, 2),
       ('mar-1', 1, 1), ('mar-1', 2, 3), ('mar-2', 1, 1), ('mar-2', 2, 2), ('mar-3', 1, 1),
       ('mar-4', 1, 2), ('mar-5', 1, 2);
-    INSERT INTO genres(slug, name, episodes) VALUES ('house', 'House', 5), ('jazz', 'Jazz', 2);
+    INSERT INTO genres(slug, name, episodes, tracks) VALUES ('house', 'House', 5, 0), ('jazz', 'Jazz', 2, 1), ('downtempo', 'Downtempo', 0, 1);
+    -- Record genres: track 2 is a Jazz and Downtempo record on Discogs; track 1 was looked up and not
+    -- found; track 3 hasn't been looked up.
+    INSERT INTO track_discogs(track_id, checked_at, found, url, release, styles_json, genres_json) VALUES
+      (1, '2021-04-01', 0, NULL, NULL, NULL, NULL),
+      (2, '2021-04-01', 1, 'https://www.discogs.com/master/2', 'Two - B', '["Downtempo"]', '["Jazz"]');
+    INSERT INTO track_genres(genre_slug, track_id) VALUES ('jazz', 2), ('downtempo', 2);
     INSERT INTO episode_genres(genre_slug, episode_alias) VALUES
       ('house', 'feb-1'), ('house', 'feb-2'), ('house', 'mar-1'), ('house', 'mar-2'), ('house', 'mar-3'),
       ('jazz', 'mar-4'), ('jazz', 'mar-5');
@@ -52,7 +58,7 @@ const ids = (rows: { id: number }[]) => rows.map((r) => r.id);
 describe("filteredChart", () => {
   it("counts only episodes tagged with the genre", () => {
     const house = q.genreBySlug("house")!;
-    const c = q.filteredChart("month", "2021-03", { genre: house });
+    const c = q.filteredChart("month", "2021-03", { genre: house, by: "shows" });
     expect(ids(c.tracks)).toEqual([1]); // track 2 had one House episode in March: below the minimum of 2
     expect(c.tracks[0]).toMatchObject({ rank: 1, score: 3, shows: 3, prevRank: null, status: "new" });
     expect(c.artists.map((a) => a.slug)).toEqual(["one"]);
@@ -62,7 +68,7 @@ describe("filteredChart", () => {
     expect(ids(c.tracks)).toEqual([2]);
   });
   it("combines genre and place", () => {
-    expect(q.filteredChart("month", "2021-03", { genre: q.genreBySlug("jazz")!, place: "London" }).tracks).toEqual([]);
+    expect(q.filteredChart("month", "2021-03", { genre: q.genreBySlug("jazz")!, by: "shows", place: "London" }).tracks).toEqual([]);
   });
   it("compares with the same filter's previous period", () => {
     const c = q.filteredChart("month", "2021-03", { place: "London" });
@@ -75,16 +81,48 @@ describe("filteredChart", () => {
   });
 });
 
+describe("record genres", () => {
+  it("counts every play of the genre's records, whatever the show", () => {
+    const c = q.filteredChart("month", "2021-03", { genre: q.genreBySlug("jazz")! });
+    expect(c.tracks.map((t) => [t.id, t.score, t.shows])).toEqual([[2, 3, 2]]); // mar-2 (House), mar-4, mar-5
+    expect(c.artists.map((a) => a.slug)).toEqual(["two"]);
+  });
+  it("doesn't use episode tags", () => {
+    expect(q.filteredChart("month", "2021-03", { genre: q.genreBySlug("house")! }).tracks).toEqual([]);
+  });
+  it("combines with a place", () => {
+    expect(ids(q.filteredChart("month", "2021-03", { genre: q.genreBySlug("downtempo")!, place: "Berlin" }).tracks)).toEqual([2]);
+    expect(q.filteredChart("month", "2021-03", { genre: q.genreBySlug("downtempo")!, place: "London" }).tracks).toEqual([]);
+  });
+  it("says how much of the period's chartable music has a known genre", () => {
+    // March: tracks 1 and 2 are in 2+ episodes; only 2 has genres; both were looked up.
+    expect(q.recordGenreCoverage(new Date("2021-03-01"), new Date("2021-04-01"))).toEqual({ tracks: 2, known: 1, unchecked: 0 });
+    expect(q.recordGenreCoverage(new Date("2022-01-01"), new Date("2022-02-01"))).toEqual({ tracks: 0, known: 0, unchecked: 0 });
+  });
+  it("gives a track's genres and release", () => {
+    expect(q.trackGenres(2)).toMatchObject({ release: "Two - B", url: "https://www.discogs.com/master/2", genres: [{ slug: "downtempo" }, { slug: "jazz" }] });
+    expect(q.trackGenres(1)).toBeNull();
+    expect(q.trackGenres(3)).toBeNull();
+  });
+  it("labels the two kinds of genre filter", () => {
+    const jazz = q.genreBySlug("jazz")!;
+    expect(q.filterLabel({ genre: jazz })).toBe("Jazz");
+    expect(q.filterLabel({ genre: jazz, by: "shows", place: "Berlin" })).toBe("Jazz shows, from Berlin");
+    expect(q.filterDescription({ genre: jazz, place: "Berlin" })).toBe("only Jazz records and episodes broadcast from Berlin");
+    expect(q.filterDescription({ genre: jazz, by: "shows" })).toBe("only episodes tagged Jazz");
+  });
+});
+
 describe("windowChart", () => {
   it("ranks over any date range, ties going to more shows", () => {
-    const w = q.windowChart({ genre: q.genreBySlug("house")! }, new Date("2021-02-01"), new Date("2021-04-01"));
+    const w = q.windowChart({ genre: q.genreBySlug("house")!, by: "shows" }, new Date("2021-02-01"), new Date("2021-04-01"));
     expect(w.tracks.map((t) => [t.id, t.score, t.shows])).toEqual([[1, 3, 3], [2, 3, 2]]);
   });
 });
 
 describe("genres", () => {
   it("lists genres biggest first and finds them by slug", () => {
-    expect(q.allGenres().map((g) => g.slug)).toEqual(["house", "jazz"]);
+    expect(q.allGenres().map((g) => g.slug)).toEqual(["house", "jazz", "downtempo"]);
     expect(q.genreBySlug("nope")).toBeUndefined();
   });
   it("gives each top genre's share of the quarter's tags", () => {

@@ -1,28 +1,31 @@
 ---
-// Every genre NTS tags episodes with: how the biggest have shifted over time, and the full list.
+// Every genre: NTS's tags on episodes (how the biggest have shifted over time), and Discogs' styles of
+// the records played. The full list has both.
 import Base from "../../layouts/Base.astro";
 import GenreRiver from "../../components/GenreRiver.astro";
 import SearchField from "../../components/SearchField.astro";
 import { plural } from "../../lib/format.ts";
 import { allGenres, genreRiver } from "../../lib/queries.ts";
+import { DISCOGS_GENRE_MIN_TRACKS } from "../../lib/shared-sql.ts";
 import { genreStack } from "../../lib/series.ts";
 
 const LIST_MIN = 10; // genres with fewer episodes are mostly one-off tags
-const genres = allGenres().filter((g) => g.episodes >= LIST_MIN);
+const genres = allGenres().filter((g) => g.episodes >= LIST_MIN || g.tracks >= DISCOGS_GENRE_MIN_TRACKS);
+const count = (g: { episodes: number; tracks: number }) => [g.episodes >= LIST_MIN && plural(g.episodes, "episode"), g.tracks > 0 && plural(g.tracks, "record")].filter(Boolean).join(" · ");
 const river = genreRiver();
 ---
-<Base title="Genres" description="The genres NTS Radio tags its episodes with: how they've shifted since 2011, and the most-played tracks and artists in each." section="genres">
+<Base title="Genres" description="Genres on NTS Radio, from the tags NTS gives its episodes and the styles Discogs gives the records: how they've shifted since 2011, and the most-played tracks and artists in each." section="genres">
   <h1>Genres</h1>
-  <p class="lede">From the genre tags NTS gives each episode. Charts can also be narrowed to a genre.</p>
+  <p class="lede">Two kinds: the genre tags NTS gives each episode, and the styles <a href="https://www.discogs.com/">Discogs</a> gives the records played. Charts can also be narrowed to a genre.</p>
 
   <div class="section"><GenreRiver data={genreStack(river)} slugs={river.series.map((s) => s.slug)} others={river.others} /></div>
 
   <section class="section">
     <h2>All genres</h2>
-    <p class="section-meta">{plural(genres.length, "genre")} with at least {LIST_MIN} episodes, most-tagged first</p>
+    <p class="section-meta">{plural(genres.length, "genre")} with at least {LIST_MIN} episodes or {DISCOGS_GENRE_MIN_TRACKS} records, most-tagged first</p>
     <SearchField label="Filter genres" placeholder="Filter genres…" data-filter />
     <ul class="plain columns" data-filter-list>
-      {genres.map((g) => <li data-text={g.name.toLowerCase()}><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count">{plural(g.episodes, "episode")}</span></li>)}
+      {genres.map((g) => <li data-text={g.name.toLowerCase()}><a href={`/genres/${g.slug}/`}>{g.name}</a><span class="count">{count(g)}</span></li>)}
     </ul>
   </section>
 </Base>

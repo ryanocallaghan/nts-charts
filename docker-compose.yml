@@ -11,6 +11,8 @@ services:
       NODE_OPTIONS: --max-old-space-size=384
       # Umami analytics: the website ID from stats.mybin.day, set in ~/nts-charts/.env. Unset: none.
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # Discogs personal access token for record genres (ingest/record-genres.ts), in ~/nts-charts/.env.
+      DISCOGS_TOKEN: ${DISCOGS_TOKEN:-}
     volumes:
       - nts-data:/data
       # Every recent build's hashed scripts and styles (see scripts/start.sh)

@@ -6,8 +6,9 @@ import { isPlaceholder, slugify } from "./normalize.ts";
 import { FIRST_VALID_DATE } from "../src/lib/dates.ts";
 import { searchNorm, trackKey } from "../src/lib/search.ts";
 import { isoWeekStart } from "../src/lib/format.ts";
+import { mapGenres } from "./discogs.ts";
 // NTS files one-off guest mixes under one catch-all show; each guest (from the episode name) counts as its own show.
-import { ALL_TIME_CHART_SIZE, CHART_MIN_SCORE, CHART_SIZE, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql } from "../src/lib/shared-sql.ts";
+import { ALL_TIME_CHART_SIZE, CHART_MIN_SCORE, CHART_SIZE, DISCOGS_GENRE_MIN_TRACKS, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql } from "../src/lib/shared-sql.ts";
 
 
 const db = openDb();
@@ -106,6 +107,35 @@ tx(db, () => {
     SELECT strftime('%Y', e.broadcast_at) || '-Q' || ((CAST(strftime('%m', e.broadcast_at) AS INTEGER) + 2) / 3), eg.genre_slug, count(*)
     FROM episode_genres eg JOIN episodes e ON e.alias = eg.episode_alias GROUP BY 1, 2`);
   console.log(`  ${spellings.size} genres`);
+});
+
+// Record genres: each track's Discogs styles (from ingest/record-genres.ts), as NTS's tag where it's
+// the same genre and otherwise under Discogs' name. A Discogs-only genre is kept once enough records have it.
+tx(db, () => {
+  db.exec("DELETE FROM track_genres");
+  const nts = new Set((db.prepare("SELECT slug FROM genres").all() as { slug: string }[]).map((r) => r.slug));
+  const tag = db.prepare("INSERT OR IGNORE INTO track_genres(genre_slug, track_id) VALUES (?, ?)");
+  const names = new Map<string, Map<string, number>>();
+  for (const r of db.prepare("SELECT track_id id, styles_json s, genres_json g FROM track_discogs WHERE found = 1").iterate() as IterableIterator<{ id: number; s: string | null; g: string | null }>) {
+    for (const { slug, name } of mapGenres(JSON.parse(r.s ?? "[]"), JSON.parse(r.g ?? "[]"), nts)) {
+      tag.run(slug, r.id);
+      if (nts.has(slug)) continue;
+      const counts = names.get(slug) ?? new Map<string, number>();
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+      names.set(slug, counts);
+    }
+  }
+  const add = db.prepare("INSERT INTO genres(slug, name, episodes) VALUES (?, ?, 0)");
+  const drop = db.prepare("DELETE FROM track_genres WHERE genre_slug = ?");
+  let added = 0;
+  for (const [slug, counts] of names) {
+    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    if (total >= DISCOGS_GENRE_MIN_TRACKS) { add.run(slug, [...counts].sort((a, b) => b[1] - a[1])[0][0]); added++; }
+    else drop.run(slug);
+  }
+  db.exec("UPDATE genres SET tracks = (SELECT count(*) FROM track_genres tg WHERE tg.genre_slug = genres.slug)");
+  const n = db.prepare("SELECT count(DISTINCT track_id) n FROM track_genres").get() as { n: number };
+  console.log(`  ${n.n} tracks with record genres; ${added} genres from Discogs only`);
 });
 
 // Which artists each dated episode played, then per-artist totals from that.
