@@ -51,6 +51,7 @@ await check("/charts/season/2025-fall/", { status: 404 });
 await check("/charts/range/", { status: 200, contains: "Last 30 days", cached: true });
 await check("/charts/range/?from=2019-06-01&to=2019-08-31", { status: 200, contains: "1 Jun – 31 Aug 2019" });
 await check("/charts/range/?from=2015-01-01&to=2024-01-01", { status: 400, contains: "more than 3 years" });
+await check("/charts/range/?from=2022-01-01&to=2023-12-31", { status: 200, contains: "no arrows for ranges over a year" });
 await check("/charts/range/?from=2019-02-30&to=2019-03-01", { status: 400, contains: "real days" });
 await check("/charts/range/?genre=not-a-genre", { status: 404 });
 await check("/charts/compare/?a_from=2024-06-01&a_to=2024-08-31&b_from=2025-06-01&b_to=2025-08-31", { status: 200, contains: "Summer 2024 vs Summer 2025" });

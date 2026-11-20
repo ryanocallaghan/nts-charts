@@ -5,6 +5,8 @@ import { dateRange, dayKey, formatDate, parseDay, periodBounds, periodLabel, sea
 export const DAY = 86_400_000;
 /** The longest range a chart for any dates covers (3 years); longer ones have the yearly and all-time charts. */
 export const RANGE_MAX_DAYS = 1096;
+/** The longest range that gets arrows: ranking the time before as well doubles the work, and over years says little. */
+export const ARROWS_MAX_DAYS = 366;
 
 export interface DayRange {
   start: Date; // first day, midnight UTC

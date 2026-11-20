@@ -13,7 +13,7 @@ import { FIRST_VALID_DATE } from "../../lib/dates.ts";
 import { dateRange, dayKey, formatDate, parseDay, plural } from "../../lib/format.ts";
 import { asOf } from "../../lib/overview.ts";
 import { byShows, chartHrefsAt, filterDescription, filterLabel, filterParams, isFiltered, parseChartFilter, rangeChart } from "../../lib/queries.ts";
-import { DAY, dayRange, parseRange, rangeBefore, rangeParams, rangeYearsBefore, type DayRange } from "../../lib/ranges.ts";
+import { ARROWS_MAX_DAYS, DAY, dayRange, parseRange, rangeBefore, rangeParams, rangeYearsBefore, type DayRange } from "../../lib/ranges.ts";
 
 const params = Astro.url.searchParams;
 const filter = parseChartFilter(params);
@@ -29,7 +29,9 @@ const parsed = params.has("from") || params.has("to")
 const range = "problem" in parsed ? null : parsed;
 const problem = "problem" in parsed ? parsed.problem : "";
 if (problem) Astro.response.status = 400;
-const previous = range ? rangeBefore(range, bounds.first) : null;
+// Arrows against the same number of days just before, for ranges up to a year.
+const before = range ? rangeBefore(range, bounds.first) : null;
+const previous = range && range.days <= ARROWS_MAX_DAYS ? before : null;
 const chart = range ? await rangeChart(filter, range.start, range.end, previous && { start: previous.start, end: previous.end }) : null;
 
 const href = (r: DayRange, extra: Record<string, string> = keep) => `/charts/range/?${new URLSearchParams({ ...rangeParams(r), ...extra })}`;
@@ -49,7 +51,7 @@ const yearBefore = range ? rangeYearsBefore(range, 1, bounds.first) : null;
 
 const title = range ? dateRange(range.start, range.last) : "Pick dates";
 const sub = range
-  ? [`Chart for ${plural(range.days, "day")}`, previous ? `arrows compare with the ${plural(range.days, "day")} before` : "", filtered ? filterDescription(filter) : ""].filter(Boolean).join(" · ")
+  ? [`Chart for ${plural(range.days, "day")}`, previous ? `arrows compare with the ${plural(range.days, "day")} before` : before ? "no arrows for ranges over a year" : "", filtered ? filterDescription(filter) : ""].filter(Boolean).join(" · ")
   : "A chart for any dates";
 ---
 <Base title={`${title}${filtered ? ` · ${filterLabel(filter)}` : ""} · Chart for any dates`} description="A chart of the tracks and artists played on NTS Radio between any two dates." section="charts" noindex>
@@ -87,10 +89,10 @@ const sub = range
     <>
       <ChartFilters action="/charts/range/" filter={filter} keep={rangeParams(range!)} />
       {filter.genre && !byShows(filter) && <RecordGenreNote genre={filter.genre} range={{ start: range!.start, end: range!.end }} showsHref={filter.genre.episodes > 0 ? href(range!, { ...keep, by: "shows" }) : undefined} />}
-      {(previous || yearBefore) && (
+      {(before || yearBefore) && (
         <p class="range-compare small">Compare side by side with
-          {previous && <> <a href={compareHref(previous)}>the {plural(range!.days, "day")} before</a></>}
-          {previous && yearBefore && " or"}
+          {before && <> <a href={compareHref(before)}>the {plural(range!.days, "day")} before</a></>}
+          {before && yearBefore && " or"}
           {yearBefore && <> <a href={compareHref(yearBefore)}>the same dates a year earlier</a></>}
         </p>
       )}
