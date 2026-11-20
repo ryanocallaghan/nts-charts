@@ -1,6 +1,7 @@
 import { all, cached, get, memo } from "./db.ts";
 import { CHART_MIN_SCORE, CHART_SIZE, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql, SHOW_KEY } from "./shared-sql.ts";
 import { DATED } from "./dates.ts";
+import { sortPeriodKeys } from "../../ingest/charts.ts";
 import { ntsEpisodeUrl, periodBounds, rollingStartKey, type DatedPeriod, type PeriodType } from "./format.ts";
 import { searchHref, searchMeta, searchNorm, type SearchKind, type SearchResult } from "./search.ts";
 
@@ -71,7 +72,7 @@ export function artistsForTracks(trackIds: number[]): Map<number, ArtistRef[]> {
 /** Chart period keys, oldest first. Shared and cached: copy before sorting or reversing. */
 export function periodKeys(type: PeriodType): readonly string[] {
   return memo(`periodKeys:${type}`, () =>
-    Object.freeze(all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ? ORDER BY k", type).map((r) => r.k)),
+    Object.freeze(sortPeriodKeys(all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ?", type).map((r) => r.k))),
   );
 }
 
@@ -374,8 +375,9 @@ export interface EpisodePlay { episode: string; show: string; showName: string; 
 function periodFilter(type: PeriodType, key: string): { sql: string; params: string[] } {
   if (type === "all") return { sql: "", params: [] };
   if (type === "rolling") return { sql: "AND strftime('%G-W%V', e.broadcast_at) BETWEEN ? AND ?", params: [rollingStartKey(key), key] };
-  if (type === "quarter") {
-    return { sql: "AND strftime('%Y', e.broadcast_at) || '-Q' || ((CAST(strftime('%m', e.broadcast_at) AS INTEGER) + 2) / 3) = ?", params: [key] };
+  if (type === "season") {
+    const { start, end } = periodBounds(type, key);
+    return { sql: "AND e.broadcast_at >= ? AND e.broadcast_at < ?", params: [start.toISOString(), end.toISOString()] };
   }
   const fmt = { week: "%G-W%V", month: "%Y-%m", year: "%Y" }[type];
   return { sql: `AND strftime('${fmt}', e.broadcast_at) = ?`, params: [key] };

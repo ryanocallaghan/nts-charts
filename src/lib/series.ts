@@ -11,6 +11,7 @@ export function formatViz(kind: VizData["kind"], v: number | null): string {
 }
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const QUARTER_MONTHS = ["Jan–Mar", "Apr–Jun", "Jul–Sep", "Oct–Dec"];
 const yy = (y: number) => `’${String(y).slice(2)}`;
 
 export function monthlyBars(rows: { month: string; episodes: number }[]): VizData {
@@ -137,14 +138,14 @@ export function yearShareLine(rows: { year: string; tagged: number; total: numbe
   };
 }
 
-/** The top genres' shares stacked per quarter (biggest at the bottom); x labels show the year at each Q1. */
+/** The top genres' shares stacked per three months (biggest at the bottom); x labels show the year at each January. */
 export function genreStack(river: { quarters: string[]; series: { name: string; values: number[] }[] }): VizData {
   const peak = Math.max(0, ...river.quarters.map((_, i) => river.series.reduce((sum, s) => sum + s.values[i], 0)));
   return {
     kind: "stack",
     name: "Share of genre tags",
     x: river.quarters.map((q) => (q.endsWith("-Q1") ? q.slice(0, 4) : "")),
-    tip: river.quarters.map((q) => `${q.slice(5)} ${q.slice(0, 4)}`),
+    tip: river.quarters.map((q) => `${QUARTER_MONTHS[Number(q.slice(6)) - 1]} ${q.slice(0, 4)}`),
     y: [],
     max: Math.ceil(peak / 10) * 10,
     series: river.series.map((s, i) => ({ name: s.name, y: s.values, color: `--cat-${i + 1}` })),

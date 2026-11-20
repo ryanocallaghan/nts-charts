@@ -1,7 +1,8 @@
 ---
 import Base from "../../../layouts/Base.astro";
 import ChartView from "../../../components/ChartView.astro";
-import { DATED_PERIODS, isoWeekStart, periodBounds, periodDates, periodHeading, periodLabel, switchTargets, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
+import { DATED_PERIODS, isoWeekStart, periodBounds, periodDates, periodHeading, periodLabel, seasonForQuarter, switchTargets, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
+import { periodOrder } from "../../../../ingest/charts.ts";
 import { asOf } from "../../../lib/overview.ts";
 import PastYears from "../../../components/PastYears.astro";
 import ChartFilters from "../../../components/ChartFilters.astro";
@@ -11,6 +12,11 @@ import { byShows, filterDescription, filterLabel, filterPlaces, genreBySlug, has
 
 const type = Astro.params.type as DatedPeriod;
 const key = Astro.params.key ?? "";
+// Quarters became seasons: send old links to the season sharing most of their months.
+if ((type as string) === "quarter") {
+  const season = seasonForQuarter(key);
+  return season ? Astro.redirect(`/charts/season/${season}/${Astro.url.search}`, 301) : new Response(null, { status: 404 });
+}
 if (!DATED_PERIODS.includes(type)) return new Response(null, { status: 404 });
 const keys = periodKeys(type);
 const i = keys.indexOf(key);
@@ -61,7 +67,7 @@ const stepLabel = (k: string) => {
 const switchHref = (t: DatedPeriod) => {
   // No chart for that exact period (a gap, or before the charts began): the nearest earlier one, else the first.
   const ks = periodKeys(t);
-  const target = ks.includes(near[t]) ? near[t] : (ks.findLast((k) => k <= near[t]) ?? ks[0]);
+  const target = ks.includes(near[t]) ? near[t] : (ks.findLast((k) => periodOrder(k) <= periodOrder(near[t])) ?? ks[0]);
   return target ? `/charts/${t}/${target}/${query(t)}` : "/charts/";
 };
 ---

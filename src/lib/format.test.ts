@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareWindows, dateRange, periodBounds, periodDates, switchTargets, quarterKey, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
+import { compareWindows, dateRange, periodBounds, periodDates, switchTargets, seasonKey, seasonForQuarter, seasonLabel, formatChange, isoWeekKey, isoWeekStart, periodHeading, periodLabel, rollingStartKey, weekYearsAgo } from "./format.ts";
 
 describe("ISO weeks", () => {
   it("matches known ISO week numbers, including year boundaries", () => {
@@ -74,19 +74,37 @@ describe("overview helpers", () => {
   });
 });
 
-describe("quarters and in-progress titles", () => {
-  it("names, keys and bounds quarters", () => {
-    expect(quarterKey(new Date("2026-11-18T00:00:00Z"))).toBe("2026-Q4");
-    expect(quarterKey(new Date("2026-03-31T23:59:59Z"))).toBe("2026-Q1");
-    expect(periodLabel("quarter", "2026-Q4")).toBe("Q4 2026");
-    expect(periodHeading("quarter", "2026-Q4")).toMatchObject({ title: "Q4 2026", sub: "Quarterly chart" });
-    const b = periodBounds("quarter", "2026-Q4");
-    expect([b.start.toISOString(), b.end.toISOString()]).toEqual(["2026-10-01T00:00:00.000Z", "2027-01-01T00:00:00.000Z"]);
+describe("seasons and in-progress titles", () => {
+  it("keys dates by season, with December in the next year's winter", () => {
+    expect(seasonKey(new Date("2026-11-18T00:00:00Z"))).toBe("2026-autumn");
+    expect(seasonKey(new Date("2026-12-01T00:00:00Z"))).toBe("2027-winter");
+    expect(seasonKey(new Date("2026-02-28T23:59:59Z"))).toBe("2026-winter");
+    expect(seasonKey(new Date("2026-03-01T00:00:00Z"))).toBe("2026-spring");
+    expect(seasonKey(new Date("2026-05-31T23:59:59Z"))).toBe("2026-spring");
+    expect(seasonKey(new Date("2026-06-01T00:00:00Z"))).toBe("2026-summer");
+    expect(seasonKey(new Date("2026-08-31T23:59:59Z"))).toBe("2026-summer");
+    expect(seasonKey(new Date("2026-09-01T00:00:00Z"))).toBe("2026-autumn");
   });
-  it("labels quarter dates", () => {
+  it("names and bounds seasons", () => {
+    expect(seasonLabel("2026-summer")).toBe("Summer 2026");
+    expect(seasonLabel("2026-winter")).toBe("Winter 2025/26");
+    expect(seasonLabel("2000-winter")).toBe("Winter 1999/00");
+    expect(periodLabel("season", "2026-autumn")).toBe("Autumn 2026");
+    expect(periodHeading("season", "2026-autumn")).toMatchObject({ title: "Autumn 2026", sub: "Seasonal chart" });
+    const w = periodBounds("season", "2026-winter");
+    expect([w.start.toISOString(), w.end.toISOString()]).toEqual(["2025-12-01T00:00:00.000Z", "2026-03-01T00:00:00.000Z"]);
+    const a = periodBounds("season", "2026-autumn");
+    expect([a.start.toISOString(), a.end.toISOString()]).toEqual(["2026-09-01T00:00:00.000Z", "2026-12-01T00:00:00.000Z"]);
+  });
+  it("labels season dates", () => {
     const asOf = new Date("2026-11-18T09:00:00Z");
-    expect(periodDates("quarter", "2026-Q3", asOf)).toEqual({ text: "Jul – Sep 2026", inProgress: false });
-    expect(periodDates("quarter", "2026-Q4", asOf)).toEqual({ text: "1 Oct – 31 Dec 2026 · in progress, up to 18\u00a0Nov", inProgress: true });
+    expect(periodDates("season", "2026-summer", asOf)).toEqual({ text: "Jun – Aug 2026", inProgress: false });
+    expect(periodDates("season", "2026-winter", asOf)).toEqual({ text: "Dec 2025 – Feb 2026", inProgress: false });
+    expect(periodDates("season", "2026-autumn", asOf)).toEqual({ text: "1 Sep – 30 Nov 2026 · in progress, up to 18\u00a0Nov", inProgress: true });
+  });
+  it("sends old quarters to the season sharing two of their months", () => {
+    expect(["2026-Q1", "2026-Q2", "2026-Q3", "2026-Q4"].map(seasonForQuarter)).toEqual(["2026-winter", "2026-spring", "2026-summer", "2026-autumn"]);
+    expect(seasonForQuarter("2026-Q5")).toBeNull();
   });
   it("doesn't promise an end date for a running 4-week chart", () => {
     expect(periodHeading("rolling", "2026-W47", true).title).toBe("Last 4 weeks");
@@ -97,12 +115,13 @@ describe("quarters and in-progress titles", () => {
 describe("switchTargets", () => {
   const asOf = new Date("2026-11-18T09:00:00Z"); // a Wednesday in 2026-W47
   it("goes to the latest data from a running period, not its start", () => {
-    expect(switchTargets("year", "2026", asOf)).toEqual({ week: "2026-W47", rolling: "2026-W47", month: "2026-11", quarter: "2026-Q4", year: "2026" });
-    expect(switchTargets("quarter", "2026-Q4", asOf).month).toBe("2026-11");
+    expect(switchTargets("year", "2026", asOf)).toEqual({ week: "2026-W47", rolling: "2026-W47", month: "2026-11", season: "2026-autumn", year: "2026" });
+    expect(switchTargets("season", "2026-autumn", asOf).month).toBe("2026-11");
   });
   it("goes to the end of a finished period", () => {
-    expect(switchTargets("year", "2019", asOf)).toEqual({ week: "2019-W52", rolling: "2019-W52", month: "2019-12", quarter: "2019-Q4", year: "2019" });
-    expect(switchTargets("quarter", "2026-Q1", asOf).month).toBe("2026-03");
+    expect(switchTargets("year", "2019", asOf)).toEqual({ week: "2019-W52", rolling: "2019-W52", month: "2019-12", season: "2019-autumn", year: "2019" });
+    expect(switchTargets("season", "2026-winter", asOf).month).toBe("2026-02");
+    expect(switchTargets("season", "2026-winter", asOf).year).toBe("2026");
     // October 2026 ends on a Saturday: its last mostly-October week starts Mon 26 Oct.
     expect(switchTargets("month", "2026-10", asOf).week).toBe("2026-W44");
   });

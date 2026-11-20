@@ -10,7 +10,7 @@ import TrackTable from "./TrackTable.astro";
 // `filter`: narrow the chart to a genre and/or place (worked out on request; dated periods only).
 interface Props { type: PeriodType; periodKey: string; limit?: number; initial?: number; filter?: ChartFilter }
 const { type, periodKey, limit = type === "all" ? 100 : 50, initial, filter } = Astro.props;
-const noun = { week: "Week", rolling: "Week", month: "Month", quarter: "Quarter", year: "Year", all: "" }[type];
+const noun = { week: "Week", rolling: "Week", month: "Month", season: "Season", year: "Year", all: "" }[type];
 const movement = type !== "all";
 const filtered = filter && type !== "all" ? filteredChart(type, periodKey, filter) : null;
 const tracks = filtered ? filtered.tracks.slice(0, limit) : trackChart(type, periodKey, limit);

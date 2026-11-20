@@ -1,9 +1,11 @@
 /** The site's public name (the repo, URL and Cloudflare project stay "nts-charts"). */
 export const SITE_NAME = "Top of the NTS";
 
-export type PeriodType = "week" | "rolling" | "month" | "quarter" | "year" | "all";
+import { SEASONS, type Season } from "../../ingest/charts.ts";
+
+export type PeriodType = "week" | "rolling" | "month" | "season" | "year" | "all";
 export type DatedPeriod = Exclude<PeriodType, "all">;
-export const DATED_PERIODS: DatedPeriod[] = ["week", "rolling", "month", "quarter", "year"];
+export const DATED_PERIODS: DatedPeriod[] = ["week", "rolling", "month", "season", "year"];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -27,23 +29,48 @@ export function isoWeekKey(d: Date): string {
   return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
-/** Quarter key for a date: "2026-Q4" (matching ingest/charts.ts). */
-export function quarterKey(d: Date): string {
-  return `${d.getUTCFullYear()}-Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+/**
+ * Season key for a date: "2026-summer" (matching ingest/charts.ts). Winter is December to February
+ * and takes the year of its January, so 2026-winter runs from December 2025.
+ */
+export function seasonKey(d: Date): string {
+  const m = d.getUTCMonth();
+  const y = d.getUTCFullYear();
+  if (m === 11) return `${y + 1}-winter`;
+  return `${y}-${SEASONS[Math.floor((m + 1) / 3)]}`;
+}
+
+function parseSeason(key: string): { year: number; season: Season; index: number } {
+  const [y, name] = key.split("-");
+  const season = name as Season;
+  return { year: Number(y), season, index: SEASONS.indexOf(season) };
+}
+
+/** "Summer 2026", "Winter 2025/26". */
+export function seasonLabel(key: string): string {
+  const { year, season } = parseSeason(key);
+  const name = season[0].toUpperCase() + season.slice(1);
+  return season === "winter" ? `${name} ${year - 1}/${String(year).slice(2)}` : `${name} ${year}`;
+}
+
+/** The season an old quarter URL ("2026-Q3") goes to: the one sharing two of its months. */
+export function seasonForQuarter(key: string): string | null {
+  const m = /^(\d{4})-Q([1-4])$/.exec(key);
+  return m ? `${m[1]}-${SEASONS[Number(m[2]) - 1]}` : null;
 }
 
 export function currentPeriodKey(type: PeriodType, now = new Date()): string {
   if (type === "week" || type === "rolling") return isoWeekKey(now);
   if (type === "all") return "all";
   if (type === "month") return now.toISOString().slice(0, 7);
-  if (type === "quarter") return quarterKey(now);
+  if (type === "season") return seasonKey(now);
   return String(now.getUTCFullYear());
 }
 
 export function periodLabel(type: PeriodType, key: string): string {
   if (type === "all") return "All time";
   if (type === "year") return key;
-  if (type === "quarter") { const [y, q] = key.split("-Q"); return `Q${q} ${y}`; }
+  if (type === "season") return seasonLabel(key);
   if (type === "month") {
     const [y, m] = key.split("-").map(Number);
     return `${MONTHS_LONG[m - 1]} ${y}`;
@@ -70,12 +97,12 @@ export function periodLabel(type: PeriodType, key: string): string {
  *   week    -> "Week 47"            / "Weekly chart · 16–22 Nov 2026"
  *   rolling -> "4 weeks to 22 Nov"  / "4-week chart · 26 Oct – 22 Nov 2026"  ("Last 4 weeks" while in progress)
  *   month   -> "November 2026"      / "Monthly chart"
- *   quarter -> "Q4 2026"            / "Quarterly chart"
+ *   season  -> "Autumn 2026"        / "Seasonal chart"
  */
 export function periodHeading(type: PeriodType, key: string, inProgress = false): { title: string; sub: string; dates: string } {
   if (type === "all") return { title: "All time", sub: "", dates: "" };
   if (type === "year") return { title: key, sub: "Yearly chart", dates: "" };
-  if (type === "quarter") return { title: periodLabel(type, key), sub: "Quarterly chart", dates: "" };
+  if (type === "season") return { title: periodLabel(type, key), sub: "Seasonal chart", dates: "" };
   if (type === "month") return { title: periodLabel(type, key), sub: "Monthly chart", dates: "" };
   const [name, dates] = periodLabel(type, key).split(" · ");
   if (type === "week") return { title: name, sub: `Weekly chart · ${dates}`, dates };
@@ -153,7 +180,11 @@ export function periodBounds(type: Exclude<PeriodType, "all">, key: string): { s
   if (type === "week") { const start = isoWeekStart(key); return { start, end: new Date(start.getTime() + 7 * DAY) }; }
   if (type === "rolling") return { start: isoWeekStart(rollingStartKey(key)), end: new Date(isoWeekStart(key).getTime() + 7 * DAY) };
   if (type === "month") { const [y, m] = key.split("-").map(Number); return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)) }; }
-  if (type === "quarter") { const [y, q] = key.split("-Q").map(Number); return { start: new Date(Date.UTC(y, (q - 1) * 3, 1)), end: new Date(Date.UTC(y, q * 3, 1)) }; }
+  if (type === "season") {
+    const { year, index } = parseSeason(key);
+    // Months from January of the key's year: winter starts the December before (month -1).
+    return { start: new Date(Date.UTC(year, index * 3 - 1, 1)), end: new Date(Date.UTC(year, index * 3 + 2, 1)) };
+  }
   const y = Number(key);
   return { start: new Date(Date.UTC(y, 0, 1)), end: new Date(Date.UTC(y + 1, 0, 1)) };
 }
@@ -174,7 +205,8 @@ export function switchTargets(type: DatedPeriod, key: string, asOf: Date): Recor
     week,
     rolling: week,
     month: at.toISOString().slice(0, 7),
-    quarter: quarterKey(at),
+    // A finished year's last season is its autumn; December already belongs to next year's winter.
+    season: type === "year" && !running ? `${key}-autumn` : seasonKey(at),
     year: String(at.getUTCFullYear()),
   };
 }
@@ -183,7 +215,7 @@ export function switchTargets(type: DatedPeriod, key: string, asOf: Date): Recor
  * The dates a chart covers, for labels shared by every page. While the period is still running
  * (the data stops before its end) it's the whole period plus how far the data goes:
  * "26 Oct – 22 Nov 2026 · in progress, up to 18 Nov".
- * Finished periods give their full range: just the months for quarters ("Oct – Dec 2026"), and
+ * Finished periods give their full range: just the months for seasons ("Jun – Aug 2026", "Dec 2025 – Feb 2026"), and
  * nothing for months and years (the title says it).
  */
 export function periodDates(type: PeriodType, key: string, asOf: Date): { text: string; inProgress: boolean } {
@@ -195,9 +227,10 @@ export function periodDates(type: PeriodType, key: string, asOf: Date): { text: 
     return { text: `${dateRange(start, new Date(end.getTime() - 1))} · in progress${upTo}`, inProgress: true };
   }
   if (type === "month" || type === "year") return { text: "", inProgress: false };
-  if (type === "quarter") {
+  if (type === "season") {
     const last = new Date(end.getTime() - 1);
-    return { text: `${MONTHS[start.getUTCMonth()]} – ${MONTHS[last.getUTCMonth()]} ${last.getUTCFullYear()}`, inProgress: false };
+    const from = `${MONTHS[start.getUTCMonth()]}${start.getUTCFullYear() !== last.getUTCFullYear() ? ` ${start.getUTCFullYear()}` : ""}`;
+    return { text: `${from} – ${MONTHS[last.getUTCMonth()]} ${last.getUTCFullYear()}`, inProgress: false };
   }
   return { text: dateRange(start, new Date(end.getTime() - 1)), inProgress: false };
 }
@@ -207,7 +240,7 @@ export function formatDate(iso: string): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-export const typeLabel: Record<PeriodType, string> = { week: "Weekly", rolling: "4 weeks", month: "Monthly", quarter: "Quarterly", year: "Yearly", all: "All time" };
+export const typeLabel: Record<PeriodType, string> = { week: "Weekly", rolling: "4 weeks", month: "Monthly", season: "Seasonal", year: "Yearly", all: "All time" };
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;

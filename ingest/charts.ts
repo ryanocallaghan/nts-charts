@@ -1,9 +1,27 @@
 // Pure chart logic (no DB) — unit tested in charts.test.ts.
 
-export type PeriodType = "week" | "rolling" | "month" | "quarter" | "year" | "all";
+export type PeriodType = "week" | "rolling" | "month" | "season" | "year" | "all";
 export type Status = "up" | "down" | "same" | "new" | "reentry";
 
-export const PERIOD_TYPES: PeriodType[] = ["week", "rolling", "month", "quarter", "year", "all"];
+export const PERIOD_TYPES: PeriodType[] = ["week", "rolling", "month", "season", "year", "all"];
+
+/** Seasons in order through a year: winter is December to February, and takes the year of its January. */
+export const SEASONS = ["winter", "spring", "summer", "autumn"] as const;
+export type Season = (typeof SEASONS)[number];
+const SEASON_KEY = /^(\d{4})-(winter|spring|summer|autumn)$/;
+
+/** A period key that sorts in time order as a string: "2026-summer" → "2026-3"; other keys already do. */
+export function periodOrder(key: string): string {
+  const m = SEASON_KEY.exec(key);
+  return m ? `${m[1]}-${SEASONS.indexOf(m[2] as Season) + 1}` : key;
+}
+
+/** Period keys of one type in time order. */
+export const sortPeriodKeys = <T extends string>(keys: Iterable<T>): T[] =>
+  [...keys].sort((a, b) => (periodOrder(a) < periodOrder(b) ? -1 : periodOrder(a) > periodOrder(b) ? 1 : 0));
+
+const MONTH_SQL = "CAST(strftime('%m', broadcast_at) AS INTEGER)";
+const YEAR_SQL = "CAST(strftime('%Y', broadcast_at) AS INTEGER)";
 // SQL expression giving an episode's period key (episodes alias: broadcast_at).
 export const PERIOD_KEY_SQL: Record<PeriodType, string> = {
   week: "strftime('%G-W%V', broadcast_at)", // ISO week, e.g. 2026-W47
@@ -11,7 +29,9 @@ export const PERIOD_KEY_SQL: Record<PeriodType, string> = {
   // week and the three after (aggregate.ts fans episodes out over k = 0..3).
   rolling: "strftime('%G-W%V', broadcast_at, '+' || (7 * k) || ' days')",
   month: "strftime('%Y-%m', broadcast_at)",
-  quarter: "strftime('%Y', broadcast_at) || '-Q' || ((CAST(strftime('%m', broadcast_at) AS INTEGER) + 2) / 3)", // 2026-Q4
+  // 2026-summer; December is the next year's winter (2026-winter is Dec 2025 to Feb 2026).
+  season: `CASE WHEN ${MONTH_SQL} = 12 THEN (${YEAR_SQL} + 1) || '-winter' WHEN ${MONTH_SQL} <= 2 THEN ${YEAR_SQL} || '-winter'
+    WHEN ${MONTH_SQL} <= 5 THEN ${YEAR_SQL} || '-spring' WHEN ${MONTH_SQL} <= 8 THEN ${YEAR_SQL} || '-summer' ELSE ${YEAR_SQL} || '-autumn' END`,
   year: "strftime('%Y', broadcast_at)",
   all: "'all'", // one all-time chart
 };
@@ -41,7 +61,7 @@ export function withMovement(rows: Ranked[]): Charted[] {
     list.push(r);
     byPeriod.set(r.periodKey, list);
   }
-  const periods = [...byPeriod.keys()].sort();
+  const periods = sortPeriodKeys(byPeriod.keys());
   const timesCharted = new Map<number, number>();
   let prev = new Map<number, number>(); // entityId -> rank in previous period
   const out: Charted[] = [];

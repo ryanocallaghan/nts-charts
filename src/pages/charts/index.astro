@@ -7,18 +7,18 @@ const stats = siteStats();
 
 const years = [...periodKeys("year")].reverse();
 const months = periodKeys("month");
-const quarters = periodKeys("quarter");
+const seasons = periodKeys("season");
 const weeks = periodKeys("week");
 const byYear = years.map((y) => ({
   year: y,
   months: months.filter((m) => m.startsWith(`${y}-`)).reverse(),
-  quarters: quarters.filter((q) => q.startsWith(`${y}-Q`)).reverse(),
+  seasons: seasons.filter((s) => s.startsWith(`${y}-`)).reverse(),
   weeks: weeks.filter((w) => w.startsWith(`${y}-W`)).reverse(),
 }));
 ---
 <Base title="Chart archive" section="archive">
   <h1>Chart archive</h1>
-  <p class="lede">Every weekly, monthly, quarterly and yearly chart, newest first. Each week also has a 4-week chart (switch on any weekly chart). Or see the <a href="/charts/all/">all-time chart</a>.</p>
+  <p class="lede">Every weekly, monthly, seasonal and yearly chart, newest first. Each week also has a 4-week chart (switch on any weekly chart). Or see the <a href="/charts/all/">all-time chart</a>.</p>
   <div class="stats" aria-label="Archive size">
     <div class="stat"><div class="label">Episodes with tracklists</div><div class="value">{stats.episodes.toLocaleString("en-GB")}</div></div>
     <div class="stat"><div class="label">Plays</div><div class="value">{stats.plays.toLocaleString("en-GB")}</div></div>
@@ -28,12 +28,12 @@ const byYear = years.map((y) => ({
   <p class="muted small" style="margin-top:0.75rem">Since {stats.first ? formatDate(stats.first) : "the start"}. See also <a href="/played-it-first/">Played it first</a>: the shows that play tracks before they chart.</p>
 
 
-  {byYear.map(({ year, months, quarters, weeks }) => (
+  {byYear.map(({ year, months, seasons, weeks }) => (
     <section class="card section">
       <h2><a href={`/charts/year/${year}/`}>{year}</a></h2>
       <p><a href={`/years/${year}/`}>{year} in review →</a></p>
-      {quarters.length > 0 && (
-        <p><span class="muted">Quarters:</span> {quarters.map((q, i) => <>{i > 0 && " · "}<a href={`/charts/quarter/${q}/`}>{q.split("-")[1]}</a></>)}</p>
+      {seasons.length > 0 && (
+        <p><span class="muted">Seasons:</span> {seasons.map((s, i) => <>{i > 0 && " · "}<a href={`/charts/season/${s}/`} title={periodLabel("season", s)}>{periodLabel("season", s).split(" ")[0]}</a></>)}</p>
       )}
       {months.length > 0 && (
         <p><span class="muted">Months:</span> {months.map((m, i) => <>{i > 0 && " · "}<a href={`/charts/month/${m}/`}>{periodLabel("month", m).split(" ")[0].slice(0, 3)}</a></>)}</p>

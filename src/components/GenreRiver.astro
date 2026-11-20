@@ -1,5 +1,5 @@
 ---
-// The biggest genres' shares of NTS's genre tags, quarter by quarter, stacked (largest at the bottom),
+// The biggest genres' shares of NTS's genre tags, three months at a time, stacked (largest at the bottom),
 // in fixed colours. Legend in HTML; full data table below.
 import type { VizData } from "../scripts/charts.ts";
 import { formatViz } from "../lib/series.ts";
@@ -9,19 +9,19 @@ const series = data.series ?? [];
 ---
 <section class="card viz-card genre-river">
   <h2>The biggest genres over time</h2>
-  <p class="caption">Each one's share of all genre tags on NTS episodes, by quarter. The other {others.toLocaleString("en-GB")} genres make up the rest.</p>
+  <p class="caption">Each one's share of all genre tags on NTS episodes, three months at a time. The other {others.toLocaleString("en-GB")} genres make up the rest.</p>
   <ul class="legend" aria-label="Legend">
     {[...series].reverse().map((s) => {
       const slug = slugs[series.indexOf(s)];
       return <li><span class="swatch" style={`background:var(${s.color})`}></span>{slug ? <a href={`/genres/${slug}/`}>{s.name}</a> : s.name}</li>;
     })}
   </ul>
-  <div class="viz" style="height:340px" data-viz={JSON.stringify(data)} role="img" aria-label="Genres over time, as stacked shares by quarter. Data table below."></div>
+  <div class="viz" style="height:340px" data-viz={JSON.stringify(data)} role="img" aria-label="Genres over time, as stacked shares every three months. Data table below."></div>
   <details class="data-table">
     <summary>Show data table</summary>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Quarter</th>{series.map((s) => <th>{s.name}</th>)}</tr></thead>
+        <thead><tr><th>Months</th>{series.map((s) => <th>{s.name}</th>)}</tr></thead>
         <tbody>{data.tip.map((label, i) => <tr><td>{label}</td>{series.map((s) => <td>{formatViz("share", s.y[i])}</td>)}</tr>)}</tbody>
       </table>
     </div>

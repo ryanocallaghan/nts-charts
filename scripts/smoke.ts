@@ -37,6 +37,15 @@ if (track) {
   failed++;
 }
 await check("/tracks/999999999-nothing/", { status: 404 });
+
+// Seasons (which replaced quarters, whose old addresses redirect).
+const chartArchive = await check("/charts/", { status: 200, contains: "Seasons:", cached: true });
+const season = chartArchive.match(/href="(\/charts\/season\/\d{4}-(?:winter|spring|summer|autumn)\/)"/)?.[1];
+if (season) await check(season, { status: 200, contains: "Seasonal chart", cached: true });
+else { console.log("FAIL no season link in the archive"); failed++; }
+await check("/charts/quarter/2025-Q3/?genre=house", { status: 301, location: "/charts/season/2025-summer/?genre=house" });
+await check("/charts/quarter/2025-Q5/", { status: 404 });
+await check("/charts/season/2025-fall/", { status: 404 });
 await check("/tracks/not-a-track/", { status: 404 });
 if (!home.includes('action="/search/"')) { console.log("FAIL no search box in the header"); failed++; }
 

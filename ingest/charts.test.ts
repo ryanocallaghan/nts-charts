@@ -1,5 +1,7 @@
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { findThemeTunes, withMovement, type Ranked } from "./charts.ts";
+import { seasonKey } from "../src/lib/format.ts";
+import { findThemeTunes, PERIOD_KEY_SQL, sortPeriodKeys, withMovement, type Ranked } from "./charts.ts";
 
 const r = (periodKey: string, entityId: number, rank: number): Ranked => ({ periodKey, entityId, rank, score: 10 - rank, shows: 1 });
 
@@ -26,6 +28,29 @@ describe("withMovement", () => {
   it("marks unchanged positions as same", () => {
     expect(get("2026-W03", 2)).toMatchObject({ status: "down", prevRank: 1 });
     expect(get("2026-W03", 4)).toMatchObject({ status: "same", prevRank: 3 });
+  });
+});
+
+describe("sortPeriodKeys", () => {
+  it("puts seasons in time order, winter first", () => {
+    expect(sortPeriodKeys(["2026-summer", "2025-autumn", "2026-winter", "2026-autumn", "2026-spring"]))
+      .toEqual(["2025-autumn", "2026-winter", "2026-spring", "2026-summer", "2026-autumn"]);
+  });
+  it("leaves other keys in string order", () => {
+    expect(sortPeriodKeys(["2026-W02", "2025-W52", "2026-W01"])).toEqual(["2025-W52", "2026-W01", "2026-W02"]);
+  });
+  it("keys seasons the same in SQL as on the site, at every month's first and last moment", () => {
+    const db = new DatabaseSync(":memory:");
+    const key = db.prepare(`SELECT ${PERIOD_KEY_SQL.season} k FROM (SELECT ? broadcast_at)`);
+    for (let m = 0; m < 12; m++) {
+      for (const d of [new Date(Date.UTC(2025, m, 1)), new Date(Date.UTC(2025, m + 1, 1) - 1000)]) {
+        expect((key.get(d.toISOString()) as { k: string }).k).toBe(seasonKey(d));
+      }
+    }
+  });
+  it("gives movement between seasons in time order", () => {
+    const out = withMovement([r("2026-spring", 1, 1), r("2026-winter", 1, 2)]);
+    expect(out.find((x) => x.periodKey === "2026-spring")).toMatchObject({ status: "up", prevRank: 2 });
   });
 });
 
