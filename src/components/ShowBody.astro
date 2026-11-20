@@ -89,7 +89,7 @@ const themes = themeTunesFor(d.topTracks.map((t) => t.id));
     {early.tracks > 0 && (
       <section class="card">
         <h2>Ahead of the charts</h2>
-        <p class="caption muted">Played {plural(early.tracks, "track")} in the 12 weeks before they first made the weekly chart, on average {early.weeksEarly} weeks early. <a href="/tastemakers/">Tastemakers</a></p>
+        <p class="caption muted">Played {plural(early.tracks, "track")} in the 12 weeks before they first made the weekly chart, on average {early.weeksEarly} weeks early. <a href="/played-it-first/">Played it first</a></p>
         <ul class="plain" data-collapse-list="10">
           {early.recent.map((t) => (
             <li><span><a href={trackHref(t)}>{t.title}</a> <span class="muted">— {t.artistDisplay}</span></span><span class="count">{plural(t.weeksEarly, "week")} early</span></li>

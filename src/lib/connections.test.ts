@@ -1,4 +1,4 @@
-// Related artists, similar shows, tastemakers and year reviews, against a small database.
+// Related artists, similar shows, who played it first and year reviews, against a small database.
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,10 +55,10 @@ describe("similarShows", () => {
   });
 });
 
-describe("tastemakers", () => {
+describe("played it first", () => {
   it("ranks shows by tracks played before they charted", () => {
-    expect(q.tastemakers(null).map((t) => [t.key, t.tracks, t.weeksEarly])).toEqual([["a", 2, 6], ["b", 1, 2]]);
-    expect(q.tastemakers("2025-W15").map((t) => t.key)).toEqual(["a"]);
+    expect(q.playedFirst(null).map((t) => [t.key, t.tracks, t.weeksEarly])).toEqual([["a", 2, 6], ["b", 1, 2]]);
+    expect(q.playedFirst("2025-W15").map((t) => t.key)).toEqual(["a"]);
   });
   it("lists a show's early plays, latest first", () => {
     const e = q.showEarlyPlays("a");

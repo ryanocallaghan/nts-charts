@@ -76,8 +76,9 @@ if (genre) {
 }
 await check("/genres/no-such-genre-zz9/", { status: 404 });
 
-// Tastemakers and years.
-await check("/tastemakers/", { status: 200, contains: "Last 12 months", cached: true });
+// Played it first (and its old address), and years.
+await check("/played-it-first/", { status: 200, contains: "Last 12 months", cached: true });
+await check("/tastemakers/", { status: 301, location: "/played-it-first/" });
 const archive = await fetch(`${base}/charts/`).then((r) => r.text());
 const year = archive.match(/href="\/years\/(\d{4})\/"/)?.[1];
 if (year) await check(`/years/${year}/`, { status: 200, contains: "New to NTS" });

@@ -751,16 +751,16 @@ export function artistShowLinks(artistIds: number[], showKeys: string[]): { arti
   );
 }
 
-// ---------- tastemakers ----------
+// ---------- played it first ----------
 
-export interface Tastemaker extends ShowRef { tracks: number; weeksEarly: number }
+export interface PlayedFirstShow extends ShowRef { tracks: number; weeksEarly: number }
 
 /**
  * Shows that play tracks before they chart: tracks played in the 12 weeks before their first week on
  * the weekly chart, since `sinceWeek` (a week key) or all time. Ranked by tracks, then how early.
  */
-export function tastemakers(sinceWeek: string | null, limit = 25): Tastemaker[] {
-  return memo(`tastemakers:${sinceWeek}:${limit}`, () =>
+export function playedFirst(sinceWeek: string | null, limit = 25): PlayedFirstShow[] {
+  return memo(`played-first:${sinceWeek}:${limit}`, () =>
     all<{ key: string; tracks: number; weeksEarly: number }>(
       `SELECT show_key key, count(*) tracks, round(avg(weeks_early), 1) weeksEarly FROM early_plays
        WHERE chart_week >= ? GROUP BY show_key ORDER BY tracks DESC, weeksEarly DESC LIMIT ?`,

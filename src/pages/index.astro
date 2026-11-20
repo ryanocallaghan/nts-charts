@@ -98,7 +98,7 @@ const trends = latest ? genreTrends(latest) : { series: [], max: 10 };
   {moves && [moves.tracks, moves.artists].some((m) => m.climbers.length > 0 || m.entries.length > 0) && (
     <section class="section">
       <h2>On the move</h2>
-      <p class="section-meta">4-week chart, compared with last week's · <a href="/tastemakers/">who played them first</a></p>
+      <p class="section-meta">4-week chart, compared with last week's · <a href="/played-it-first/">who played them first</a></p>
       <div class="grid-2" data-phone-tabs="On the move">
         {([["Tracks", moves.tracks], ["Artists", moves.artists]] as const).map(([name, m]) => (
           <div class="card movers" data-tab={name}>

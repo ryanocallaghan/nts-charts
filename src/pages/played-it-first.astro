@@ -1,0 +1,36 @@
+---
+// Shows that play tracks before they chart: tracks a show played in the 12 weeks before they first
+// made the weekly chart (precomputed by ingest/aggregate.ts as early_plays).
+import Base from "../layouts/Base.astro";
+import { isoWeekKey } from "../lib/format.ts";
+import { asOf } from "../lib/overview.ts";
+import { playedFirst, type PlayedFirstShow } from "../lib/queries.ts";
+
+const yearAgo = isoWeekKey(new Date(asOf().getTime() - 365 * 86_400_000));
+const lists: { title: string; meta: string; rows: PlayedFirstShow[] }[] = [
+  { title: "Last 12 months", meta: "Tracks that first charted in the last 12 months", rows: playedFirst(yearAgo) },
+  { title: "All time", meta: "Since the charts began in 2011", rows: playedFirst(null) },
+];
+---
+<Base title="Played it first" description="The NTS Radio shows that play tracks before they chart: tracks played in the 12 weeks before they first made the weekly chart." section="charts">
+  <h1>Played it first</h1>
+  <p class="lede">The shows that play tracks before everyone else: how many tracks each played in the 12 weeks before they first made the weekly Top 50, and on average how many weeks early.</p>
+
+  <div class="grid-2 section">
+    {lists.map((l) => (
+      <section class="card">
+        <h2>{l.title}</h2>
+        <p class="caption muted">{l.meta}</p>
+        <ol class="ranked" data-collapse-list="10">
+          {l.rows.map((r, i) => (
+            <li>
+              <span class="pos">{i + 1}</span>
+              <span class="what"><span class="title"><a href={r.href}>{r.name}</a></span><span class="sub">on average {r.weeksEarly} weeks early</span></span>
+              <span class="count">{r.tracks} tracks</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    ))}
+  </div>
+</Base>
