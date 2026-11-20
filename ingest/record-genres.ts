@@ -1,5 +1,6 @@
-// Look up tracks on Discogs and store their release's styles (track_discogs), most-played first:
-// tracks played in at least 2 episodes, those played most in the last year first.
+// Look up tracks on Discogs and store their release's styles (track_discogs), for tracks played in at
+// least 2 episodes: first those that could be on the latest 4-week charts (2+ episodes in 4 weeks),
+// then the most played in the last year, then the rest.
 //   DISCOGS_TOKEN=... node ingest/record-genres.ts                  # everything due
 //   DISCOGS_TOKEN=... node ingest/record-genres.ts --limit 30       # try a few
 //   DISCOGS_TOKEN=... node ingest/record-genres.ts --max-minutes 60 # stop cleanly
@@ -30,14 +31,15 @@ const ago = (days: number) => new Date(now - days * 86_400_000).toISOString();
 const candidates = db.prepare(`
   SELECT p.track_id id, t.artist_display artist, t.title_display title, max(e.broadcast_at) last,
          count(DISTINCT p.episode_alias) episodes,
+         count(DISTINCT CASE WHEN e.broadcast_at >= ? THEN p.episode_alias END) month,
          count(DISTINCT CASE WHEN e.broadcast_at >= ? THEN p.episode_alias END) recent,
          d.checked_at checked, d.found
   FROM plays p JOIN episodes e ON e.alias = p.episode_alias JOIN tracks t ON t.id = p.track_id
   LEFT JOIN track_discogs d ON d.track_id = p.track_id
   WHERE e.broadcast_at IS NOT NULL
   GROUP BY p.track_id HAVING episodes >= 2
-  ORDER BY recent DESC, episodes DESC, p.track_id`).all(ago(365)) as {
-  id: number; artist: string; title: string; last: string; episodes: number; recent: number; checked: string | null; found: number | null;
+  ORDER BY month >= 2 DESC, recent DESC, episodes DESC, p.track_id`).all(ago(28), ago(365)) as {
+  id: number; artist: string; title: string; last: string; episodes: number; month: number; recent: number; checked: string | null; found: number | null;
 }[];
 const due = candidates.filter((c) => {
   if (!c.checked) return true;
@@ -45,7 +47,8 @@ const due = candidates.filter((c) => {
   return c.checked < ago(c.last >= ago(RECENT_DAYS) ? NOT_FOUND_RETRY_DAYS.recent : NOT_FOUND_RETRY_DAYS.old);
 });
 const todo = args.limit ? due.slice(0, Number(args.limit)) : due;
-console.log(`${candidates.length} tracks in 2+ episodes; ${due.length} due; doing up to ${todo.length}`);
+const dueThisMonth = due.filter((c) => c.month >= 2).length;
+console.log(`${candidates.length} tracks in 2+ episodes; ${due.length} due (${dueThisMonth} from the last 4 weeks); doing up to ${todo.length}`);
 
 // ---------- requests: at most 1 a second, slower when Discogs says the minute's allowance is nearly used ----------
 
