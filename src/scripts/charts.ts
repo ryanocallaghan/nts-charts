@@ -2,13 +2,13 @@
 // when it scrolls into view and re-themes when the OS colour scheme changes.
 import * as echarts from "echarts/core";
 import { BarChart, GraphChart, HeatmapChart, LineChart } from "echarts/charts";
-import { CalendarComponent, DataZoomComponent, GridComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
+import { BrushComponent, CalendarComponent, DataZoomComponent, GridComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import { formatViz, heatBins } from "../lib/series.ts";
 import { formatDate } from "../lib/format.ts";
 import { linkKind, track } from "./analytics.ts";
 
-echarts.use([BarChart, GraphChart, HeatmapChart, LineChart, CalendarComponent, GridComponent, TooltipComponent, DataZoomComponent, VisualMapComponent, SVGRenderer]);
+echarts.use([BarChart, GraphChart, HeatmapChart, LineChart, BrushComponent, CalendarComponent, GridComponent, TooltipComponent, DataZoomComponent, VisualMapComponent, SVGRenderer]);
 
 export interface VizData {
   // bars: vertical counts over time · rank: chart position over time (inverted)
@@ -17,7 +17,8 @@ export interface VizData {
   // graph: a network (`nodes`, `links`); x, tip and y unused
   // calendar: episodes per day (`cells`), one year at a time (`years`); clock: weekday × hour (`grid`)
   // bump: ranks of several entries over time (`series`), each labelled at its end
-  kind: "bars" | "rank" | "hbar" | "share" | "stack" | "graph" | "calendar" | "clock" | "bump";
+  // timeline: episodes per week (`days` their Mondays); dragging across it opens the chart for those dates
+  kind: "bars" | "rank" | "hbar" | "share" | "stack" | "graph" | "calendar" | "clock" | "bump" | "timeline";
   name: string;            // series name, e.g. "Episodes"
   x: string[];             // short axis labels (categories for hbar)
   tip: string[];           // long labels for the tooltip
@@ -31,6 +32,10 @@ export interface VizData {
   grid?: number[][];            // clock: [weekday 0 = Monday][hour 0–23] episodes
   hrefs?: string[];             // bump: each series' page
   dots?: boolean;               // rank: a thin history, drawn as dots only (no line, no zoom)
+  days?: string[];              // timeline: each week's Monday, YYYY-MM-DD
+  last?: string;                // timeline: the latest day with data
+  query?: string;               // timeline: the chart's filter, kept in the address it opens
+  selected?: [number, number];  // timeline: first and last weeks of the dates shown (indexes)
 }
 
 const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -195,6 +200,30 @@ function bumpOption(d: VizData, t: Record<string, string>): echarts.EChartsCoreO
   };
 }
 
+/** Episodes per week since 2011 as a filled line, with the dates shown highlighted. Dragging across it
+ *  selects weeks (ECharts' brush); mount() opens the chart for them. */
+function timelineOption(d: VizData, t: Record<string, string>): echarts.EChartsCoreOption {
+  return {
+    animation: false,
+    textStyle: { fontFamily: t.font },
+    grid: { left: 4, right: 12, top: 12, bottom: 4, containLabel: true },
+    tooltip: { ...tooltipBase(t), trigger: "axis", axisPointer: { type: "line", lineStyle: { color: t.axis, width: 1 } },
+      formatter: (params: unknown) => {
+        const i = (params as { dataIndex: number }[])[0].dataIndex;
+        return `<div style="font-weight:600;font-size:15px">${esc(eps(d.y[i] ?? 0))}</div><div style="color:${t.ink2}">${esc(d.tip[i])}</div>`;
+      } },
+    brush: {
+      xAxisIndex: 0, brushType: "lineX", brushMode: "single", transformable: false, removeOnClick: false,
+      brushStyle: { color: t.wash, borderColor: t.series, borderWidth: 1 },
+      outOfBrush: { colorAlpha: 0.35 },
+    },
+    xAxis: { type: "category", data: d.x, boundaryGap: false, axisLine: { lineStyle: { color: t.axis } }, axisTick: { show: false },
+      axisLabel: { color: t.muted, fontSize: 12, hideOverlap: true, interval: (_: number, v: string) => v !== "" } },
+    yAxis: { type: "value", min: 0, minInterval: 1, splitLine: { lineStyle: { color: t.grid } }, axisLabel: { color: t.muted, fontSize: 12 } },
+    series: [{ type: "line", name: d.name, data: d.y, symbol: "none", lineStyle: { width: 1.5, color: t.series }, areaStyle: { color: t.wash, opacity: 1 } }],
+  };
+}
+
 function option(d: VizData, year?: string, narrow = false): echarts.EChartsCoreOption {
   const t = {
     ink: css("--ink"), ink2: css("--ink-2"), muted: css("--muted"), grid: css("--grid"), axis: css("--axis"),
@@ -206,6 +235,7 @@ function option(d: VizData, year?: string, narrow = false): echarts.EChartsCoreO
   if (d.kind === "calendar") return calendarOption(d, t, year ?? d.years?.at(-1) ?? String(new Date().getFullYear()));
   if (d.kind === "clock") return clockOption(d, t);
   if (d.kind === "bump") return bumpOption(d, t);
+  if (d.kind === "timeline") return timelineOption(d, t);
   const horizontal = d.kind === "hbar";
   const pct = d.kind === "hbar" || d.kind === "share";
   // Long series get a zoom slider, opening on the latest points. Not for a thin rank history (dots),
@@ -305,6 +335,30 @@ function option(d: VizData, year?: string, narrow = false): echarts.EChartsCoreO
 
 const mounted: { chart: echarts.ECharts; data: VizData; el: HTMLElement }[] = [];
 
+/** Turn on dragging across a timeline and show the dates already chosen (again after each re-theme). */
+function timelineCursor(chart: echarts.ECharts, d: VizData) {
+  chart.dispatchAction({ type: "takeGlobalCursor", key: "brush", brushOption: { brushType: "lineX", brushMode: "single" } });
+  if (d.selected) chart.dispatchAction({ type: "brush", areas: [{ brushType: "lineX", xAxisIndex: 0, coordRange: d.selected }] });
+}
+
+/** Dragging across a timeline opens the chart for the weeks selected. */
+function brushTimeline(chart: echarts.ECharts, d: VizData) {
+  timelineCursor(chart, d);
+  chart.on("brushEnd", (p) => {
+    const range = (p as { areas?: { coordRange?: number[] }[] }).areas?.[0]?.coordRange;
+    if (!range || !d.days) return;
+    const days = d.days;
+    const [a, b] = [Math.max(0, Math.min(...range)), Math.min(days.length - 1, Math.max(...range))];
+    const sunday = new Date(Date.parse(`${days[b]}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
+    const to = d.last && sunday > d.last ? d.last : sunday;
+    const params = new URLSearchParams(d.query ?? "");
+    params.set("from", days[a]);
+    params.set("to", to);
+    track("Timeline drag", { weeks: b - a + 1 });
+    location.href = `/charts/range/?${params}`;
+  });
+}
+
 function mount(el: HTMLElement) {
   const data = JSON.parse(el.dataset.viz!) as VizData;
   const chart = echarts.init(el, undefined, { renderer: "svg" });
@@ -324,6 +378,7 @@ function mount(el: HTMLElement) {
   const open = (name: string, href?: string) => { if (!href) return; track(name, { kind: linkKind(href) }); location.href = href; };
   if (data.kind === "bump") chart.on("click", (p) => open("Bump chart click", data.hrefs?.[p.seriesIndex ?? -1]));
   if (data.kind === "graph") chart.on("click", (p) => open("Connections click", (p.data as { href?: string })?.href));
+  if (data.kind === "timeline") brushTimeline(chart, data);
   new ResizeObserver(() => chart.resize()).observe(el);
   mounted.push({ chart, data, el });
 }
@@ -348,5 +403,8 @@ export function observeViz(root: ParentNode = document) {
 observeViz();
 
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-  for (const m of mounted) m.chart.setOption(option(m.data, m.el.dataset.year, m.el.clientWidth < 480), true);
+  for (const m of mounted) {
+    m.chart.setOption(option(m.data, m.el.dataset.year, m.el.clientWidth < 480), true);
+    if (m.data.kind === "timeline") timelineCursor(m.chart, m.data);
+  }
 });

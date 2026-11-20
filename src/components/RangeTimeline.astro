@@ -1,0 +1,28 @@
+---
+// The whole archive week by week: drag across it to chart those dates (with JavaScript; the date
+// fields above it do the same without). The data table gives episodes per year.
+import { rangeTimeline } from "../lib/series.ts";
+import { weeklyEpisodes } from "../lib/queries.ts";
+interface Props { selected: { start: Date; last: Date } | null; lastDay: Date; query: Record<string, string> }
+const { selected, lastDay, query } = Astro.props;
+const weeks = weeklyEpisodes();
+const data = rangeTimeline(weeks, selected, lastDay, new URLSearchParams(query).toString());
+const years = new Map<string, number>();
+for (const w of weeks) years.set(w.week.slice(0, 4), (years.get(w.week.slice(0, 4)) ?? 0) + w.episodes);
+---
+<section class="card viz-card range-timeline">
+  <h2 class="visually-hidden">Timeline</h2>
+  <p class="caption">Episodes with tracklists each week. Drag across the timeline to chart those weeks.</p>
+  <div class="viz" style="height:150px" data-viz={JSON.stringify(data)} role="img" aria-label="Episodes with tracklists each week since 2011, with the dates shown highlighted. Data table below."></div>
+  <details class="data-table">
+    <summary>Show data table</summary>
+    <table>
+      <thead><tr><th>Year</th><th>Episodes with tracklists</th></tr></thead>
+      <tbody>{[...years].map(([y, n]) => <tr><td>{y}</td><td>{n.toLocaleString("en-GB")}</td></tr>)}</tbody>
+    </table>
+  </details>
+</section>
+
+<script>
+  import "../scripts/charts.ts";
+</script>

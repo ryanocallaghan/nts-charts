@@ -53,6 +53,9 @@ await check("/charts/range/?from=2019-06-01&to=2019-08-31", { status: 200, conta
 await check("/charts/range/?from=2015-01-01&to=2024-01-01", { status: 400, contains: "more than 3 years" });
 await check("/charts/range/?from=2019-02-30&to=2019-03-01", { status: 400, contains: "real days" });
 await check("/charts/range/?genre=not-a-genre", { status: 404 });
+await check("/charts/compare/?a_from=2024-06-01&a_to=2024-08-31&b_from=2025-06-01&b_to=2025-08-31", { status: 200, contains: "Summer 2024 vs Summer 2025" });
+await check("/charts/compare/?a_from=2024-13-01&a_to=2024-08-31&b_from=2025-06-01&b_to=2025-08-31", { status: 400, contains: "First dates" });
+await check("/charts/season/2025-summer/", { status: 200, contains: "Compare with Summer 2024" });
 await check("/tracks/not-a-track/", { status: 404 });
 if (!home.includes('action="/search/"')) { console.log("FAIL no search box in the header"); failed++; }
 

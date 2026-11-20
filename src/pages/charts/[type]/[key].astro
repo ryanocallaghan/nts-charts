@@ -9,6 +9,7 @@ import BumpChart from "../../../components/BumpChart.astro";
 import PeriodSwitcher from "../../../components/PeriodSwitcher.astro";
 import RecordGenreNote from "../../../components/RecordGenreNote.astro";
 import { byShows, filterDescription, filterLabel, filterParams, isFiltered, nearestPeriodKey, parseChartFilter, periodKeys } from "../../../lib/queries.ts";
+import { dayRange, rangeParams, rangeYearsBefore } from "../../../lib/ranges.ts";
 
 const type = Astro.params.type as DatedPeriod;
 const key = Astro.params.key ?? "";
@@ -56,6 +57,13 @@ const hrefs = Object.fromEntries(DATED_PERIODS.map((t) => {
 const bounds = periodBounds(type, key);
 const lastDay = new Date(Math.min(bounds.end.getTime() - 86_400_000, asOf().getTime()));
 const rangeHref = `/charts/range/?${new URLSearchParams({ from: dayKey(bounds.start), to: dayKey(lastDay), ...filterParams(filter) })}`;
+// Months, seasons and years: compare with the same one a year earlier, over the same days while this one's running.
+const lastYearKey = type === "year" ? String(Number(key) - 1) : type === "month" || type === "season" ? `${Number(key.slice(0, 4)) - 1}${key.slice(4)}` : null;
+const thisRange = dayRange(bounds.start, new Date(Date.UTC(lastDay.getUTCFullYear(), lastDay.getUTCMonth(), lastDay.getUTCDate())));
+const lastYearRange = lastYearKey && keys.includes(lastYearKey) ? rangeYearsBefore(thisRange, 1, new Date(0)) : null;
+const compareHref = lastYearRange
+  ? `/charts/compare/?${new URLSearchParams({ ...rangeParams(lastYearRange, "a_"), ...rangeParams(thisRange, "b_"), ...filterParams(filter) })}`
+  : null;
 ---
 <Base title={`${heading.title}${filtered ? ` · ${filterLabel(filter)}` : ""} · ${sub}`} section="charts">
   <h1>{heading.title}{filtered && <span class="filter-heading">{filterLabel(filter)}</span>}</h1>
@@ -76,6 +84,8 @@ const rangeHref = `/charts/range/?${new URLSearchParams({ from: dayKey(bounds.st
   <ChartView type={type} periodKey={key} filter={filtered ? filter : undefined} />
 
   {(type === "rolling" || type === "week") && !filtered && <BumpChart type={type} periodKey={key} />}
+
+  {compareHref && <p class="section"><a href={compareHref}>Compare with {periodLabel(type, lastYearKey!)} →</a> Side by side: what rose, fell, arrived and left.</p>}
 
   {type === "week" && <PastYears week={key} />}
   {type === "year" && <p class="section"><a href={`/years/${key}/`}>{key} in review →</a> New artists, biggest climbers, genres and the busiest shows.</p>}

@@ -3,7 +3,7 @@ import { allInWorker } from "./worker-db.ts";
 import { CHART_MIN_SCORE, CHART_SIZE, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql, SHOW_KEY } from "./shared-sql.ts";
 import { DATED } from "./dates.ts";
 import { periodOrder, sortPeriodKeys } from "../../ingest/charts.ts";
-import { ntsEpisodeUrl, periodBounds, rollingStartKey, type DatedPeriod, type PeriodType } from "./format.ts";
+import { isoWeekKey, isoWeekStart, ntsEpisodeUrl, periodBounds, rollingStartKey, seasonKey, type DatedPeriod, type PeriodType } from "./format.ts";
 import { searchHref, searchMeta, searchNorm, type SearchKind, type SearchResult } from "./search.ts";
 
 // NTS files one-off guest mixes under one catch-all show. Each guest counts as its own "show"
@@ -75,6 +75,19 @@ export function periodKeys(type: PeriodType): readonly string[] {
   return memo(`periodKeys:${type}`, () =>
     Object.freeze(sortPeriodKeys(all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ?", type).map((r) => r.k))),
   );
+}
+
+/** Each period type's chart containing a day (or the nearest earlier one), keeping a filter where it applies. */
+export function chartHrefsAt(at: Date, filter: ChartFilter): Record<DatedPeriod, string> {
+  const keys: Record<DatedPeriod, string> = {
+    week: isoWeekKey(at), rolling: isoWeekKey(at), month: at.toISOString().slice(0, 7), season: seasonKey(at), year: String(at.getUTCFullYear()),
+  };
+  const params = filterParams(filter);
+  const query = (t: DatedPeriod) => (t === "week" || !Object.keys(params).length ? "" : `?${new URLSearchParams(params)}`);
+  return Object.fromEntries((Object.keys(keys) as DatedPeriod[]).map((t) => {
+    const key = nearestPeriodKey(t, keys[t]);
+    return [t, key ? `/charts/${t}/${key}/${query(t)}` : "/charts/"];
+  })) as Record<DatedPeriod, string>;
 }
 
 /** A type's chart for `key`, or the nearest earlier one that exists (for a gap; before the charts began, the first). */
@@ -632,8 +645,25 @@ export function filteredChart(type: DatedPeriod, key: string, filter: ChartFilte
 
 // ---------- charts for any dates ----------
 
-/** The longest range a chart for any dates covers (3 years); longer ones have the yearly and all-time charts. */
-export const RANGE_MAX_DAYS = 1096;
+/** Episodes with tracklists in each ISO week since the charts began (weeks with none included), for the range picker. */
+export function weeklyEpisodes(): readonly { week: string; episodes: number }[] {
+  return memo("weeklyEpisodes", () => {
+    const rows = all<{ week: string; episodes: number }>(
+      `SELECT strftime('%G-W%V', e.broadcast_at) week, count(*) episodes FROM episodes e
+       WHERE e.track_count > 0 AND ${DATED} GROUP BY week ORDER BY week`,
+    );
+    if (!rows.length) return [];
+    const by = new Map(rows.map((r) => [r.week, r.episodes]));
+    const out: { week: string; episodes: number }[] = [];
+    const last = rows.at(-1)!.week;
+    for (let d = isoWeekStart(rows[0].week); ; d = new Date(d.getTime() + 7 * 86_400_000)) {
+      const week = isoWeekKey(d);
+      out.push({ week, episodes: by.get(week) ?? 0 });
+      if (week >= last) break;
+    }
+    return Object.freeze(out);
+  });
+}
 
 /** One date range's ranking, in the worker thread (it can take seconds), cached. Ranked like the main charts. */
 function rankRange(entity: "track" | "artist", filter: ChartFilter, start: Date, end: Date): Promise<RankRow[]> {

@@ -1,0 +1,144 @@
+---
+// Two charts for any dates side by side: /charts/compare/?a_from=…&a_to=…&b_from=…&b_to=… (each up to
+// 3 years, ranked like /charts/range/), with the same filter on both. Below them: what's in both, what
+// rose and fell from the first to the second, and what's only in one.
+import Base from "../../layouts/Base.astro";
+import ChartFilters from "../../components/ChartFilters.astro";
+import PeriodSwitcher from "../../components/PeriodSwitcher.astro";
+import RankedList from "../../components/RankedList.astro";
+import Tabs from "../../components/Tabs.astro";
+import { FIRST_VALID_DATE } from "../../lib/dates.ts";
+import { compareCharts, type Move } from "../../lib/compare.ts";
+import { dayKey, formatDate, parseDay, plural } from "../../lib/format.ts";
+import { asOf, type Item } from "../../lib/overview.ts";
+import { chartHrefsAt, filterDescription, filterLabel, filterParams, isFiltered, parseChartFilter, rangeChart, type ArtistEntry, type TrackEntry } from "../../lib/queries.ts";
+import { DAY, dayRange, parseRange, rangeBefore, rangeName, rangeParams, rangeYearsBefore, type DayRange } from "../../lib/ranges.ts";
+import { trackHref } from "../../lib/search.ts";
+
+const params = Astro.url.searchParams;
+const filter = parseChartFilter(params);
+if (!filter) return new Response(null, { status: 404 });
+const filtered = isFiltered(filter);
+const keep = filterParams(filter);
+const bounds = { first: parseDay(FIRST_VALID_DATE)!, last: parseDay(dayKey(asOf()))! };
+
+// Without dates: the last 30 days against the same days a year earlier.
+const given = (p: string) => params.has(`${p}from`) || params.has(`${p}to`);
+const parsedB = given("b_") ? parseRange(params.get("b_from"), params.get("b_to"), bounds) : dayRange(new Date(bounds.last.getTime() - 29 * DAY), bounds.last);
+const b = "problem" in parsedB ? null : parsedB;
+const parsedA = given("a_") ? parseRange(params.get("a_from"), params.get("a_to"), bounds) : b ? (rangeYearsBefore(b, 1, bounds.first) ?? rangeBefore(b, bounds.first)) : null;
+const a = parsedA && !("problem" in parsedA) ? parsedA : null;
+const problems = [
+  "problem" in parsedB ? `Second dates: ${parsedB.problem}` : "",
+  parsedA && "problem" in parsedA ? `First dates: ${parsedA.problem}` : !parsedA && b ? "There’s nothing before those dates to compare with." : "",
+].filter(Boolean);
+if (problems.length) Astro.response.status = 400;
+
+const [first, second] = a && b
+  ? await Promise.all([rangeChart(filter, a.start, a.end, null), rangeChart(filter, b.start, b.end, null)])
+  : [null, null];
+const nameA = a ? rangeName(a) : "";
+const nameB = b ? rangeName(b) : "";
+
+const trackItem = (t: TrackEntry, count: string): Item => ({ rank: t.rank, title: t.title, href: trackHref(t), artists: t.artists, credit: t.artistDisplay, kind: "track", count });
+const artistItem = (x: ArtistEntry, count: string): Item => ({ rank: x.rank, title: x.name, href: `/artists/${x.slug}/`, kind: "artist", count });
+const eps = (n: number) => plural(n, "ep");
+function sections<T extends { id: number; rank: number; score: number }>(xs: T[], ys: T[], item: (x: T, count: string) => Item) {
+  const c = compareCharts(xs, ys);
+  const moved = (m: Move<T>) => item(m.entry, `was #${m.from}`);
+  return {
+    both: c.both,
+    charts: [{ name: nameA, items: xs.map((x) => item(x, eps(x.score))) }, { name: nameB, items: ys.map((y) => item(y, eps(y.score))) }],
+    changes: [
+      { title: "Rose the most", items: c.rose.map(moved), empty: "Nothing in both charts rose." },
+      { title: "Fell the most", items: c.fell.map(moved), empty: "Nothing in both charts fell." },
+      { title: `New in ${nameB}`, items: c.arrived.map((y) => item(y, eps(y.score))), empty: "Nothing new." },
+      { title: `Not in ${nameB}`, items: c.left.map((x) => item(x, eps(x.score))), empty: "Everything stayed." },
+    ],
+  };
+}
+const panels = first && second ? [
+  { key: "tracks", label: "Tracks", noun: "tracks", ...sections(first.tracks, second.tracks, trackItem) },
+  { key: "artists", label: "Artists", noun: "artists", ...sections(first.artists, second.artists, artistItem) },
+] : [];
+
+// Shortcuts for the first dates, from the second: the days just before, or the same days a year earlier.
+const compareHref = (x: DayRange, y: DayRange) => `/charts/compare/?${new URLSearchParams({ ...rangeParams(x, "a_"), ...rangeParams(y, "b_"), ...keep })}`;
+const shortcuts = b ? [
+  { label: `The ${plural(b.days, "day")} before`, range: rangeBefore(b, bounds.first) },
+  { label: "The same dates a year earlier", range: rangeYearsBefore(b, 1, bounds.first) },
+  { label: "Five years earlier", range: rangeYearsBefore(b, 5, bounds.first) },
+].filter((s) => s.range).map((s) => ({ label: s.label, href: compareHref(s.range!, b), current: !!a && dayKey(s.range!.start) === dayKey(a.start) && dayKey(s.range!.last) === dayKey(a.last) })) : [];
+
+const title = a && b ? `${nameA} vs ${nameB}` : "Compare dates";
+const dateField = (id: string, name: string, label: string, value: string) => ({ id, name, label, value });
+const fields = [
+  { legend: "First", inputs: [dateField("a-from", "a_from", "From", a ? dayKey(a.start) : (params.get("a_from") ?? "")), dateField("a-to", "a_to", "To", a ? dayKey(a.last) : (params.get("a_to") ?? ""))] },
+  { legend: "Second", inputs: [dateField("b-from", "b_from", "From", b ? dayKey(b.start) : (params.get("b_from") ?? "")), dateField("b-to", "b_to", "To", b ? dayKey(b.last) : (params.get("b_to") ?? ""))] },
+];
+---
+<Base title={`${title}${filtered ? ` · ${filterLabel(filter)}` : ""} · Compare charts`} description="Two charts of what NTS Radio played, for any dates, side by side." section="charts" noindex>
+  <h1>{title}{filtered && a && b && <span class="filter-heading">{filterLabel(filter)}</span>}</h1>
+  <p class="page-sub">{["Two charts side by side", filtered ? filterDescription(filter) : ""].filter(Boolean).join(" · ")}</p>
+
+  <div class="period-nav">
+    <PeriodSwitcher hrefs={chartHrefsAt(b?.last ?? bounds.last, filter)} rangeHref={`/charts/range/?${new URLSearchParams({ ...(b ? rangeParams(b) : {}), ...keep })}`} current="range" />
+  </div>
+
+  <form class="range-form compare-form" action="/charts/compare/" method="get">
+    {Object.entries(keep).map(([name, value]) => <input type="hidden" name={name} value={value} />)}
+    {fields.map((f) => (
+      <fieldset class="compare-dates">
+        <legend class="cds--label">{f.legend}</legend>
+        {f.inputs.map((i) => (
+          <div class="cds--form-item">
+            <label class="cds--label" for={i.id}>{i.label}</label>
+            <input class="cds--text-input" type="date" id={i.id} name={i.name} required min={FIRST_VALID_DATE} max={dayKey(bounds.last)} value={i.value} />
+          </div>
+        ))}
+      </fieldset>
+    ))}
+    <button type="submit" class="cds--btn cds--btn--primary cds--btn--md">Compare</button>
+  </form>
+  {shortcuts.length > 0 && (
+    <>
+      <p class="small muted compare-shortcuts-label">Compare the second dates with:</p>
+      <ul class="range-shortcuts" aria-label="Compare the second dates with">
+        {shortcuts.map((s) => <li><a class="cds--link" href={s.href} aria-current={s.current ? "page" : undefined}>{s.label}</a></li>)}
+      </ul>
+    </>
+  )}
+
+  {problems.length > 0 ? (
+    <div class="card section range-problem" role="alert">
+      {problems.map((p) => <p><strong>{p}</strong></p>)}
+      <p>Each side covers up to 3 years, between {formatDate(bounds.first.toISOString())} and {formatDate(bounds.last.toISOString())}.</p>
+    </div>
+  ) : (
+    <>
+      <ChartFilters action="/charts/compare/" filter={filter} keep={{ ...rangeParams(a!, "a_"), ...rangeParams(b!, "b_") }} />
+      <Tabs id="compare" tabs={panels.map((p) => ({ key: p.key, label: p.label }))} />
+      {panels.map((p) => (
+        <div class="tabpanel" id={`compare-${p.key}`} role="tabpanel" aria-labelledby={`compare-tab-${p.key}`}>
+          <p class="compare-summary">{p.both === 0 ? `None of the top ${p.noun} are in both charts.` : `${p.both} of the top ${p.charts[1].items.length} ${p.noun} are in both charts.`}</p>
+          <div class="grid-2">
+            {p.charts.map((c) => (
+              <section class="card">
+                <h3>{c.name}</h3>
+                {c.items.length ? <RankedList items={c.items} collapse={10} /> : <p class="muted">Nothing charted.</p>}
+              </section>
+            ))}
+          </div>
+          {p.both > 0 && <div class="grid-2 section compare-changes">
+            {p.changes.map((c) => (
+              <section class="card">
+                <h3>{c.title}</h3>
+                {c.items.length ? <RankedList items={c.items} collapse={5} /> : <p class="muted">{c.empty}</p>}
+              </section>
+            ))}
+          </div>}
+        </div>
+      ))}
+    </>
+  )}
+</Base>

@@ -440,3 +440,13 @@ h1 .filter-heading { display: block; font-size: 1.25rem; color: var(--ink-2); ma
 .range-shortcuts a[aria-current="page"] { font-weight: 600; color: var(--cds-text-primary); text-decoration: none; }
 .range-problem p + p { margin-top: 0.5rem; }
 @media (max-width: 40rem) { .range-form .cds--form-item { flex: 1 1 8rem; } .range-form .cds--text-input { min-width: 0; width: 100%; } }
+
+/* Compare charts: two sets of dates, each a fieldset of two date fields. */
+.compare-form .compare-dates { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; border: 0; margin: 0; padding: 0; }
+.compare-form .compare-dates legend { margin-bottom: 0.25rem; font-weight: 600; color: var(--cds-text-primary); }
+.compare-shortcuts-label { margin: 0 0 0.25rem; }
+.compare-summary { margin: 1rem 0; }
+.range-compare { margin: -0.5rem 0 1.25rem; }
+.range-timeline { margin-bottom: 1.25rem; }
+.range-timeline .caption { margin-bottom: 0.25rem; }
+@media (max-width: 40rem) { .compare-form .compare-dates { flex: 1 1 100%; } }

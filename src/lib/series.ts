@@ -76,6 +76,28 @@ export function rankLine(rows: { week: string; rank: number }[], max = 50, dots 
   };
 }
 
+/**
+ * Episodes each week across the whole archive, for picking dates by dragging across it. `days` are the
+ * weeks' Mondays; `selected` the first and last weeks of the range shown (indexes), if any.
+ */
+export function rangeTimeline(rows: readonly { week: string; episodes: number }[], selected: { start: Date; last: Date } | null, lastDay: Date, query: string): VizData {
+  const index = (d: Date) => rows.findIndex((r) => r.week === isoWeekKey(d));
+  const from = selected ? index(selected.start) : -1;
+  const to = selected ? index(selected.last) : -1;
+  return {
+    kind: "timeline",
+    name: "Episodes",
+    // Years on the axis, at each year's first week; the tooltip gives the week's dates.
+    x: rows.map((r, i) => (i === 0 || r.week.slice(0, 4) !== rows[i - 1].week.slice(0, 4) ? r.week.slice(0, 4) : "")),
+    tip: rows.map((r) => periodLabel("week", r.week).split(" · ")[1]),
+    y: rows.map((r) => r.episodes),
+    days: rows.map((r) => isoWeekStart(r.week).toISOString().slice(0, 10)),
+    last: lastDay.toISOString().slice(0, 10),
+    query,
+    ...(from >= 0 && to >= 0 ? { selected: [from, to] as [number, number] } : {}),
+  };
+}
+
 /** Horizontal bars of genre share (%), with the change vs the previous 4 weeks in the tooltip. */
 export function genreBars(rows: { genre: string; share: number; prevShare: number }[]): VizData {
   return {
