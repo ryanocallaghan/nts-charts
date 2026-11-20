@@ -1,0 +1,107 @@
+---
+// A chart for any dates: /charts/range/?from=2019-06-01&to=2019-08-31 (both days included), with the
+// same filters as other charts. Ranked like every chart, on request (in a worker thread, as a long
+// range takes seconds), with arrows against the same number of days just before. Up to 3 years.
+import Base from "../../layouts/Base.astro";
+import ChartView from "../../components/ChartView.astro";
+import ChartFilters from "../../components/ChartFilters.astro";
+import PeriodSwitcher from "../../components/PeriodSwitcher.astro";
+import RecordGenreNote from "../../components/RecordGenreNote.astro";
+import { FIRST_VALID_DATE } from "../../lib/dates.ts";
+import { dateRange, dayKey, formatDate, isoWeekKey, parseDay, plural, seasonKey, DATED_PERIODS, type DatedPeriod } from "../../lib/format.ts";
+import { asOf } from "../../lib/overview.ts";
+import {
+  byShows, filterDescription, filterLabel, filterParams, isFiltered, nearestPeriodKey, parseChartFilter, rangeChart, RANGE_MAX_DAYS,
+} from "../../lib/queries.ts";
+
+const DAY = 86_400_000;
+const params = Astro.url.searchParams;
+const filter = parseChartFilter(params);
+if (!filter) return new Response(null, { status: 404 });
+const filtered = isFiltered(filter);
+const keep = filterParams(filter);
+
+// The charts' first and latest days.
+const firstDay = parseDay(FIRST_VALID_DATE)!;
+const lastDay = parseDay(dayKey(asOf()))!;
+
+// Without dates: the last 30 days. Dates outside the charts are pulled in to the first or latest day.
+let from = params.has("from") ? parseDay(params.get("from")) : new Date(lastDay.getTime() - 29 * DAY);
+let to = params.has("to") ? parseDay(params.get("to")) : lastDay;
+let problem = "";
+if (!from || !to) problem = "Dates need to be real days.";
+else {
+  if (from < firstDay) from = firstDay;
+  if (to > lastDay) to = lastDay;
+  if (from > lastDay) problem = `The charts go up to ${formatDate(lastDay.toISOString())} so far.`;
+  else if (from > to) problem = "The start date is after the end date.";
+  else if ((to.getTime() - from.getTime()) / DAY + 1 > RANGE_MAX_DAYS) problem = "That’s more than 3 years.";
+}
+const days = !problem && from && to ? Math.round((to.getTime() - from.getTime()) / DAY) + 1 : 0;
+const start = from!;
+const end = new Date(to!.getTime() + DAY); // exclusive
+// The same number of days just before, if the charts go back that far.
+const previous = days && start.getTime() - days * DAY >= firstDay.getTime() ? { start: new Date(start.getTime() - days * DAY), end: start } : null;
+const chart = days ? await rangeChart(filter, start, end, previous) : null;
+if (problem) Astro.response.status = 400;
+
+const href = (f: Date, t: Date, extra: Record<string, string> = keep) => `/charts/range/?${new URLSearchParams({ from: dayKey(f), to: dayKey(t), ...extra })}`;
+const shortcuts = [
+  { label: "Last 7 days", from: new Date(lastDay.getTime() - 6 * DAY) },
+  { label: "Last 30 days", from: new Date(lastDay.getTime() - 29 * DAY) },
+  { label: "Last 90 days", from: new Date(lastDay.getTime() - 89 * DAY) },
+  { label: "Last 12 months", from: new Date(lastDay.getTime() - 364 * DAY) },
+  { label: "This year", from: new Date(Date.UTC(lastDay.getUTCFullYear(), 0, 1)) },
+].map((s) => ({ ...s, href: href(s.from, lastDay), current: !!days && dayKey(s.from) === dayKey(start) && dayKey(lastDay) === dayKey(to!) }));
+
+// The period switcher goes to each type's chart at this range's last day.
+const at = days ? to! : lastDay;
+const near: Record<DatedPeriod, string> = { week: isoWeekKey(at), rolling: isoWeekKey(at), month: dayKey(at).slice(0, 7), season: seasonKey(at), year: String(at.getUTCFullYear()) };
+const query = (t: DatedPeriod) => (!filtered || t === "week" ? "" : `?${new URLSearchParams(keep)}`);
+const hrefs = Object.fromEntries(DATED_PERIODS.map((t) => {
+  const target = nearestPeriodKey(t, near[t]);
+  return [t, target ? `/charts/${t}/${target}/${query(t)}` : "/charts/"];
+})) as Record<DatedPeriod, string>;
+
+const title = days ? dateRange(start, to!) : "Pick dates";
+const sub = days
+  ? [`Chart for ${plural(days, "day")}`, previous ? `arrows compare with the ${plural(days, "day")} before` : "", filtered ? filterDescription(filter) : ""].filter(Boolean).join(" · ")
+  : "A chart for any dates";
+---
+<Base title={`${title}${filtered ? ` · ${filterLabel(filter)}` : ""} · Chart for any dates`} description="A chart of the tracks and artists played on NTS Radio between any two dates." section="charts" noindex>
+  <h1>{title}{filtered && days > 0 && <span class="filter-heading">{filterLabel(filter)}</span>}</h1>
+  <p class="page-sub">{sub}</p>
+
+  <div class="period-nav">
+    <PeriodSwitcher hrefs={hrefs} rangeHref={Astro.url.pathname + Astro.url.search} current="range" />
+  </div>
+
+  <form class="range-form" action="/charts/range/" method="get">
+    {Object.entries(keep).map(([name, value]) => <input type="hidden" name={name} value={value} />)}
+    <div class="cds--form-item">
+      <label class="cds--label" for="range-from">From</label>
+      <input class="cds--text-input" type="date" id="range-from" name="from" required min={FIRST_VALID_DATE} max={dayKey(lastDay)} value={from ? dayKey(from) : params.get("from") ?? ""} />
+    </div>
+    <div class="cds--form-item">
+      <label class="cds--label" for="range-to">To</label>
+      <input class="cds--text-input" type="date" id="range-to" name="to" required min={FIRST_VALID_DATE} max={dayKey(lastDay)} value={to ? dayKey(to) : params.get("to") ?? ""} />
+    </div>
+    <button type="submit" class="cds--btn cds--btn--primary cds--btn--md">Show chart</button>
+  </form>
+  <ul class="range-shortcuts" aria-label="Shortcuts">
+    {shortcuts.map((s) => <li><a class="cds--link" href={s.href} aria-current={s.current ? "page" : undefined}>{s.label}</a></li>)}
+  </ul>
+
+  {problem ? (
+    <div class="card section range-problem" role="alert">
+      <p><strong>{problem}</strong> A chart covers up to 3 years, between {formatDate(firstDay.toISOString())} and {formatDate(lastDay.toISOString())}.</p>
+      <p>For longer, see the <a href="/charts/">yearly charts</a> or the <a href="/charts/all/">all-time chart</a>.</p>
+    </div>
+  ) : (
+    <>
+      <ChartFilters action="/charts/range/" filter={filter} keep={{ from: dayKey(start), to: dayKey(to!) }} />
+      {filter.genre && !byShows(filter) && <RecordGenreNote genre={filter.genre} range={{ start, end }} showsHref={filter.genre.episodes > 0 ? href(start, to!, { ...keep, by: "shows" }) : undefined} />}
+      <ChartView type="all" periodKey="all" limit={50} filter={filtered ? filter : undefined} range={{ start, end, tracks: chart!.tracks, artists: chart!.artists, movement: !!previous }} />
+    </>
+  )}
+</Base>

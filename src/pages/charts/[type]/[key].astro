@@ -1,14 +1,14 @@
 ---
 import Base from "../../../layouts/Base.astro";
 import ChartView from "../../../components/ChartView.astro";
-import { DATED_PERIODS, isoWeekStart, periodBounds, periodDates, periodHeading, periodLabel, seasonForQuarter, switchTargets, typeLabel, type DatedPeriod } from "../../../lib/format.ts";
-import { periodOrder } from "../../../../ingest/charts.ts";
+import { dayKey, isoWeekStart, periodBounds, periodDates, periodHeading, periodLabel, seasonForQuarter, switchTargets, DATED_PERIODS, type DatedPeriod } from "../../../lib/format.ts";
 import { asOf } from "../../../lib/overview.ts";
 import PastYears from "../../../components/PastYears.astro";
 import ChartFilters from "../../../components/ChartFilters.astro";
 import BumpChart from "../../../components/BumpChart.astro";
+import PeriodSwitcher from "../../../components/PeriodSwitcher.astro";
 import RecordGenreNote from "../../../components/RecordGenreNote.astro";
-import { byShows, filterDescription, filterLabel, filterPlaces, genreBySlug, hasRecordChart, periodKeys, type ChartFilter } from "../../../lib/queries.ts";
+import { byShows, filterDescription, filterLabel, filterParams, isFiltered, nearestPeriodKey, parseChartFilter, periodKeys } from "../../../lib/queries.ts";
 
 const type = Astro.params.type as DatedPeriod;
 const key = Astro.params.key ?? "";
@@ -22,32 +22,16 @@ const keys = periodKeys(type);
 const i = keys.indexOf(key);
 if (i < 0) return new Response(null, { status: 404 });
 
-// Optional filters: ?genre=<slug>&place=<name>. Not for single weeks, which are too sparse to slice.
-// A genre means its records (from Discogs); &by=shows means what's played on shows NTS tags with it.
-// A genre with only one kind of chart gets that kind.
+// Optional filters: ?genre=<slug>&by=shows&place=<name> (see parseChartFilter). Not for single weeks,
+// which are too sparse to slice.
 const params = Astro.url.searchParams;
-const genreParam = params.get("genre") || "";
-const placeParam = params.get("place") || "";
 const filterable = type !== "week";
-if ((genreParam || placeParam) && !filterable) return Astro.redirect(`/charts/${type}/${key}/`, 301);
-const genre = genreParam ? genreBySlug(genreParam) : undefined;
-const wantShows = params.get("by") === "shows";
-const filter: ChartFilter = {
-  genre,
-  by: genre && (genre.episodes === 0 ? false : wantShows || !hasRecordChart(genre)) ? "shows" : "records",
-  place: placeParam && filterPlaces().some((p) => p.name === placeParam) ? placeParam : undefined,
-};
-if ((genreParam && !filter.genre) || (placeParam && !filter.place)) return new Response(null, { status: 404 });
-const filtered = !!(filter.genre || filter.place);
+if ((params.get("genre") || params.get("place")) && !filterable) return Astro.redirect(`/charts/${type}/${key}/`, 301);
+const filter = parseChartFilter(params);
+if (!filter) return new Response(null, { status: 404 });
+const filtered = isFiltered(filter);
 // Links to other charts keep the filter where it applies.
-const query = (t: string) => {
-  if (!filtered || t === "week") return "";
-  const q = new URLSearchParams();
-  if (filter.genre) q.set("genre", filter.genre.slug);
-  if (filter.genre && byShows(filter)) q.set("by", "shows");
-  if (filter.place) q.set("place", filter.place);
-  return `?${q}`;
-};
+const query = (t: string) => (!filtered || t === "week" ? "" : `?${new URLSearchParams(filterParams(filter))}`);
 const prev = keys[i - 1];
 const next = keys[i + 1];
 
@@ -64,26 +48,21 @@ const stepLabel = (k: string) => {
   end.setUTCDate(end.getUTCDate() + 6);
   return `To ${end.getUTCDate()} ${end.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
 };
-const switchHref = (t: DatedPeriod) => {
-  // No chart for that exact period (a gap, or before the charts began): the nearest earlier one, else the first.
-  const ks = periodKeys(t);
-  const target = ks.includes(near[t]) ? near[t] : (ks.findLast((k) => periodOrder(k) <= periodOrder(near[t])) ?? ks[0]);
-  return target ? `/charts/${t}/${target}/${query(t)}` : "/charts/";
-};
+const hrefs = Object.fromEntries(DATED_PERIODS.map((t) => {
+  const target = nearestPeriodKey(t, near[t]);
+  return [t, target ? `/charts/${t}/${target}/${query(t)}` : "/charts/"];
+})) as Record<DatedPeriod, string>;
+// "Pick dates" starts from this chart's dates (up to the latest data), with its filter.
+const bounds = periodBounds(type, key);
+const lastDay = new Date(Math.min(bounds.end.getTime() - 86_400_000, asOf().getTime()));
+const rangeHref = `/charts/range/?${new URLSearchParams({ from: dayKey(bounds.start), to: dayKey(lastDay), ...filterParams(filter) })}`;
 ---
 <Base title={`${heading.title}${filtered ? ` · ${filterLabel(filter)}` : ""} · ${sub}`} section="charts">
   <h1>{heading.title}{filtered && <span class="filter-heading">{filterLabel(filter)}</span>}</h1>
   <p class="page-sub">{sub}{filtered && ` · ${filterDescription(filter)}`}</p>
 
   <div class="period-nav">
-    <nav class="cds--content-switcher cds--content-switcher--md period-switcher" aria-label="Chart period">
-      {DATED_PERIODS.map((t) => (
-        <a class:list={["cds--content-switcher-btn", { "cds--content-switcher--selected": t === type }]} href={switchHref(t)} aria-current={t === type ? "page" : undefined}>
-          <span class="cds--content-switcher__label">{typeLabel[t]}</span>
-        </a>
-      ))}
-      <a class="cds--content-switcher-btn" href="/charts/all/"><span class="cds--content-switcher__label">All time</span></a>
-    </nav>
+    <PeriodSwitcher hrefs={hrefs} rangeHref={rangeHref} current={type} />
     <nav class="stepper" aria-label="Previous and next chart">
       {prev ? <a class="cds--link" href={`/charts/${type}/${prev}/${query(type)}`} rel="prev">← {stepLabel(prev)}</a> : <span class="cds--link cds--link--disabled">← Earlier</span>}
       <span class="muted">·</span>
@@ -92,7 +71,7 @@ const switchHref = (t: DatedPeriod) => {
   </div>
 
   {filterable && <ChartFilters action={`/charts/${type}/${key}/`} filter={filter} />}
-  {filter.genre && !byShows(filter) && <RecordGenreNote genre={filter.genre} range={periodBounds(type, key)} showsHref={filter.genre.episodes > 0 ? `/charts/${type}/${key}/?${new URLSearchParams({ genre: filter.genre.slug, by: "shows", ...(filter.place ? { place: filter.place } : {}) })}` : undefined} />}
+  {filter.genre && !byShows(filter) && <RecordGenreNote genre={filter.genre} range={bounds} showsHref={filter.genre.episodes > 0 ? `/charts/${type}/${key}/?${new URLSearchParams({ ...filterParams(filter), by: "shows" })}` : undefined} />}
 
   <ChartView type={type} periodKey={key} filter={filtered ? filter : undefined} />
 

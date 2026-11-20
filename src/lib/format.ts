@@ -175,6 +175,16 @@ export function dateRange(from: Date, to: Date): string {
   return `${d(from, !sameYear)} – ${d(to, true)}`;
 }
 
+/** A date's UTC day, "2026-11-20". */
+export const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Midnight UTC of a "2026-11-20" day, or null if it isn't a real date in that form. */
+export function parseDay(s: string | null): Date | null {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) || dayKey(d) !== s ? null : d;
+}
+
 /** Start (inclusive) and end (exclusive) of a chart period. */
 export function periodBounds(type: Exclude<PeriodType, "all">, key: string): { start: Date; end: Date } {
   if (type === "week") { const start = isoWeekStart(key); return { start, end: new Date(start.getTime() + 7 * DAY) }; }

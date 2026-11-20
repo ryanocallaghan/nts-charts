@@ -120,6 +120,31 @@ describe("windowChart", () => {
   });
 });
 
+describe("rangeChart", () => {
+  it("ranks any dates in the worker, like the main charts, with arrows against the days before", async () => {
+    // 1–31 March against the 31 days before (from 29 Jan): track 2 was #1 then (two February plays).
+    const c = await q.rangeChart({}, new Date("2021-03-01"), new Date("2021-04-01"), { start: new Date("2021-01-29"), end: new Date("2021-03-01") });
+    expect(c.tracks.map((t) => [t.id, t.rank, t.score, t.status, t.prevRank])).toEqual([[1, 1, 3, "new", null], [2, 2, 3, "down", 1]]);
+    expect(c.artists.map((a) => a.slug)).toEqual(["one", "two"]);
+  });
+  it("filters like other charts", async () => {
+    const c = await q.rangeChart({ genre: q.genreBySlug("jazz")! }, new Date("2021-02-01"), new Date("2021-04-01"), null);
+    expect(c.tracks.map((t) => [t.id, t.score])).toEqual([[2, 5]]);
+  });
+});
+
+describe("parseChartFilter", () => {
+  it("reads a genre, as the kind of chart it has enough for", () => {
+    const p = (s: string) => q.parseChartFilter(new URLSearchParams(s));
+    expect(p("genre=jazz")).toMatchObject({ genre: { slug: "jazz" }, by: "shows" }); // too few Jazz records here for a records chart
+    expect(p("genre=jazz&by=shows")).toMatchObject({ by: "shows" });
+    expect(p("genre=downtempo&by=shows")).toMatchObject({ by: "records" }); // only records
+    expect(p("genre=nope")).toBeNull();
+    expect(p("")).toEqual({ genre: undefined, by: "records", place: undefined });
+    expect(q.filterParams(p("genre=jazz&by=shows")!)).toEqual({ genre: "jazz", by: "shows" });
+  });
+});
+
 describe("genres", () => {
   it("lists genres biggest first and finds them by slug", () => {
     expect(q.allGenres().map((g) => g.slug)).toEqual(["house", "jazz", "downtempo"]);

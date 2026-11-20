@@ -6,7 +6,7 @@ let failed = 0;
 
 async function check(path: string, expect: { status: number; contains?: string; location?: string; cached?: boolean }) {
   const res = await fetch(base + path, { redirect: "manual" });
-  const body = res.status === 200 || res.status === 404 ? await res.text() : "";
+  const body = res.status < 300 || res.status >= 400 ? await res.text() : "";
   const problems: string[] = [];
   if (res.status !== expect.status) problems.push(`status ${res.status}, expected ${expect.status}`);
   if (expect.contains && !body.includes(expect.contains)) problems.push(`missing ${JSON.stringify(expect.contains)}`);
@@ -46,6 +46,13 @@ else { console.log("FAIL no season link in the archive"); failed++; }
 await check("/charts/quarter/2025-Q3/?genre=house", { status: 301, location: "/charts/season/2025-summer/?genre=house" });
 await check("/charts/quarter/2025-Q5/", { status: 404 });
 await check("/charts/season/2025-fall/", { status: 404 });
+
+// Charts for any dates.
+await check("/charts/range/", { status: 200, contains: "Last 30 days", cached: true });
+await check("/charts/range/?from=2019-06-01&to=2019-08-31", { status: 200, contains: "1 Jun – 31 Aug 2019" });
+await check("/charts/range/?from=2015-01-01&to=2024-01-01", { status: 400, contains: "more than 3 years" });
+await check("/charts/range/?from=2019-02-30&to=2019-03-01", { status: 400, contains: "real days" });
+await check("/charts/range/?genre=not-a-genre", { status: 404 });
 await check("/tracks/not-a-track/", { status: 404 });
 if (!home.includes('action="/search/"')) { console.log("FAIL no search box in the header"); failed++; }
 

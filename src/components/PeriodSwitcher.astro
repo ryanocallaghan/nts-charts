@@ -1,0 +1,19 @@
+---
+// The chart type switcher: each period type, all time, and a chart for any dates ("Pick dates").
+// Each link goes to the chart of that type at the same point in time (see switchTargets()).
+import { DATED_PERIODS, typeLabel, type DatedPeriod } from "../lib/format.ts";
+interface Props { hrefs: Record<DatedPeriod, string>; rangeHref: string; current: DatedPeriod | "range" }
+const { hrefs, rangeHref, current } = Astro.props;
+const links = [
+  ...DATED_PERIODS.map((t) => ({ key: t as DatedPeriod | "all" | "range", label: typeLabel[t], href: hrefs[t] })),
+  { key: "all" as const, label: "All time", href: "/charts/all/" },
+  { key: "range" as const, label: "Pick dates", href: rangeHref },
+];
+---
+<nav class="cds--content-switcher cds--content-switcher--md period-switcher" aria-label="Chart period">
+  {links.map((l) => (
+    <a class:list={["cds--content-switcher-btn", { "cds--content-switcher--selected": l.key === current }]} href={l.href} aria-current={l.key === current ? "page" : undefined}>
+      <span class="cds--content-switcher__label">{l.label}</span>
+    </a>
+  ))}
+</nav>

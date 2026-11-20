@@ -1,7 +1,8 @@
-import { all, cached, get, memo } from "./db.ts";
+import { all, cached, cachedAsync, get, memo } from "./db.ts";
+import { allInWorker } from "./worker-db.ts";
 import { CHART_MIN_SCORE, CHART_SIZE, GUEST_PAGES_SQL, GUESTS_SHOW, rankSql, SHOW_KEY } from "./shared-sql.ts";
 import { DATED } from "./dates.ts";
-import { sortPeriodKeys } from "../../ingest/charts.ts";
+import { periodOrder, sortPeriodKeys } from "../../ingest/charts.ts";
 import { ntsEpisodeUrl, periodBounds, rollingStartKey, type DatedPeriod, type PeriodType } from "./format.ts";
 import { searchHref, searchMeta, searchNorm, type SearchKind, type SearchResult } from "./search.ts";
 
@@ -74,6 +75,12 @@ export function periodKeys(type: PeriodType): readonly string[] {
   return memo(`periodKeys:${type}`, () =>
     Object.freeze(sortPeriodKeys(all<{ k: string }>("SELECT DISTINCT period_key k FROM chart_entries WHERE period_type = ?", type).map((r) => r.k))),
   );
+}
+
+/** A type's chart for `key`, or the nearest earlier one that exists (for a gap; before the charts began, the first). */
+export function nearestPeriodKey(type: DatedPeriod, key: string): string | undefined {
+  const ks = periodKeys(type);
+  return ks.includes(key) ? key : (ks.findLast((k) => periodOrder(k) <= periodOrder(key)) ?? ks[0]);
 }
 
 export interface Movement { rank: number; prevRank: number | null; status: string; periodsOnChart: number; score: number; shows: number }
@@ -374,27 +381,29 @@ export interface EpisodePlay { episode: string; show: string; showName: string; 
 /** SQL condition (and params) selecting a chart period's episodes (alias e). */
 function periodFilter(type: PeriodType, key: string): { sql: string; params: string[] } {
   if (type === "all") return { sql: "", params: [] };
+  if (type === "season") return rangeFilter(periodBounds(type, key));
   if (type === "rolling") return { sql: "AND strftime('%G-W%V', e.broadcast_at) BETWEEN ? AND ?", params: [rollingStartKey(key), key] };
-  if (type === "season") {
-    const { start, end } = periodBounds(type, key);
-    return { sql: "AND e.broadcast_at >= ? AND e.broadcast_at < ?", params: [start.toISOString(), end.toISOString()] };
-  }
   const fmt = { week: "%G-W%V", month: "%Y-%m", year: "%Y" }[type];
   return { sql: `AND strftime('${fmt}', e.broadcast_at) = ?`, params: [key] };
 }
 
+/** SQL condition (and params) selecting episodes (alias e) broadcast in [start, end). */
+function rangeFilter(range: { start: Date; end: Date }): { sql: string; params: string[] } {
+  return { sql: "AND e.broadcast_at >= ? AND e.broadcast_at < ?", params: [range.start.toISOString(), range.end.toISOString()] };
+}
+
 /**
- * The episodes that played each track, newest first, optionally only within one chart period.
+ * The episodes that played each track, newest first, optionally only within one chart period or date range.
  * Returns at most `limit` per track, plus the total so callers can say "and N more".
  */
 export function episodesForTracks(
   trackIds: number[],
-  period?: { type: PeriodType; key: string; filter?: ChartFilter },
+  period?: ({ type: PeriodType; key: string } | { range: { start: Date; end: Date } }) & { filter?: ChartFilter },
   limit = 25,
 ): Map<number, { total: number; episodes: EpisodePlay[] }> {
   const out = new Map<number, { total: number; episodes: EpisodePlay[] }>();
   if (!trackIds.length) return out;
-  const filter = period ? periodFilter(period.type, period.key) : { sql: "", params: [] };
+  const filter = !period ? { sql: "", params: [] } : "range" in period ? rangeFilter(period.range) : periodFilter(period.type, period.key);
   if (period?.filter) {
     const f = filterWhere(period.filter, "e.");
     filter.sql += ` AND ${f.sql}`;
@@ -504,6 +513,35 @@ export interface ChartFilter { genre?: GenreRow; by?: "records" | "shows"; place
 
 export const byShows = (f: ChartFilter) => f.by === "shows";
 
+/**
+ * A chart's filter from its address: ?genre=<slug>&by=shows&place=<name>. A genre means its records
+ * (Discogs), and &by=shows what's played on shows NTS tags with it; a genre with only one kind of
+ * chart gets that kind. Null when the genre or place isn't one charts can be filtered by.
+ */
+export function parseChartFilter(params: URLSearchParams): ChartFilter | null {
+  const genreParam = params.get("genre") || "";
+  const placeParam = params.get("place") || "";
+  const genre = genreParam ? genreBySlug(genreParam) : undefined;
+  const wantShows = params.get("by") === "shows";
+  const filter: ChartFilter = {
+    genre,
+    by: genre && (genre.episodes === 0 ? false : wantShows || !hasRecordChart(genre)) ? "shows" : "records",
+    place: placeParam && filterPlaces().some((p) => p.name === placeParam) ? placeParam : undefined,
+  };
+  return (genreParam && !filter.genre) || (placeParam && !filter.place) ? null : filter;
+}
+
+/** A filter as address parameters (empty when there's no filter). */
+export function filterParams(f: ChartFilter): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (f.genre) out.genre = f.genre.slug;
+  if (f.genre && byShows(f)) out.by = "shows";
+  if (f.place) out.place = f.place;
+  return out;
+}
+
+export const isFiltered = (f: ChartFilter) => !!(f.genre || f.place);
+
 export function filterLabel(f: ChartFilter): string {
   return [f.genre && (byShows(f) ? `${f.genre.name} shows` : f.genre.name), f.place && `from ${f.place}`].filter(Boolean).join(", ");
 }
@@ -590,6 +628,37 @@ export function filteredChart(type: DatedPeriod, key: string, filter: ChartFilte
   const t = result("track");
   const a = result("artist");
   return { tracks: resolveTracks(t.rows, t.moves), artists: resolveArtists(a.rows, a.moves) };
+}
+
+// ---------- charts for any dates ----------
+
+/** The longest range a chart for any dates covers (3 years); longer ones have the yearly and all-time charts. */
+export const RANGE_MAX_DAYS = 1096;
+
+/** One date range's ranking, in the worker thread (it can take seconds), cached. Ranked like the main charts. */
+function rankRange(entity: "track" | "artist", filter: ChartFilter, start: Date, end: Date): Promise<RankRow[]> {
+  return cachedAsync(`rangeRank:${entity}:${filterKey(filter)}:${start.toISOString()}:${end.toISOString()}`, () => {
+    const w = filterWhere(filter);
+    const t = filterTrackWhere(filter);
+    return allInWorker<RankRow>(
+      rankSql("all", entity, { where: w.sql, range: true, onePeriod: true, trackWhere: t.sql || undefined }),
+      start.toISOString(), end.toISOString(), ...w.params, "all", ...t.params, CHART_MIN_SCORE, CHART_SIZE,
+    );
+  });
+}
+
+/**
+ * The chart for any dates [start, end), optionally filtered, with movement against `previous` (the same
+ * length of time just before), or none when there's nothing before it to compare with.
+ */
+export async function rangeChart(filter: ChartFilter, start: Date, end: Date, previous: { start: Date; end: Date } | null) {
+  const [t, a, pt, pa] = await Promise.all([
+    rankRange("track", filter, start, end),
+    rankRange("artist", filter, start, end),
+    previous ? rankRange("track", filter, previous.start, previous.end) : null,
+    previous ? rankRange("artist", filter, previous.start, previous.end) : null,
+  ]);
+  return { tracks: resolveTracks(t, withPrevious(t, pt)), artists: resolveArtists(a, withPrevious(a, pa)) };
 }
 
 /** Top tracks and artists for a filter over any date range (e.g. the last 12 months), without movement. */

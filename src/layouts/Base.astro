@@ -12,8 +12,10 @@ interface Props {
   // The home page's ASCII logo is the brand there: the header keeps the wordmark's space (so the menu
   // never moves) but only shows it once that logo has scrolled out of view.
   hideWordmark?: boolean;
+  // Pages with endless addresses (charts for any dates), kept out of search engines.
+  noindex?: boolean;
 }
-const { title, description = "Charts of the tracks and artists played on NTS Radio.", section, hideWordmark = false } = Astro.props;
+const { title, description = "Charts of the tracks and artists played on NTS Radio.", section, hideWordmark = false, noindex = false } = Astro.props;
 const updated = lastUpdated();
 const latestChart = periodKeys("rolling").at(-1);
 // Umami analytics (cookie-free, on the same server; see README): its website ID, read when the page is
@@ -36,6 +38,7 @@ const nav = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title === SITE_NAME ? title : `${title} · ${SITE_NAME}`}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     {umamiId && (
       // Served from this site (Caddy passes /s/ to Umami). Without query strings: searches and filters are events.

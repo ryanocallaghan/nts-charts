@@ -1,26 +1,31 @@
 ---
 // One period's track + artist charts with a tab switch.
 import type { PeriodType } from "../lib/format.ts";
-import { artistChart, episodesForTracks, filteredChart, rankHistories, trackChart, type ChartFilter } from "../lib/queries.ts";
+import { artistChart, episodesForTracks, filteredChart, rankHistories, trackChart, type ArtistEntry, type ChartFilter, type TrackEntry } from "../lib/queries.ts";
 import ArtistTable from "./ArtistTable.astro";
 import Tabs from "./Tabs.astro";
 import TrackTable from "./TrackTable.astro";
 
 // `initial`: show N rows at a time, with a button to reveal N more (all rows are in the page, just hidden).
 // `filter`: narrow the chart to a genre and/or place (worked out on request; dated periods only).
-interface Props { type: PeriodType; periodKey: string; limit?: number; initial?: number; filter?: ChartFilter }
-const { type, periodKey, limit = type === "all" ? 100 : 50, initial, filter } = Astro.props;
+// `range`: a chart for any dates, already ranked (rangeChart()), instead of a period's.
+interface Range { start: Date; end: Date; tracks: TrackEntry[]; artists: ArtistEntry[]; movement: boolean }
+interface Props { type: PeriodType; periodKey: string; limit?: number; initial?: number; filter?: ChartFilter; range?: Range }
+const { type, periodKey, limit = type === "all" ? 100 : 50, initial, filter, range } = Astro.props;
 const noun = { week: "Week", rolling: "Week", month: "Month", season: "Season", year: "Year", all: "" }[type];
-const movement = type !== "all";
-const filtered = filter && type !== "all" ? filteredChart(type, periodKey, filter) : null;
+const movement = range ? range.movement : type !== "all";
+const filtered = range ? range : filter && type !== "all" ? filteredChart(type, periodKey, filter) : null;
 const tracks = filtered ? filtered.tracks.slice(0, limit) : trackChart(type, periodKey, limit);
 const artists = filtered ? filtered.artists.slice(0, limit) : artistChart(type, periodKey, limit);
-const plays = episodesForTracks(tracks.map((t) => t.id), { type, key: periodKey, filter: filtered ? filter : undefined });
+const plays = episodesForTracks(tracks.map((t) => t.id), {
+  ...(range ? { range: { start: range.start, end: range.end } } : { type, key: periodKey }),
+  filter: filtered ? filter : undefined,
+});
 // Rank trends over the last 8 charts of this type (not for all time, which is a single chart).
 const SPARK = 8;
 const trackRuns = movement && !filtered ? rankHistories(type, periodKey, "track", tracks.map((t) => t.id), SPARK) : undefined;
 const artistRuns = movement && !filtered ? rankHistories(type, periodKey, "artist", artists.map((a) => a.id), SPARK) : undefined;
-const id = `chart-${type}-${periodKey}`;
+const id = range ? "chart-range" : `chart-${type}-${periodKey}`;
 ---
 <Tabs id={id} tabs={[{ key: "tracks", label: "Tracks" }, { key: "artists", label: "Artists" }]} />
 <div class="chart-panels">

@@ -3,8 +3,10 @@
 // without JavaScript (with the Apply button); with JavaScript it applies as soon as a choice changes.
 // A genre is either its records (Discogs) or what NTS's shows tagged with it play ("Genre of").
 import { byShows, filterGenres, filterPlaces, hasRecordChart, hasShowChart, type ChartFilter } from "../lib/queries.ts";
-interface Props { action: string; filter: ChartFilter }
-const { action, filter } = Astro.props;
+// `keep`: other parameters of the page that changing a filter keeps (the dates of a chart for any dates).
+interface Props { action: string; filter: ChartFilter; keep?: Record<string, string> }
+const { action, filter, keep = {} } = Astro.props;
+const clearHref = Object.keys(keep).length ? `${action}?${new URLSearchParams(keep)}` : action;
 const genres = filterGenres();
 const places = filterPlaces();
 const active = !!(filter.genre || filter.place);
@@ -12,6 +14,7 @@ const active = !!(filter.genre || filter.place);
 const both = !!filter.genre && hasRecordChart(filter.genre) && hasShowChart(filter.genre);
 ---
 <form class="chart-filters" action={action} method="get" data-autosubmit>
+  {Object.entries(keep).map(([name, value]) => <input type="hidden" name={name} value={value} />)}
   <div class="cds--select">
     <label class="cds--label" for="filter-genre">Genre</label>
     <div class="cds--select-input__wrapper">
@@ -45,7 +48,7 @@ const both = !!filter.genre && hasRecordChart(filter.genre) && hasShowChart(filt
     </div>
   </div>
   <button type="submit" class="cds--btn cds--btn--tertiary cds--btn--sm filter-apply">Apply</button>
-  {active && <a class="cds--link filter-clear" href={action}>Clear filters</a>}
+  {active && <a class="cds--link filter-clear" href={clearHref}>Clear filters</a>}
 </form>
 
 <script>
@@ -54,6 +57,7 @@ const both = !!filter.genre && hasRecordChart(filter.genre) && hasShowChart(filt
     form.addEventListener("change", (e) => {
       // Leave empty choices out of the URL.
       const params = new URLSearchParams();
+      for (const i of form.querySelectorAll<HTMLInputElement>("input[type=hidden]")) params.set(i.name, i.value);
       for (const s of form.querySelectorAll("select")) if (s.value) params.set(s.name, s.value);
       // "Genre of" belongs to the genre it was shown for.
       if (!params.has("genre") || (e.target as HTMLSelectElement).name === "genre") params.delete("by");

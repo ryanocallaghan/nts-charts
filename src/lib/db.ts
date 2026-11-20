@@ -63,3 +63,11 @@ export function cached<T>(key: string, fn: () => T): T {
   if (recent.size > RECENT_MAX) recent.delete(recent.keys().next().value!);
   return v;
 }
+
+/** cached() for a promise: requests for the same key share one, and a failed one isn't kept. */
+export function cachedAsync<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  return cached(key, () => fn().catch((err) => {
+    recent.delete(key);
+    throw err;
+  }));
+}
